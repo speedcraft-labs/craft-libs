@@ -39,6 +39,14 @@
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "deckcraft-cli"] },
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "deckcraft-cli", "--", "bench", "{input}", "--runs", "10", "--json"], "output": "deckcraft-bench" },
       "inputs": [{ "name": "2D-Area-O12-PPT-Charts", "path": "office-openxml-sdk/test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/O14ISOStrict/Graphics/2D Area-O12-PPT-Charts.pptx" }]
+    },
+    {
+      "name": "lightcraft.slider-exposure-latency",
+      "app": "lightcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/lightcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "lightcraft-ui-egui", "--example", "drag_latency"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "lightcraft-ui-egui", "--example", "drag_latency", "--", ".craft-journeys-library", "{input}", "light.exposure"], "env": { "GPU": "0", "TICKS": "30" }, "output": "lightcraft-drag" },
+      "inputs": [{ "name": "ibasn6a16", "path": "pngsuite/ibasn6a16.png" }]
     }
   ]
 }

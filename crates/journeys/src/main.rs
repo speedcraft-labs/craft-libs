@@ -1,6 +1,7 @@
 //! App-level journey runner. App adapters are one-shot commands: they consume one pinned input,
 //! exercise the app's existing performance channel, and print a stable result to stdout.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -37,6 +38,8 @@ struct CommandSpec {
     program: String,
     #[serde(default)]
     args: Vec<String>,
+    #[serde(default)]
+    env: BTreeMap<String, String>,
     /// Output protocol: `markers` (default) or a native app channel parser.
     #[serde(default)]
     output: OutputProtocol,
@@ -50,6 +53,7 @@ enum OutputProtocol {
     CadcraftOpen,
     WordcraftProbe,
     DeckcraftBench,
+    LightcraftDrag,
 }
 
 #[derive(Debug)]
@@ -85,6 +89,9 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
     if let Some(root) = std::env::var_os("ARTCRAFT_HYPER_ROOT") {
         let root = PathBuf::from(root);
         cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
+    }
+    for (key, value) in &spec.env {
+        cmd.env(key, render(value, rev, input, app));
     }
     if Path::new(&spec.program).file_name().is_some_and(|name| name == "cargo") {
         cmd.args(["--config"]).arg(cargo_config);
@@ -158,6 +165,26 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
             };
             if !millis.is_finite() || millis < 0.0 {
                 return Err("app time must be finite and non-negative".into());
+            }
+            ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
+        }
+        OutputProtocol::LightcraftDrag => {
+            let line = stdout
+                .lines()
+                .find(|line| line.starts_with("light.exposure,"))
+                .ok_or_else(|| "lightcraft drag output is missing the light.exposure row".to_string())?;
+            let columns: Vec<_> = line.split(',').map(str::trim).collect();
+            let millis = columns
+                .get(3)
+                .ok_or_else(|| "lightcraft drag output is missing lat_ms_med".to_string())?
+                .parse::<f64>()
+                .map_err(|e| format!("invalid lightcraft latency: {e}"))?;
+            if !millis.is_finite() || millis < 0.0 {
+                return Err("lightcraft latency must be finite and non-negative".into());
+            }
+            let identity = [columns.get(9), columns.get(10)].into_iter().flatten().copied().collect::<Vec<_>>().join(",");
+            if identity.is_empty() {
+                return Err("lightcraft output is missing texture dimensions".into());
             }
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
