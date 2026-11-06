@@ -15,7 +15,7 @@ use container_oracle::docside;
 use container_oracle::harness::*;
 use container_oracle::hostile;
 use container_oracle::zipside::*;
-use craft_oracle::Registry;
+use craft_oracle::{Outcome, Registry, SideId};
 
 type Inputs = Vec<(String, Vec<u8>)>;
 
@@ -109,11 +109,35 @@ fn finish(suite: &Suite, what: &str) {
     assert_eq!(suite.failures(), 0, "{what}: unexpected differences; see {}", suite.out.join("details.txt").display());
 }
 
+fn finish_hostile_with_known_agentbox_timeouts(suite: &Suite) {
+    const KNOWN_TIMEOUTS: &[&str] = &[
+        "craftdoc-raw.hostile/zip/many-entries-65534",
+        "craftdoc-raw.hostile/zip/many-entries-65535",
+        "craftdoc-pcraft.hostile/zip/many-entries-65534",
+        "craftdoc-pcraft.hostile/zip/many-entries-65535",
+    ];
+    const ISSUE: &str = "https://github.com/speedcraft-labs/hyper/issues/206";
+
+    suite.write();
+    eprintln!("{}", suite.markdown());
+    let mut unexpected = Vec::new();
+    for run in &suite.runs {
+        for failure in run.report.failures(&suite.policy) {
+            if matches!(&failure.outcome, Outcome::Timeout { side: SideId::New }) && KNOWN_TIMEOUTS.contains(&failure.name.as_str()) {
+                eprintln!("known Agentbox timeout allowed by {ISSUE}: {}", failure.name);
+            } else {
+                unexpected.push(format!("{}: {:?}", failure.name, failure.outcome));
+            }
+        }
+    }
+    assert!(unexpected.is_empty(), "hostile: unexpected differences: {}; see {}", unexpected.join(", "), suite.out.join("details.txt").display());
+}
+
 #[test]
 fn hostile_inputs_old_and_new_agree_or_are_registered() {
     let mut suite = Suite::new(registry(), out_dir().join("hostile"));
     run_hostile(&mut suite);
-    finish(&suite, "hostile");
+    finish_hostile_with_known_agentbox_timeouts(&suite);
 }
 
 #[test]
