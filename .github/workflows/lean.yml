@@ -1,0 +1,28 @@
+name: Lean proofs
+on:
+  push:
+    branches: ['algo/**']
+    paths:
+      - 'crates/*/lean/**'
+      - 'lean/**'
+      - 'crates/*/tests/vectors/**'
+      - '.github/workflows/lean.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lean:
+    runs-on: [self-hosted, agentbox]
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build proofs, audit axioms, and check vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' check; do
+            echo "==> $check"
+            (cd "$(dirname "$check")" && bash ./check.sh)
+          done < <(find crates lean -name check.sh -print0 2>/dev/null | sort -z)

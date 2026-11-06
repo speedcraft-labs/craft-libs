@@ -1,0 +1,40 @@
+name: Corpus and oracles
+on:
+  push:
+    branches: ['algo/**']
+    paths:
+      - 'crates/corpus/**'
+      - 'crates/oracle/**'
+      - 'tools/**-oracle/**'
+      - 'docs/verification/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/corpus-oracle.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  oracle:
+    runs-on: [self-hosted, agentbox]
+    timeout-minutes: 360
+    env:
+      ARTCRAFT_CORPUS: /jobs/work/speedcraft-labs/hyper/corpus
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run corpus and oracle suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --locked -p craft-corpus --no-fail-fast
+          cargo test --locked -p craft-oracle --no-fail-fast
+          for manifest in tools/*-oracle/Cargo.toml; do
+            echo "==> $manifest"
+            cargo test --manifest-path "$manifest" --locked --no-fail-fast
+          done
+          for manifest in tools/*-oracle/Cargo.toml; do
+            echo "==> ignored corpus tests: $manifest"
+            cargo test --manifest-path "$manifest" --locked --no-fail-fast -- --ignored
+          done
