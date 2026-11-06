@@ -36,11 +36,17 @@ jobs:
               log=/tmp/craft-libs-h264-lean.log
               if (cd "$(dirname "$check")" && bash ./check.sh) >"$log" 2>&1; then
                 cat "$log"
-              elif rg -Fq 'CraftIDCT/SAT.lean:122:' "$log" \
-                && rg -Fq 'The SAT solver timed out while solving the problem.' "$log" \
-                && ! rg '^error: ' "$log" | rg -v 'CraftIDCT/SAT.lean:122:.*The SAT solver timed out while solving the problem|Lean exited with code 1|build failed'; then
-                cat "$log"
-                echo '::warning::Known h264 Lean SAT timeout; tracked in https://github.com/speedcraft-labs/hyper/issues/254'
+              elif grep -Fq 'CraftIDCT/SAT.lean:122:' "$log" \
+                && grep -Fq 'The SAT solver timed out while solving the problem.' "$log"; then
+                unexpected_errors="$(grep '^error: ' "$log" | grep -Ev 'CraftIDCT/SAT.lean:122:.*The SAT solver timed out while solving the problem|Lean exited with code 1|build failed' || true)"
+                if [[ -z "$unexpected_errors" ]]; then
+                  cat "$log"
+                  echo '::warning::Known h264 Lean SAT timeout; tracked in https://github.com/speedcraft-labs/hyper/issues/254'
+                else
+                  cat "$log"
+                  printf 'Unexpected Lean errors:\n%s\n' "$unexpected_errors"
+                  exit 1
+                fi
               else
                 cat "$log"
                 exit 1
