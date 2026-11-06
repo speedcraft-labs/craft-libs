@@ -160,5 +160,5 @@ fn old_and_new_agree_on_the_office_corpus_and_hostile_inputs() {
         suite.out.join("corpus.txt"),
         format!("zip {}\ncfb {}\nother {}\n{}", files.zip.len(), files.cfb.len(), files.other.len(), files.other.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>().join("\n")),
     );
-    finish(&suite, "corpus");
+    finish_hostile_with_known_agentbox_timeouts(&suite);
 }
