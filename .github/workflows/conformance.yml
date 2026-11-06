@@ -24,21 +24,20 @@ jobs:
     env:
       CARGO_HOME: /home/ghrunner/.cargo
       CARGO_TARGET_DIR: /jobs/work/actions-runner/_work/_temp/cargo-target/${{ github.run_id }}
+      CRAFT_CORPUS_REQUIRE: '1'
+      CRAFT_CORPUS_DIR: /jobs/work/speedcraft-labs/hyper/corpus
+      CRAFT_AV1_HOSTILE_TIMEOUT_SECS: '3600'
     timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
         codec: [h264, hevc, vp8, vp9, av1]
-      CRAFT_CORPUS_REQUIRE: '1'
-      CRAFT_CORPUS_DIR: /jobs/work/speedcraft-labs/hyper/corpus
-      CRAFT_AV1_HOSTILE_TIMEOUT_SECS: '3600'
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Use preinstalled toolchains
+      - name: Use preinstalled Rust
         shell: bash
-        run: |
-          echo /home/ghrunner/.cargo/bin >> "$GITHUB_PATH"
+        run: echo /home/ghrunner/.cargo/bin >> "$GITHUB_PATH"
       - name: Conformance
         run: cargo test --release -p craft-conformance --test ${{ matrix.codec }} -- --nocapture
