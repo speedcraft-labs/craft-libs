@@ -315,7 +315,7 @@
           "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
           "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
         ],
-        "output": "pdfcraft-edit"
+        "output": "markers"
       },
       "inputs": [
         {
@@ -375,7 +375,7 @@
           "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
           "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
         ],
-        "output": "pdfcraft-edit"
+        "output": "markers"
       },
       "inputs": [
         {
@@ -435,7 +435,7 @@
           "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
           "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
         ],
-        "output": "pdfcraft-edit"
+        "output": "markers"
       },
       "inputs": [
         {
@@ -495,7 +495,7 @@
           "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
           "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
         ],
-        "output": "pdfcraft-edit"
+        "output": "markers"
       },
       "inputs": [
         {
@@ -555,7 +555,7 @@
           "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
           "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
         ],
-        "output": "pdfcraft-edit"
+        "output": "markers"
       },
       "inputs": [
         {
