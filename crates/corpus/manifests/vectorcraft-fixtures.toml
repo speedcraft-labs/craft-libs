@@ -1,0 +1,16 @@
+name = "vectorcraft-fixtures"
+description = "Small permissively licensed vector documents used by app-level performance journeys."
+
+[[git]]
+repo = "storytold/vectorcraft"
+commit = "e2eed881cc8895f9594812103013943158ffae5d"
+paths = ["examples/still-life.vectorcraft"]
+licence = "MIT OR Apache-2.0"
+provenance = "https://github.com/storytold/vectorcraft/tree/e2eed881cc8895f9594812103013943158ffae5d/examples/still-life.vectorcraft"
+tags = ["vector", "vectorcraft"]
+redistributable = true
+
+[[git.file]]
+path = "examples/still-life.vectorcraft"
+sha256 = "1d3369e59e8fe6ed26067b8f9254a40228c46e6c6e6434aede3ea0848a34ec82"
+dest = "still-life.vectorcraft"

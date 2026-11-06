@@ -21,12 +21,13 @@ pub struct Paired;
 impl Paired {
     #[allow(clippy::new_ret_no_self)]
     pub fn new<'a, I, O>(name: impl Into<String>) -> PairedBench<'a, I, O> {
-        PairedBench { name: name.into(), old: None, new: None, inputs: Vec::new(), check: None }
+        PairedBench { name: name.into(), old: None, new: None, inputs: Vec::new(), check: None, wall_meter: None }
     }
 }
 
 type Func<'a, I, O> = Box<dyn Fn(&I) -> O + 'a>;
 type Check<'a, O> = Box<dyn Fn(&O, &O) -> bool + 'a>;
+type WallMeter<'a, O> = Box<dyn Fn(&O) -> u64 + 'a>;
 
 /// A benchmark under construction. `I` is the input type, `O` the output both sides return.
 pub struct PairedBench<'a, I, O> {
@@ -35,6 +36,7 @@ pub struct PairedBench<'a, I, O> {
     new: Option<Func<'a, I, O>>,
     inputs: Vec<(String, I)>,
     check: Option<Check<'a, O>>,
+    wall_meter: Option<WallMeter<'a, O>>,
 }
 
 /// Run settings. `Config::default()` meets the evidence standard.
@@ -133,6 +135,15 @@ impl<'a, I, O> PairedBench<'a, I, O> {
         self.check(|a, b| a == b)
     }
 
+    /// Use an application-reported wall duration in nanoseconds instead of timing the closure.
+    /// The closure still runs under the paired schedule; process CPU time remains measured by
+    /// craft-bench. Use this for adapters that expose their own frame or stage timing channel.
+    #[must_use]
+    pub fn wall_meter(mut self, f: impl Fn(&O) -> u64 + 'a) -> Self {
+        self.wall_meter = Some(Box::new(f));
+        self
+    }
+
     pub fn run(self, cfg: &Config) -> Result<Report, BenchError> {
         let old = self.old.as_ref().ok_or(BenchError::MissingOld)?;
         let new = self.new.as_ref().ok_or(BenchError::MissingNew)?;
@@ -169,7 +180,7 @@ impl<'a, I, O> PairedBench<'a, I, O> {
         for (order, step) in steps.iter().enumerate() {
             let (name, input) = &self.inputs[step.input];
             let f = if step.side == Side::Old { old } else { new };
-            let (wall_ns, cpu_ns) = time_one(f.as_ref(), input);
+            let (wall_ns, cpu_ns) = time_one(f.as_ref(), input, self.wall_meter.as_deref());
             runs.push(RunRecord { order, input: name.clone(), side: step.side, wall_ns, cpu_ns });
         }
 
@@ -267,14 +278,15 @@ fn cpu_now() -> Option<std::time::Duration> {
     None
 }
 
-fn time_one<I, O>(f: &dyn Fn(&I) -> O, input: &I) -> (u64, Option<u64>) {
+fn time_one<I, O>(f: &dyn Fn(&I) -> O, input: &I, meter: Option<&dyn Fn(&O) -> u64>) -> (u64, Option<u64>) {
     let c0 = cpu_now();
     let t0 = Instant::now();
     let out = f(black_box(input));
     let wall = t0.elapsed();
     let c1 = cpu_now();
     black_box(&out);
-    drop(out);
     let cpu = c0.zip(c1).map(|(a, b)| u64::try_from(b.saturating_sub(a).as_nanos()).unwrap_or(u64::MAX));
-    (u64::try_from(wall.as_nanos()).unwrap_or(u64::MAX), cpu)
+    let wall_ns = meter.map_or_else(|| u64::try_from(wall.as_nanos()).unwrap_or(u64::MAX), |m| m(&out));
+    drop(out);
+    (wall_ns, cpu)
 }

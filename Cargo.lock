@@ -1127,6 +1127,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-journeys"
+version = "0.1.0"
+dependencies = [
+ "craft-bench",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "craft-jpeg"
 version = "0.1.0"
 dependencies = [

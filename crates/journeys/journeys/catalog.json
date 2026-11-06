@@ -1,0 +1,146 @@
+{
+  "journeys": [
+    {
+      "name": "cadcraft.open-dxf.large-map",
+      "app": "cadcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "cadcraft-cli", "--", "perf", "{input}"], "output": "cadcraft-open" },
+      "inputs": [{ "name": "Graz_10km_3m", "path": "cad-ezdxf/docs/source/tutorials/src/geo/Graz_10km_3m.dxf" }]
+    },
+    {
+      "name": "cadcraft.open-dxf.usa",
+      "app": "cadcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "cadcraft-cli", "--", "perf", "{input}"], "output": "cadcraft-open" },
+      "inputs": [{ "name": "usa", "path": "cad-ezdxf/examples/addons/drawing/data/usa.dxf" }]
+    },
+    {
+      "name": "cadcraft.open-dxf.us-main",
+      "app": "cadcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "cadcraft-cli", "--", "perf", "{input}"], "output": "cadcraft-open" },
+      "inputs": [{ "name": "3_us_main", "path": "cad-ezdxf/examples/edgeminer/3_us_main.dxf" }]
+    },
+    {
+      "name": "wordcraft.open-office-docx",
+      "app": "wordcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/wordcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "wordcraft-ui-egui", "--example", "perf_probe"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "wordcraft-ui-egui", "--example", "perf_probe", "--", "{input}"], "output": "wordcraft-probe" },
+      "inputs": [{ "name": "City-City", "path": "office-openxml-sdk/test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/O14ISOStrict/Word/City-City.docx" }]
+    },
+    {
+      "name": "deckcraft.open-office-pptx",
+      "app": "deckcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/deckcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "deckcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "deckcraft-cli", "--", "bench", "{input}", "--runs", "10", "--json"], "output": "deckcraft-bench" },
+      "inputs": [{ "name": "2D-Area-O12-PPT-Charts", "path": "office-openxml-sdk/test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/O14ISOStrict/Graphics/2D Area-O12-PPT-Charts.pptx" }]
+    },
+    {
+      "name": "lightcraft.slider-exposure-latency",
+      "app": "lightcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/lightcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "lightcraft-ui-egui", "--example", "drag_latency"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "lightcraft-ui-egui", "--example", "drag_latency", "--", ".craft-journeys-library", "{input}", "light.exposure"], "env": { "GPU": "0", "TICKS": "30" }, "output": "lightcraft-drag" },
+      "inputs": [{ "name": "ibasn6a16", "path": "pngsuite/ibasn6a16.png" }]
+    },
+    {
+      "name": "pdfcraft.export-pdf.form-fixture",
+      "app": "pdfcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft",
+      "build": {
+        "program": "cargo",
+        "args": ["build", "--release", "-p", "pdfcraft-engine", "--example", "export_bench"],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ]
+      },
+      "run": {
+        "program": "cargo",
+        "args": ["run", "--quiet", "--release", "-p", "pdfcraft-engine", "--example", "export_bench", "--", "{input}", "72", "png", "5"],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ],
+        "output": "pdfcraft-export"
+      },
+      "inputs": [{ "name": "form", "path": "pdfcraft-fixtures/form.pdf" }]
+    },
+    {
+      "name": "vectorcraft.export-svg.still-life",
+      "app": "vectorcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/vectorcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "vectorcraft-engine", "--example", "export_bench"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "vectorcraft-engine", "--example", "export_bench", "--", "svg", "{input}"], "env": { "ITERS": "5" }, "output": "vectorcraft-export" },
+      "inputs": [{ "name": "still-life", "path": "vectorcraft-fixtures/still-life.vectorcraft" }]
+    },
+    {
+      "name": "designcraft.synthetic-performance",
+      "app": "designcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/designcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "designcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "designcraft-cli", "--", "perf", "--pages", "1", "--frames", "8", "--chars", "10000", "--images", "1", "--runs", "3"], "output": "designcraft-perf" }
+    },
+    {
+      "name": "effectcraft.synthetic-project-open",
+      "app": "effectcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--small", "--json"], "output": "effectcraft-ops" }
+    },
+    {
+      "name": "photocraft.synthetic-image-open",
+      "app": "photocraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "photocraft-ui-egui", "--example", "large_image_bench"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "photocraft-ui-egui", "--example", "large_image_bench", "--", "--size", "4096x2731", "--op", "open", "--cpu", "--json", "/tmp/craft-journeys-photocraft.json"], "output": "photocraft-large-image" }
+    },
+    {
+      "name": "figcraft.synthetic-viewport-render",
+      "app": "figcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/figcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "figcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "figcraft-cli", "--", "--no-system-fonts", "perf", "--layers", "100", "--instances", "0"], "output": "figcraft-perf" }
+    },
+    {
+      "name": "gridcraft.synthetic-workbook-open",
+      "app": "gridcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "gridcraft-engine", "--example", "perf"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "gridcraft-engine", "--example", "perf", "--", "1000"], "output": "gridcraft-perf" }
+    },
+    {
+      "name": "soundcraft.synthetic-mix-throughput",
+      "app": "soundcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/soundcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "soundcraft-mix", "--example", "render_bench"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "soundcraft-mix", "--example", "render_bench", "--", "32", "4"], "output": "soundcraft-mix" }
+    },
+    {
+      "name": "filmcraft.synthetic-project-open",
+      "app": "filmcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/filmcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "filmcraft-ui-egui", "--example", "bench"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "filmcraft-ui-egui", "--example", "bench", "--", "--section", "project", "--cpu", "--hw", "off"], "env": { "FILMCRAFT_FIXTURES": "/jobs/work/speedcraft-labs/targets/craft-journeys/filmcraft-fixtures" }, "output": "filmcraft-project" }
+    }
+  ]
+}
