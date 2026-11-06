@@ -32,8 +32,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cleanup_lake_workspace() {
+            local check="$1"
+            local lake_dir="$(dirname "$check")/.lake"
+            if [[ -d "$lake_dir" ]]; then
+              echo "Cleaning generated Lean workspace: $lake_dir"
+              rm -rf -- "$lake_dir"
+            fi
+          }
           while IFS= read -r -d '' check; do
             echo "==> $check"
+            trap 'cleanup_lake_workspace "$check"' EXIT
             if [[ "$check" == "crates/h264/lean/check.sh" ]]; then
               log=/tmp/craft-libs-h264-lean.log
               if (cd "$(dirname "$check")" && bash ./check.sh) >"$log" 2>&1; then
@@ -56,4 +65,6 @@ jobs:
             else
               (cd "$(dirname "$check")" && bash ./check.sh)
             fi
+            cleanup_lake_workspace "$check"
+            trap - EXIT
           done < <(find crates lean -name check.sh -print0 2>/dev/null | sort -z)
