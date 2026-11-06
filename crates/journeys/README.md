@@ -58,6 +58,7 @@ manifest and that its SHA-256 matches.
 | `designcraft.synthetic-performance` | DesignCraft | Compose a deterministic synthetic document |
 | `effectcraft.synthetic-project-open` | EffectCraft | Open the generated small project |
 | `photocraft.synthetic-image-open` | PhotoCraft | Open a generated 4096×2731 image on CPU |
+| `photocraft.content-aware-scale.24mp` | PhotoCraft | Remove 10% of a generated 6000×4000 photo-like image by seam carving |
 | `figcraft.synthetic-viewport-render` | FigCraft | Render a 100-layer synthetic document |
 | `gridcraft.synthetic-workbook-open` | GridCraft | Open and recalculate a generated 1,000-row workbook |
 | `soundcraft.synthetic-mix-throughput` | SoundCraft | Mix 32 generated tracks over 4 seconds |
