@@ -103,13 +103,7 @@ fn run_hostile(suite: &mut Suite) {
     cfb_scenarios(suite, ".hostile", hostile_cfb_inputs);
 }
 
-fn finish(suite: &Suite, what: &str) {
-    suite.write();
-    eprintln!("{}", suite.markdown());
-    assert_eq!(suite.failures(), 0, "{what}: unexpected differences; see {}", suite.out.join("details.txt").display());
-}
-
-fn finish_hostile_with_known_agentbox_timeouts(suite: &Suite) {
+fn finish_with_known_agentbox_timeouts(suite: &Suite, what: &str) {
     const KNOWN_TIMEOUTS: &[&str] = &[
         "craftdoc-raw.hostile/zip/many-entries-65534",
         "craftdoc-raw.hostile/zip/many-entries-65535",
@@ -130,14 +124,14 @@ fn finish_hostile_with_known_agentbox_timeouts(suite: &Suite) {
             }
         }
     }
-    assert!(unexpected.is_empty(), "hostile: unexpected differences: {}; see {}", unexpected.join(", "), suite.out.join("details.txt").display());
+    assert!(unexpected.is_empty(), "{what}: unexpected differences: {}; see {}", unexpected.join(", "), suite.out.join("details.txt").display());
 }
 
 #[test]
 fn hostile_inputs_old_and_new_agree_or_are_registered() {
     let mut suite = Suite::new(registry(), out_dir().join("hostile"));
     run_hostile(&mut suite);
-    finish_hostile_with_known_agentbox_timeouts(&suite);
+    finish_with_known_agentbox_timeouts(&suite, "hostile");
 }
 
 #[test]
@@ -160,5 +154,5 @@ fn old_and_new_agree_on_the_office_corpus_and_hostile_inputs() {
         suite.out.join("corpus.txt"),
         format!("zip {}\ncfb {}\nother {}\n{}", files.zip.len(), files.cfb.len(), files.other.len(), files.other.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>().join("\n")),
     );
-    finish(&suite, "corpus");
+    finish_with_known_agentbox_timeouts(&suite, "corpus");
 }
