@@ -62,6 +62,7 @@ enum OutputProtocol {
     PhotocraftLargeImage,
     FigcraftPerf,
     GridcraftPerf,
+    SoundcraftMix,
 }
 
 #[derive(Debug)]
@@ -356,6 +357,28 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
             let duration_ns = parse_duration_debug_ns(open, "gridcraft")?;
             let identity = format!("{shape}|xlsx-bytes:{bytes}");
             (duration_ns, format!("{:x}", Sha256::digest(identity.as_bytes())))
+        }
+        OutputProtocol::SoundcraftMix => {
+            let line = stdout
+                .lines()
+                .find(|line| line.contains(" tracks × ") && line.contains(": rendered in "))
+                .ok_or_else(|| "soundcraft mix output is missing its render summary".to_string())?;
+            let (workload, rest) = line.split_once(": rendered in ").ok_or_else(|| "soundcraft mix summary is malformed".to_string())?;
+            let (seconds, rest) = rest.split_once(" s → ").ok_or_else(|| "soundcraft mix summary is missing rendered seconds".to_string())?;
+            let seconds = seconds.parse::<f64>().map_err(|e| format!("invalid soundcraft render time: {e}"))?;
+            if !seconds.is_finite() || seconds < 0.0 {
+                return Err("soundcraft render time must be finite and non-negative".into());
+            }
+            let peak = rest
+                .split_once("(peak ")
+                .and_then(|(_, value)| value.strip_suffix(')'))
+                .ok_or_else(|| "soundcraft mix summary is missing its output peak".to_string())?;
+            let identity = format!("{workload}|peak:{peak}");
+            let nanos = seconds * 1_000_000_000.0;
+            if nanos > u64::MAX as f64 {
+                return Err("soundcraft render time is too large".into());
+            }
+            (nanos as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
     };
     Ok(AppResult { duration_ns, identity })

@@ -98,6 +98,13 @@
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "gridcraft-engine", "--example", "perf"] },
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "gridcraft-engine", "--example", "perf", "--", "1000"], "output": "gridcraft-perf" }
+    },
+    {
+      "name": "soundcraft.synthetic-mix-throughput",
+      "app": "soundcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/soundcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "soundcraft-mix", "--example", "render_bench"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "soundcraft-mix", "--example", "render_bench", "--", "32", "4"], "output": "soundcraft-mix" }
     }
   ]
 }
