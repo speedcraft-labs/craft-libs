@@ -90,7 +90,11 @@ fn run_all(frames: &[Vec<u8>], label: &str) {
         }
     }));
     assert!(res.is_ok() && PANICS.load(Ordering::SeqCst) == before, "panic: {label}");
-    CASE_TIMES.lock().unwrap().push((started.elapsed().as_millis(), label.to_owned()));
+    let elapsed = started.elapsed().as_millis();
+    if label.ends_with("valid baseline") {
+        eprintln!("AV1_HOSTILE_BASELINE {elapsed}ms {label}");
+    }
+    CASE_TIMES.lock().unwrap().push((elapsed, label.to_owned()));
 }
 
 /// Random-mutation rounds per seed (raise with FILMCRAFT_FUZZ_ITERS for a long hunt).

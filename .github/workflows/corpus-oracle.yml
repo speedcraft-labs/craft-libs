@@ -4,6 +4,9 @@ on:
     branches: ['algo/**']
     paths:
       - 'crates/corpus/**'
+      - 'crates/av1/**'
+      - 'crates/media/**'
+      - 'crates/media-testkit/**'
       - 'crates/oracle/**'
       - 'tools/**-oracle/**'
       - 'tools/inflate-oracle/lean/**'
@@ -59,4 +62,4 @@ jobs:
             echo "==> ignored corpus tests: $manifest"
             cargo test --manifest-path "$manifest" --no-fail-fast -- --ignored
           done
-          cargo test -p craft-av1 --test fuzz_hostile -- --ignored
+          cargo test -p craft-av1 --test fuzz_hostile -- --ignored --nocapture
