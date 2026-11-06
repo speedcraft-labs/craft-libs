@@ -39,6 +39,6 @@ jobs:
       - name: Use preinstalled toolchains
         shell: bash
         run: |
-          echo /cache/cargo/bin >> "$GITHUB_PATH"
+          echo /home/ghrunner/.cargo/bin >> "$GITHUB_PATH"
       - name: Conformance
         run: cargo test --release -p craft-conformance --test ${{ matrix.codec }} -- --nocapture

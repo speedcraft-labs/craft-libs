@@ -26,6 +26,6 @@ jobs:
       - name: Use preinstalled toolchains
         shell: bash
         run: |
-          echo /cache/cargo/bin >> "$GITHUB_PATH"
+          echo /home/ghrunner/.cargo/bin >> "$GITHUB_PATH"
       - name: Check benchmark harness
         run: cargo test -p craft-bench --no-fail-fast

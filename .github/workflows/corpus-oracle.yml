@@ -28,7 +28,7 @@ jobs:
       - name: Use preinstalled toolchains
         shell: bash
         run: |
-          echo /cache/cargo/bin >> "$GITHUB_PATH"
+          echo /home/ghrunner/.cargo/bin >> "$GITHUB_PATH"
       - name: Run corpus and oracle suites
         shell: bash
         run: |
