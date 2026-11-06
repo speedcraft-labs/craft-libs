@@ -63,6 +63,13 @@
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "vectorcraft-engine", "--example", "export_bench"] },
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "vectorcraft-engine", "--example", "export_bench", "--", "svg", "{input}"], "env": { "ITERS": "5" }, "output": "vectorcraft-export" },
       "inputs": [{ "name": "still-life", "path": "vectorcraft-fixtures/still-life.vectorcraft" }]
+    },
+    {
+      "name": "designcraft.synthetic-performance",
+      "app": "designcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/designcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "designcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "designcraft-cli", "--", "perf", "--pages", "1", "--frames", "8", "--chars", "10000", "--images", "1", "--runs", "3"], "output": "designcraft-perf" }
     }
   ]
 }

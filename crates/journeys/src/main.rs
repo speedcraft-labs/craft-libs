@@ -24,6 +24,7 @@ struct Journey {
     repo: PathBuf,
     build: CommandSpec,
     run: CommandSpec,
+    #[serde(default)]
     inputs: Vec<Input>,
 }
 
@@ -56,6 +57,7 @@ enum OutputProtocol {
     LightcraftDrag,
     PdfcraftExport,
     VectorcraftExport,
+    DesigncraftPerf,
 }
 
 #[derive(Debug)]
@@ -231,6 +233,32 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
                 .parse::<u64>()
                 .map_err(|e| format!("invalid vectorcraft output size: {e}"))?;
             let identity = format!("{label}:{bytes}");
+            ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
+        }
+        OutputProtocol::DesigncraftPerf => {
+            let summary = stdout
+                .lines()
+                .find(|line| line.starts_with("DesignCraft performance budgets — synthetic: "))
+                .ok_or_else(|| "designcraft perf output is missing its synthetic document summary".to_string())?;
+            let identity = summary
+                .strip_prefix("DesignCraft performance budgets — synthetic: ")
+                .and_then(|s| s.split_once(" (built in ").map(|(stable, _)| stable))
+                .ok_or_else(|| "designcraft perf output is missing stable document details".to_string())?;
+            let measured = stdout
+                .lines()
+                .find(|line| line.contains("compose all stories cold, MT ("))
+                .ok_or_else(|| "designcraft perf output is missing the compose measurement".to_string())?;
+            let fields: Vec<_> = measured.split_whitespace().collect();
+            let millis = fields
+                .iter()
+                .position(|field| *field == "ms")
+                .and_then(|index| index.checked_sub(1).and_then(|previous| fields.get(previous)))
+                .ok_or_else(|| "designcraft perf output is missing measured milliseconds".to_string())?
+                .parse::<f64>()
+                .map_err(|e| format!("invalid designcraft compose time: {e}"))?;
+            if !millis.is_finite() || millis < 0.0 {
+                return Err("designcraft compose time must be finite and non-negative".into());
+            }
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
     };
@@ -421,11 +449,16 @@ fn target_dir(app: &str, rev: &str) -> PathBuf {
 }
 
 fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) -> Result<Report, String> {
-    if journey.inputs.is_empty() {
-        return Err(format!("journey {} has no pinned inputs", journey.name));
+    let mut inputs = journey.inputs.clone();
+    if inputs.is_empty() {
+        // App-owned deterministic generators (for example `designcraft-cli perf`) still provide
+        // one measured case to craft-bench, but have no external file to verify or pass as input.
+        inputs.push(Input { name: "synthetic".into(), path: PathBuf::new() });
     }
-    for input in &journey.inputs {
-        verify_corpus_input(&input.path)?;
+    for input in &inputs {
+        if !input.path.as_os_str().is_empty() {
+            verify_corpus_input(&input.path)?;
+        }
     }
     let repo = app_repo(&journey.repo)?;
     if !repo.is_dir() {
@@ -439,7 +472,7 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
     let libs_new = if old_rev == new_rev { LibRevision::alias(&libs_old) } else { LibRevision::at(&lib_repo, new_rev, 1)? };
     let revisions = [libs_old, libs_new];
     for (rev, checkout, libs) in [(old_rev, &checkouts[0], &revisions[0]), (new_rev, &checkouts[1], &revisions[1])] {
-        let mut cmd = Command::new(render(&journey.build.program, rev, &journey.inputs[0], &journey.app));
+        let mut cmd = Command::new(render(&journey.build.program, rev, &inputs[0], &journey.app));
         cmd.current_dir(&checkout.path)
             .env("CRAFT_JOURNEY_REV", rev)
             .env("ARTCRAFT_CORPUS", corpus_root())
@@ -453,13 +486,13 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
         if Path::new(&journey.build.program).file_name().is_some_and(|name| name == "cargo") {
             cmd.args(["--config"]).arg(&libs.cargo_config);
         }
-        cmd.args(journey.build.args.iter().map(|a| render(a, rev, &journey.inputs[0], &journey.app)));
+        cmd.args(journey.build.args.iter().map(|a| render(a, rev, &inputs[0], &journey.app)));
         let result = cmd.output().map_err(|e| format!("build {} at {rev}: {e}", journey.app))?;
         if !result.status.success() {
             return Err(format!("build {} at {rev} failed ({})\n{}", journey.app, result.status, String::from_utf8_lossy(&result.stderr)));
         }
     }
-    let input_pairs: Vec<_> = journey.inputs.iter().cloned().map(|i| (i.name.clone(), i)).collect();
+    let input_pairs: Vec<_> = inputs.into_iter().map(|i| (i.name.clone(), i)).collect();
     let report = Paired::new(format!("{} / {}", journey.app, journey.name))
         .old(|input: &Input| {
             run_command(&journey.run, &checkouts[0].path, old_rev, input, &journey.app, &revisions[0].cargo_config)
