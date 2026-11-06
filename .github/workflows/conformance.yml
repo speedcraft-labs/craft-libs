@@ -29,7 +29,6 @@ jobs:
       fail-fast: false
       matrix:
         codec: [h264, hevc, vp8, vp9, av1]
-    env:
       CRAFT_CORPUS_REQUIRE: '1'
       CRAFT_CORPUS_DIR: /jobs/work/speedcraft-labs/hyper/corpus
       CRAFT_AV1_HOSTILE_TIMEOUT_SECS: '3600'
@@ -37,5 +36,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Use preinstalled toolchains
+        shell: bash
+        run: |
+          echo /cache/cargo/bin >> "$GITHUB_PATH"
       - name: Conformance
         run: cargo test --release -p craft-conformance --test ${{ matrix.codec }} -- --nocapture

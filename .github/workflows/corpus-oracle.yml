@@ -20,12 +20,15 @@ jobs:
       CARGO_HOME: /home/ghrunner/.cargo
       CARGO_TARGET_DIR: /jobs/work/actions-runner/_work/_temp/cargo-target/${{ github.run_id }}
     timeout-minutes: 360
-    env:
       ARTCRAFT_CORPUS: /jobs/work/speedcraft-labs/hyper/corpus
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Use preinstalled toolchains
+        shell: bash
+        run: |
+          echo /cache/cargo/bin >> "$GITHUB_PATH"
       - name: Run corpus and oracle suites
         shell: bash
         run: |

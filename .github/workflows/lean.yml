@@ -21,6 +21,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Use preinstalled toolchains
+        shell: bash
+        run: |
+          echo /cache/cargo/bin >> "$GITHUB_PATH"
+          echo /home/ghrunner/.elan/bin >> "$GITHUB_PATH"
       - name: Build proofs, audit axioms, and check vectors
         shell: bash
         run: |
