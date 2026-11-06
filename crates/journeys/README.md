@@ -29,8 +29,8 @@ then removes them. The app's dependency lockfiles remain part of the app revisio
 Run and compare:
 
 ```sh
-cargo run --release -p craft-journeys -- run --journey pdfcraft.scroll --out baselines/pdfcraft-scroll.json
-cargo run --release -p craft-journeys -- compare --base BASE_REV --head HEAD_REV --journey pdfcraft.scroll
+cargo run --release -p craft-journeys -- run --journey cadcraft.open-dxf.large-map --out baselines/cadcraft-open.json
+cargo run --release -p craft-journeys -- compare --base BASE_APP_REV --head HEAD_APP_REV --journey wordcraft.open-office-docx --out baselines/wordcraft-open.json
 ```
 
 `run` pairs the current `CRAFT_JOURNEY_REV` (or `working-tree`) against itself to produce a
