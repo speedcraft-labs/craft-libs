@@ -49,6 +49,9 @@ struct CommandSpec {
     /// Output protocol: `markers` (default) or a native app channel parser.
     #[serde(default)]
     output: OutputProtocol,
+    /// Row in the app's native operation report (used when an app exposes several timings).
+    #[serde(default)]
+    measure: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
@@ -316,12 +319,15 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
                 .get("measures")
                 .and_then(serde_json::Value::as_array)
                 .ok_or_else(|| "effectcraft bench JSON is missing measures".to_string())?;
-            let open = measures
+            let measure_name = spec.measure.as_deref().unwrap_or("open");
+            let measure = measures
                 .iter()
-                .find(|row| row.get("name").and_then(serde_json::Value::as_str) == Some("open"))
-                .ok_or_else(|| "effectcraft bench JSON is missing the open measurement".to_string())?;
-            let millis =
-                open.get("ms").and_then(serde_json::Value::as_f64).ok_or_else(|| "effectcraft open measurement is missing ms".to_string())?;
+                .find(|row| row.get("name").and_then(serde_json::Value::as_str) == Some(measure_name))
+                .ok_or_else(|| format!("effectcraft bench JSON is missing the {measure_name} measurement"))?;
+            let millis = measure
+                .get("ms")
+                .and_then(serde_json::Value::as_f64)
+                .ok_or_else(|| format!("effectcraft {measure_name} measurement is missing ms"))?;
             if !millis.is_finite() || millis < 0.0 {
                 return Err("effectcraft open time must be finite and non-negative".into());
             }
@@ -329,8 +335,8 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
                 .get("spec")
                 .and_then(serde_json::Value::as_str)
                 .ok_or_else(|| "effectcraft bench JSON is missing its generated project spec".to_string())?;
-            let shape = measures.iter().filter_map(|row| row.get("name").and_then(serde_json::Value::as_str)).collect::<Vec<_>>().join("|");
-            let identity = format!("{spec}|{shape}");
+            let note = measure.get("note").and_then(serde_json::Value::as_str).unwrap_or("");
+            let identity = format!("{spec}|{measure_name}|{note}");
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
         OutputProtocol::PhotocraftLargeImage => {

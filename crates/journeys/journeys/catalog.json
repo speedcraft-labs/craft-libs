@@ -185,7 +185,14 @@
       "app": "effectcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft-cli"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--small", "--json"], "output": "effectcraft-ops" }
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--measure", "open", "--layers", "5000", "--json"], "output": "effectcraft-ops", "measure": "open" }
+    },
+    {
+      "name": "effectcraft.first-frame-heavy-comp",
+      "app": "effectcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--measure", "firstFrame", "--layers", "5000", "--scale", "1.0", "--json"], "output": "effectcraft-ops", "measure": "firstFrame" }
     },
     {
       "name": "photocraft.synthetic-image-open",

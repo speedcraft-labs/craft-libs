@@ -58,7 +58,8 @@ target root so prepared builds can be reused.
 | `pdfcraft.export-pdf.form-fixture` | PdfCraft | Export the pinned one-page form PDF to PNG |
 | `vectorcraft.export-svg.still-life` | VectorCraft | Export the pinned Still Life document to SVG |
 | `designcraft.synthetic-performance` | DesignCraft | Compose a deterministic synthetic document |
-| `effectcraft.synthetic-project-open` | EffectCraft | Open the generated small project |
+| `effectcraft.synthetic-project-open` | EffectCraft | Open a generated project sized toward the surveyed 125 MB |
+| `effectcraft.first-frame-heavy-comp` | EffectCraft | Render a cold full-resolution (1,920×1,080) first frame of a generated 5,000-layer composition |
 | `photocraft.synthetic-image-open` | PhotoCraft | Open a generated 4096×2731 image on CPU |
 | `photocraft.content-aware-scale.24mp` | PhotoCraft | Remove 10% of a generated 6000×4000 photo-like image by seam carving |
 | `figcraft.synthetic-viewport-render` | FigCraft | Render a 100-layer synthetic document |
