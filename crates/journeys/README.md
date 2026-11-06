@@ -50,7 +50,7 @@ manifest and that its SHA-256 matches.
 | `cadcraft.open-dxf.large-map` | CADCraft | Open the pinned Graz map DXF |
 | `cadcraft.open-dxf.usa` | CADCraft | Open the pinned USA DXF |
 | `cadcraft.open-dxf.us-main` | CADCraft | Open the pinned US-main DXF |
-| `wordcraft.open-office-docx` | WordCraft | Open the pinned synthetic 1,096-page DOCX and measure the first frame that paints a page |
+| `wordcraft.open-office-docx` | WordCraft | Open the pinned synthetic 1,096-page DOCX and measure from file open through the first painted page |
 | `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
 | `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
 | `pdfcraft.export-pdf.form-fixture` | PdfCraft | Export the pinned one-page form PDF to PNG |
@@ -68,14 +68,23 @@ Run and compare:
 ```sh
 cargo run --release -p craft-journeys -- run --journey cadcraft.open-dxf.large-map --out baselines/cadcraft-open.json
 cargo run --release -p craft-journeys -- compare --base BASE_LIBS_REV --head HEAD_LIBS_REV --journey wordcraft.open-office-docx --out baselines/wordcraft-open.json
+cargo run --release -p craft-journeys -- prepare --base BASE_LIBS_REV --head HEAD_LIBS_REV --journey wordcraft.open-office-docx
 ```
 
 `run` pairs the current craft-libs working tree against itself to produce a baseline report.
 `compare` builds and runs both requested craft-libs revisions and prints the speed verdict.
+`prepare` verifies the selected inputs and builds both app/library revisions without collecting
+measurements. Use it before acquiring the shared benchmark lock so Cargo compilation stays outside
+the locked measurement window; `run` and `compare` can then reuse the same revision-keyed targets.
+Set `CRAFT_JOURNEYS_APP_BASE_REV` and `CRAFT_JOURNEYS_APP_HEAD_REV` to compare app revisions;
+they default to `HEAD` and the same revision. Raw report revision labels record both app and
+craft-libs revisions. Each app build and run gets a target directory keyed by both revisions,
+and revision worktrees plus Cargo patch files keep stable paths under the selected target root,
+so paired runs reuse their warmed binaries instead of rebuilding one side over the other.
 Both commands return exit code 1 for a non-publishable report; errors return 2.
 
 For the shipped catalog, set the hyper checkout, corpus and build directory first. App builds
-are isolated by app and craft-libs revision under the selected target root, so ABBA samples
+are isolated by app and both revisions under the selected target root, so ABBA samples
 don't replace each other's executable:
 
 ```sh
