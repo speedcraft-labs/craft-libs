@@ -1,0 +1,27 @@
+name: Hosted CI
+on:
+  push:
+    branches: [algo/ci]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libudev-dev pkg-config libdbus-1-dev libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev fonts-noto-cjk fonts-unifont
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --locked
+      - name: Workspace tests
+        run: cargo test --workspace --no-fail-fast
