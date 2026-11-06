@@ -16,6 +16,7 @@ default = []
 pcraft-pixels = ["dep:blake3", "dep:ruzstd"]
 
 [dependencies]
+craft-archive = { workspace = true }
 craft-ecproj-format = { workspace = true }
 craft-pcraft-format = { workspace = true }
 craft-vectorcraft-format = { workspace = true }

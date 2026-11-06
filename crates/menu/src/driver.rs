@@ -286,23 +286,26 @@ impl NativeMenu {
         let pressed_key = chord.key.to_egui();
         let clipboard = self.clipboard == ClipboardKeys::Egui && chord.mods == Mods::CMD && !self.gate.recording_shortcut;
         let event = match chord.key {
-            Key::C if clipboard => egui::Event::Copy,
-            Key::X if clipboard => egui::Event::Cut,
+            Key::C if clipboard => Some(egui::Event::Copy),
+            Key::X if clipboard => Some(egui::Event::Cut),
             Key::V if clipboard => {
                 self.paste = true;
                 return;
             }
             _ => key_event(chord, true),
         };
+        let Some(event) = event else { return };
         let at = raw
             .events
             .iter()
-            .position(|e| matches!(e, egui::Event::Key { key, pressed: false, .. } if *key == pressed_key))
+            .position(|e| matches!(e, egui::Event::Key { key, pressed: false, .. } if Some(*key) == pressed_key))
             .unwrap_or(raw.events.len());
         let press = matches!(event, egui::Event::Key { .. });
         raw.events.insert(at, event);
         if tap && press {
-            raw.events.insert(at + 1, key_event(chord, false));
+            if let Some(release) = key_event(chord, false) {
+                raw.events.insert(at + 1, release);
+            }
         }
     }
 
@@ -476,12 +479,12 @@ pub(crate) fn native_ok(c: &Chord) -> bool {
 }
 
 /// The key press egui would have received for `chord` on macOS: `cmd` is ⌘, `ctrl` the Control
-/// key.
-pub(crate) fn key_event(chord: &Chord, pressed: bool) -> egui::Event {
+/// key. `None` means egui cannot represent this key (the numeric keypad, for example).
+pub(crate) fn key_event(chord: &Chord, pressed: bool) -> Option<egui::Event> {
     let m = chord.mods;
-    let key = chord.key.to_egui();
+    let key = chord.key.to_egui()?;
     let modifiers = egui::Modifiers { alt: m.alt, ctrl: m.ctrl, shift: m.shift, mac_cmd: m.cmd, command: m.cmd };
-    egui::Event::Key { key, physical_key: Some(key), pressed, repeat: false, modifiers }
+    Some(egui::Event::Key { key, physical_key: Some(key), pressed, repeat: false, modifiers })
 }
 
 /// A key press or click this frame. It may have changed state an app's menu hash doesn't list,

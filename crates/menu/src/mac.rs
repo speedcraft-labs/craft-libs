@@ -677,7 +677,7 @@ mod tests {
         for s in shortcuts {
             let c = Chord::parse(s).unwrap();
             assert!(native_ok(&c) && accelerator(&c).is_some(), "{s} has no key equivalent");
-            assert!(matches!(key_event(&c, true), egui::Event::Key { .. }), "{s} has no egui key press");
+            assert!(matches!(key_event(&c, true), Some(egui::Event::Key { .. })), "{s} has no egui key press");
         }
         let code = |s: &str| accelerator(&Chord::parse(s).unwrap()).unwrap();
         assert_eq!(code("Cmd+Delete"), Accelerator::new(Modifiers::META, Code::Delete), "forward delete, as egui's Key::Delete");
