@@ -7,7 +7,7 @@ url = "https://www.irs.gov/pub/irs-pdf/f990.pdf"
 sha256 = "0b715d2790691ca6d4fb16ba0923e3cdf1d0e04cd26ea48788d41a708e945533"
 licence = "U.S. government work; public domain (17 U.S.C. § 105)"
 provenance = "https://www.irs.gov/pub/irs-pdf/f990.pdf"
-tags = ["pdf", "forms", "acroform", "government", "javascript", "hierarchical-fields", "checkboxes"]
+tags = ["pdf", "forms", "acroform", "government", "document-javascript", "hierarchical-fields", "checkboxes"]
 
 [[file]]
 path = "irs-f1040-2025.pdf"
@@ -15,7 +15,7 @@ url = "https://www.irs.gov/pub/irs-pdf/f1040.pdf"
 sha256 = "3d31c226df0d189ced80e039d01cf0f8820c1019681a0f0ca6264de277b7e982"
 licence = "U.S. government work; public domain (17 U.S.C. § 105)"
 provenance = "https://www.irs.gov/pub/irs-pdf/f1040.pdf"
-tags = ["pdf", "forms", "acroform", "government", "javascript", "hierarchical-fields", "checkboxes"]
+tags = ["pdf", "forms", "acroform", "government", "document-javascript", "hierarchical-fields", "checkboxes"]
 
 [[file]]
 path = "uscode-title26-2023.pdf"
@@ -31,4 +31,12 @@ url = "https://www.opm.gov/forms/pdf_fill/sf85p.pdf"
 sha256 = "d2f5168d71aba229f2b98b9b33c729833331156ce384e0010435b647608bf2e1"
 licence = "U.S. government work; public domain (17 U.S.C. § 105)"
 provenance = "https://www.opm.gov/forms/pdf_fill/sf85p.pdf"
-tags = ["pdf", "forms", "government", "xfa", "javascript", "hierarchical-fields", "checkboxes", "choices"]
+tags = ["pdf", "forms", "government", "xfa", "xfa-javascript", "hierarchical-fields", "checkboxes", "choices"]
+
+[[file]]
+path = "osha-recordkeeping-forms-2019.pdf"
+url = "https://omb.report/downloads/recordkeeping-recordkeeping-forms-occupational-safety-and-health-administration/original.pdf?download=1"
+sha256 = "ecbd4a792c9909a9ebafd72f6f974b4420a9834767fa016fef0ad7a6277f2952"
+licence = "U.S. Department of Labor work; public domain (17 U.S.C. § 105)"
+provenance = "https://www.osha.gov/recordkeeping/forms"
+tags = ["pdf", "forms", "government", "acroform", "actions", "calculate", "format", "validate", "300-widgets"]

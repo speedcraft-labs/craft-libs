@@ -112,12 +112,12 @@ cargo run --release -p craft-journeys -- compare --base BASE_LIBS_REV --head HEA
 cargo run --release -p craft-journeys -- run --journey lightcraft.slider-exposure-latency --out lightcraft-exposure.json
 ```
 
-The PdfCraft real edit journeys use a public-domain corpus pinned in
-`crates/corpus/manifests/pdfcraft-public-domain.toml`: the IRS 2025 Form 990 (1,075 widgets,
-including hierarchical field names and embedded JavaScript), IRS 2025 Form 1040 (199 widgets),
-and the 2023 U.S. Code Title 26 (4,211 pages). They time one PdfCraft `Session` edit after open.
-
 PdfCraft's `pdfcraft-public-domain` journeys cover an IRS Form 990 with 1,075
 hierarchical AcroForm fields, an IRS Form 1040 with 199 fields, the 4,211-page
 2023 U.S. Code Title 26, and OPM's 95-page SF 85P with 4,128 hierarchical
-fields and embedded XFA JavaScript.
+fields and embedded XFA JavaScript, and OSHA's 12-page recordkeeping package with
+300 AcroForm widgets and 110 widgets carrying `/AA` actions. OSHA's real actions
+exercise format, validate, and calculate behavior. The IRS forms carry
+document-level scripts; their AcroForm fields have no `/AA` actions or `/CO`
+calculations. Every corpus entry pins its source URL and SHA-256 in the manifest.
+Each journey times one PdfCraft `Session` edit after open.
