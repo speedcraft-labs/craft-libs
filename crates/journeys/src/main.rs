@@ -59,6 +59,7 @@ enum OutputProtocol {
     VectorcraftExport,
     DesigncraftPerf,
     EffectcraftOps,
+    PhotocraftLargeImage,
 }
 
 #[derive(Debug)]
@@ -284,6 +285,35 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
                 .collect::<Vec<_>>()
                 .join("|");
             let identity = format!("{spec}|{shape}");
+            ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
+        }
+        OutputProtocol::PhotocraftLargeImage => {
+            let document = stdout
+                .lines()
+                .find(|line| line.starts_with("document "))
+                .ok_or_else(|| "photocraft benchmark output is missing its document summary".to_string())?;
+            let details = document.strip_prefix("document ").ok_or_else(|| "invalid photocraft document summary".to_string())?;
+            let (dimensions, rest) = details.split_once(" (").ok_or_else(|| "photocraft summary is missing image dimensions".to_string())?;
+            let op = rest
+                .split_once(", op ")
+                .map(|(_, op)| op.trim())
+                .ok_or_else(|| "photocraft summary is missing its operation".to_string())?;
+            let measured = stdout
+                .lines()
+                .find(|line| line.starts_with("open (decode + document)"))
+                .ok_or_else(|| "photocraft benchmark output is missing the open measurement".to_string())?;
+            let fields: Vec<_> = measured.split_whitespace().collect();
+            let millis = fields
+                .iter()
+                .position(|field| *field == "ms")
+                .and_then(|index| index.checked_sub(1).and_then(|previous| fields.get(previous)))
+                .ok_or_else(|| "photocraft benchmark output is missing measured milliseconds".to_string())?
+                .parse::<f64>()
+                .map_err(|e| format!("invalid photocraft open time: {e}"))?;
+            if !millis.is_finite() || millis < 0.0 {
+                return Err("photocraft open time must be finite and non-negative".into());
+            }
+            let identity = format!("{dimensions}|{op}");
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
     };

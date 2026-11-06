@@ -77,6 +77,13 @@
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft-cli"] },
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--small", "--json"], "output": "effectcraft-ops" }
+    },
+    {
+      "name": "photocraft.synthetic-image-open",
+      "app": "photocraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "photocraft-ui-egui", "--example", "large_image_bench"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "photocraft-ui-egui", "--example", "large_image_bench", "--", "--size", "4096x2731", "--op", "open", "--cpu", "--json", "/tmp/craft-journeys-photocraft.json"], "output": "photocraft-large-image" }
     }
   ]
 }
