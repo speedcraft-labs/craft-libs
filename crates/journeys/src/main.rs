@@ -63,6 +63,7 @@ enum OutputProtocol {
     FigcraftPerf,
     GridcraftPerf,
     SoundcraftMix,
+    FilmcraftProject,
 }
 
 #[derive(Debug)]
@@ -379,6 +380,22 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
                 return Err("soundcraft render time is too large".into());
             }
             (nanos as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
+        }
+        OutputProtocol::FilmcraftProject => {
+            let value: serde_json::Value = serde_json::from_str(stdout.trim()).map_err(|e| format!("invalid filmcraft bench JSON: {e}"))?;
+            let rows = value.get("rows").and_then(serde_json::Value::as_array).ok_or_else(|| "filmcraft bench JSON is missing rows".to_string())?;
+            let open = rows
+                .iter()
+                .find(|row| row.get("what").and_then(serde_json::Value::as_str) == Some("open (file.open)"))
+                .ok_or_else(|| "filmcraft project bench is missing the open measurement".to_string())?;
+            let millis = open.get("p50_ms").and_then(serde_json::Value::as_f64).ok_or_else(|| "filmcraft open row is missing p50_ms".to_string())?;
+            if !millis.is_finite() || millis < 0.0 {
+                return Err("filmcraft open time must be finite and non-negative".into());
+            }
+            let clips = open.get("clips").and_then(serde_json::Value::as_u64).ok_or_else(|| "filmcraft open row is missing its clip count".to_string())?;
+            let megabytes = open.get("mbytes").and_then(serde_json::Value::as_f64).ok_or_else(|| "filmcraft open row is missing project size".to_string())?;
+            let identity = format!("{clips} clips|{megabytes:.1} MB project");
+            ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
     };
     Ok(AppResult { duration_ns, identity })

@@ -25,9 +25,10 @@ The checked-in catalog includes native parsers for CADCraft `perf FILE`, WordCra
 `export_bench` summary, VectorCraft's `export_bench` summary, and DesignCraft's deterministic
 synthetic `perf` channel, EffectCraft's generated-project operation benchmark, PhotoCraft's
 deterministic generated-image benchmark, FigCraft's synthetic viewport benchmark, and GridCraft's
-generated-workbook benchmark, and SoundCraft's synthetic mix-throughput benchmark. These adapters
-extract the native measurement and a stable document or workload identity. A journey with no
-external inputs supplies one app-generated synthetic case.
+generated-workbook benchmark, SoundCraft's synthetic mix-throughput benchmark, and FilmCraft's
+generated-project open benchmark. These adapters extract the native measurement and a stable
+document or workload identity. A journey with no external inputs supplies one app-generated
+synthetic case.
 `compare` treats `--base` and `--head` as craft-libs
 revisions. It builds detached temporary worktrees for both library revisions, then builds the
 same app source in separate temporary worktrees with Cargo path patches pointing at each library
