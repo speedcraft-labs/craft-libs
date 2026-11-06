@@ -36,12 +36,12 @@ generated-workbook benchmark, SoundCraft's synthetic mix-throughput benchmark, a
 generated-project open benchmark. These adapters extract the native measurement and a stable
 document or workload identity. A journey with no external inputs supplies one app-generated
 synthetic case.
-`compare` treats `--base` and `--head` as craft-libs
-revisions. It builds detached temporary worktrees for both library revisions, then builds the
-same app source in separate temporary worktrees with Cargo path patches pointing at each library
-revision. The app's dependency lockfiles are isolated in those temporary app worktrees. Before
-any app build starts, the runner verifies that each input is listed in its `.craft-corpus.json`
-manifest and that its SHA-256 matches.
+`compare` treats `--base` and `--head` as craft-libs revisions. It can also compare app code with
+`--app-base` and `--app-head`; when omitted, it uses the current app working tree for both sides.
+App and library revision worktrees are cached under the configured target directory so a separate
+`prepare` command can compile both sides before the benchmark lock is taken. The app's dependency
+lockfiles are isolated in those app worktrees. Before any app build starts, the runner verifies
+that each input is listed in its `.craft-corpus.json` manifest and that its SHA-256 matches.
 
 ### Available journeys
 
@@ -69,14 +69,18 @@ Run and compare:
 ```sh
 cargo run --release -p craft-journeys -- run --journey cadcraft.open-dxf.large-map --out baselines/cadcraft-open.json
 cargo run --release -p craft-journeys -- compare --base BASE_LIBS_REV --head HEAD_LIBS_REV --journey wordcraft.open-office-docx --out baselines/wordcraft-open.json
+cargo run --release -p craft-journeys -- prepare --journey photocraft.content-aware-scale.24mp --base LIBS_REV --head LIBS_REV --app-base APP_BASE --app-head APP_HEAD
+cargo run --release -p craft-journeys -- compare --base LIBS_REV --head LIBS_REV --app-base APP_BASE --app-head APP_HEAD --journey photocraft.content-aware-scale.24mp --out photocraft-cas.json
 ```
 
 `run` pairs the current craft-libs working tree against itself to produce a baseline report.
-`compare` builds and runs both requested craft-libs revisions and prints the speed verdict.
+`compare` builds and runs both requested craft-libs and app revisions and prints the speed verdict.
+`prepare` builds the variants without sampling; run it outside the shared benchmark lock, then hold
+the lock only while invoking `run` or `compare`.
 Both commands return exit code 1 for a non-publishable report; errors return 2.
 
 For the shipped catalog, set the hyper checkout, corpus and build directory first. App builds
-are isolated by app and craft-libs revision under the selected target root, so ABBA samples
+are isolated by app, craft-libs revision, and app revision under the selected target root, so ABBA samples
 don't replace each other's executable:
 
 ```sh
