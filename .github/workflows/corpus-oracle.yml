@@ -6,6 +6,7 @@ on:
       - 'crates/corpus/**'
       - 'crates/oracle/**'
       - 'tools/**-oracle/**'
+      - 'tools/inflate-oracle/lean/**'
       - 'docs/verification/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -20,14 +21,27 @@ jobs:
       CARGO_HOME: /home/ghrunner/.cargo
       CARGO_TARGET_DIR: /jobs/work/actions-runner/_work/_temp/cargo-target/${{ github.run_id }}
       ARTCRAFT_CORPUS: /jobs/work/speedcraft-labs/hyper/corpus
+      LEAN_ZIP_INFLATE: ${{ github.workspace }}/tools/inflate-oracle/lean/.lake/build/bin/lzinflate
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Use preinstalled Rust
+      - name: Use preinstalled toolchains
         shell: bash
-        run: echo /home/ghrunner/.cargo/bin >> "$GITHUB_PATH"
+        run: |
+          echo /home/ghrunner/.cargo/bin >> "$GITHUB_PATH"
+          echo /home/ghrunner/.elan/bin >> "$GITHUB_PATH"
+      - name: Checkout pinned lean-zip dependency
+        uses: actions/checkout@v4
+        with:
+          repository: kim-em/lean-zip
+          ref: 2f7a63f38195bc667a926881b55d10c9f8a88eeb
+          path: tools/inflate-oracle/lean-zip
+          persist-credentials: false
+      - name: Build Lean inflate oracle
+        run: lake build lzinflate
+        working-directory: tools/inflate-oracle/lean
       - name: Run corpus and oracle suites
         shell: bash
         run: |
