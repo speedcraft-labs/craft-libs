@@ -297,7 +297,7 @@ impl NativeMenu {
         let at = raw
             .events
             .iter()
-            .position(|e| matches!(e, egui::Event::Key { key, pressed: false, .. } if *key == pressed_key))
+            .position(|e| matches!(e, egui::Event::Key { key, pressed: false, .. } if Some(*key) == pressed_key))
             .unwrap_or(raw.events.len());
         let press = matches!(event, egui::Event::Key { .. });
         raw.events.insert(at, event);
