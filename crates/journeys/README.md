@@ -53,6 +53,8 @@ manifest and that its SHA-256 matches.
 | `wordcraft.open-office-docx` | WordCraft | Open the pinned City-City DOCX |
 | `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
 | `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
+| `pdfcraft.edit-100k-pages` | PdfCraft | Add text to a generated 100,000-page document |
+| `pdfcraft.edit-acroform-3129` | PdfCraft | Edit one field in a generated 3,129-field AcroForm |
 | `pdfcraft.export-pdf.form-fixture` | PdfCraft | Export the pinned one-page form PDF to PNG |
 | `vectorcraft.export-svg.still-life` | VectorCraft | Export the pinned Still Life document to SVG |
 | `designcraft.synthetic-performance` | DesignCraft | Compose a deterministic synthetic document |
@@ -72,6 +74,11 @@ cargo run --release -p craft-journeys -- compare --base BASE_LIBS_REV --head HEA
 
 `run` pairs the current craft-libs working tree against itself to produce a baseline report.
 `compare` builds and runs both requested craft-libs revisions and prints the speed verdict.
+It can also compare app revisions with `--app-base` and `--app-head`; if omitted, both app sides
+use `HEAD`. The report records app revisions alongside craft-libs revisions.
+`--prepare-only` builds both sides into persistent task-local worktrees and target directories,
+without measuring. Use it before acquiring the shared bench lock; the subsequent `compare` then
+reuses those builds while the lock is held.
 Both commands return exit code 1 for a non-publishable report; errors return 2.
 
 For the shipped catalog, set the hyper checkout, corpus and build directory first. App builds

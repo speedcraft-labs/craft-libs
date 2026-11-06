@@ -10,7 +10,7 @@ use craft_bench::{Config, Paired, Report, report::Revs};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-const USAGE: &str = "usage:\n  craft-journeys run --journey X --out file.json\n  craft-journeys compare --base REV --head REV --journey X";
+const USAGE: &str = "usage:\n  craft-journeys run --journey X --out file.json\n  craft-journeys compare --base LIBS_REV --head LIBS_REV [--app-base APP_REV --app-head APP_REV] [--prepare-only] --journey X";
 
 #[derive(Debug, Deserialize)]
 struct Catalog {
@@ -96,12 +96,12 @@ fn render(s: &str, rev: &str, input: &Input, app: &str, app_repo: &Path) -> Stri
         .replace("{app_repo}", &app_repo.to_string_lossy())
 }
 
-fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &str, cargo_config: &Path) -> Result<AppResult, String> {
+fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: &Input, app: &str, cargo_config: &Path) -> Result<AppResult, String> {
     let mut cmd = Command::new(render(&spec.program, rev, input, app, cwd));
     cmd.current_dir(cwd)
         .env("CRAFT_JOURNEY_REV", rev)
         .env("ARTCRAFT_CORPUS", corpus_root())
-        .env("CARGO_TARGET_DIR", target_dir(app, rev))
+        .env("CARGO_TARGET_DIR", target_dir(app, app_rev, rev))
         .env("SQLX_OFFLINE", "true")
         .env("RUST_MIN_STACK", "8388608");
     if let Some(root) = std::env::var_os("ARTCRAFT_HYPER_ROOT") {
@@ -470,39 +470,45 @@ fn app_repo(path: &Path) -> Result<PathBuf, String> {
 struct AppCheckout {
     repo: PathBuf,
     path: PathBuf,
-    owned_worktree: bool,
 }
 
 impl AppCheckout {
     fn alias(checkout: &Self) -> Self {
-        Self { repo: checkout.repo.clone(), path: checkout.path.clone(), owned_worktree: false }
+        Self { repo: checkout.repo.clone(), path: checkout.path.clone() }
     }
 
-    fn at(repo: &Path, rev: &str, side: usize) -> Result<Self, String> {
+    fn at(repo: &Path, rev: &str, _side: usize) -> Result<Self, String> {
         if rev == "working-tree" {
-            return Ok(Self { repo: repo.to_path_buf(), path: repo.to_path_buf(), owned_worktree: false });
+            return Ok(Self { repo: repo.to_path_buf(), path: repo.to_path_buf() });
         }
-        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| e.to_string())?.as_nanos();
-        let path = std::env::temp_dir().join(format!("craft-journeys-{}-{side}-{nonce}", std::process::id()));
-        let result = Command::new("git")
-            .args(["worktree", "add", "--detach"])
-            .arg(&path)
-            .arg(rev)
+        let resolved = Command::new("git")
+            .args(["rev-parse", "--verify", &format!("{rev}^{{commit}}")])
             .current_dir(repo)
             .output()
-            .map_err(|e| format!("launch git worktree for {rev}: {e}"))?;
-        if !result.status.success() {
-            return Err(format!("git worktree for {rev} failed ({}): {}", result.status, String::from_utf8_lossy(&result.stderr)));
+            .map_err(|e| format!("resolve git revision {rev}: {e}"))?;
+        if !resolved.status.success() {
+            return Err(format!("git revision {rev} failed ({}): {}", resolved.status, String::from_utf8_lossy(&resolved.stderr)));
         }
-        Ok(Self { repo: repo.to_path_buf(), path, owned_worktree: true })
-    }
-}
-
-impl Drop for AppCheckout {
-    fn drop(&mut self) {
-        if self.owned_worktree {
-            let _ = Command::new("git").args(["worktree", "remove", "--force"]).arg(&self.path).current_dir(&self.repo).output();
+        let commit = String::from_utf8_lossy(&resolved.stdout).trim().to_string();
+        let repo_name = repo.file_name().and_then(|n| n.to_str()).unwrap_or("repo");
+        let hash = format!("{:x}", Sha256::digest(commit.as_bytes()));
+        let target_root = std::env::var_os("CRAFT_JOURNEYS_TARGET_DIR")
+            .map_or_else(|| PathBuf::from("/jobs/work/speedcraft-labs/targets/craft-journeys"), PathBuf::from);
+        let path = target_root.join("worktrees").join(format!("{repo_name}-{}", &hash[..16]));
+        if !path.join(".git").exists() {
+            std::fs::create_dir_all(path.parent().ok_or("checkout path has no parent")?).map_err(|e| e.to_string())?;
+            let result = Command::new("git")
+                .args(["worktree", "add", "--detach"])
+                .arg(&path)
+                .arg(&commit)
+                .current_dir(repo)
+                .output()
+                .map_err(|e| format!("launch git worktree for {rev}: {e}"))?;
+            if !result.status.success() {
+                return Err(format!("git worktree for {rev} failed ({}): {}", result.status, String::from_utf8_lossy(&result.stderr)));
+            }
         }
+        Ok(Self { repo: repo.to_path_buf(), path })
     }
 }
 
@@ -616,14 +622,22 @@ fn craft_libs_repo() -> Result<PathBuf, String> {
     path.ancestors().nth(2).map(Path::to_path_buf).ok_or_else(|| "cannot locate craft-libs workspace root".to_string())
 }
 
-fn target_dir(app: &str, rev: &str) -> PathBuf {
+fn target_dir(app: &str, app_rev: &str, libs_rev: &str) -> PathBuf {
     let root = std::env::var_os("CRAFT_JOURNEYS_TARGET_DIR")
         .map_or_else(|| PathBuf::from("/jobs/work/speedcraft-labs/targets/craft-journeys"), PathBuf::from);
-    let rev_hash = format!("{:x}", Sha256::digest(rev.as_bytes()));
+    let rev_hash = format!("{:x}", Sha256::digest(format!("{app_rev}\0{libs_rev}").as_bytes()));
     root.join(app).join(&rev_hash[..16])
 }
 
-fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) -> Result<Report, String> {
+fn execute(
+    journey: &Journey,
+    old_rev: &str,
+    new_rev: &str,
+    app_base: &str,
+    app_head: &str,
+    out: Option<&Path>,
+    prepare_only: bool,
+) -> Result<Option<Report>, String> {
     let mut inputs = journey.inputs.clone();
     if inputs.is_empty() {
         // App-owned deterministic generators (for example `designcraft-cli perf`) still provide
@@ -639,19 +653,19 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
     if !repo.is_dir() {
         return Err(format!("app repo does not exist: {}", repo.display()));
     }
-    let app_old = AppCheckout::at(&repo, "HEAD", 0)?;
-    let app_new = if old_rev == new_rev { AppCheckout::alias(&app_old) } else { AppCheckout::at(&repo, "HEAD", 1)? };
+    let app_old = AppCheckout::at(&repo, app_base, 0)?;
+    let app_new = if app_base == app_head { AppCheckout::alias(&app_old) } else { AppCheckout::at(&repo, app_head, 1)? };
     let checkouts = [app_old, app_new];
     let lib_repo = craft_libs_repo()?;
     let libs_old = LibRevision::at(&lib_repo, old_rev, 0)?;
     let libs_new = if old_rev == new_rev { LibRevision::alias(&libs_old) } else { LibRevision::at(&lib_repo, new_rev, 1)? };
     let revisions = [libs_old, libs_new];
-    for (rev, checkout, libs) in [(old_rev, &checkouts[0], &revisions[0]), (new_rev, &checkouts[1], &revisions[1])] {
+    for (rev, app_rev, checkout, libs) in [(old_rev, app_base, &checkouts[0], &revisions[0]), (new_rev, app_head, &checkouts[1], &revisions[1])] {
         let mut cmd = Command::new(render(&journey.build.program, rev, &inputs[0], &journey.app, &checkout.path));
         cmd.current_dir(&checkout.path)
             .env("CRAFT_JOURNEY_REV", rev)
             .env("ARTCRAFT_CORPUS", corpus_root())
-            .env("CARGO_TARGET_DIR", target_dir(&journey.app, rev))
+            .env("CARGO_TARGET_DIR", target_dir(&journey.app, app_rev, rev))
             .env("SQLX_OFFLINE", "true")
             .env("RUST_MIN_STACK", "8388608");
         if let Some(root) = std::env::var_os("ARTCRAFT_HYPER_ROOT") {
@@ -670,25 +684,31 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
             return Err(format!("build {} at {rev} failed ({})\n{}", journey.app, result.status, String::from_utf8_lossy(&result.stderr)));
         }
     }
+    if prepare_only {
+        return Ok(None);
+    }
     let input_pairs: Vec<_> = inputs.into_iter().map(|i| (i.name.clone(), i)).collect();
     let report = Paired::new(format!("{} / {}", journey.app, journey.name))
         .old(|input: &Input| {
-            run_command(&journey.run, &checkouts[0].path, old_rev, input, &journey.app, &revisions[0].cargo_config)
+            run_command(&journey.run, &checkouts[0].path, old_rev, app_base, input, &journey.app, &revisions[0].cargo_config)
                 .unwrap_or_else(|e| AppResult { duration_ns: 0, identity: format!("ERROR: {e}") })
         })
         .new(|input: &Input| {
-            run_command(&journey.run, &checkouts[1].path, new_rev, input, &journey.app, &revisions[1].cargo_config)
+            run_command(&journey.run, &checkouts[1].path, new_rev, app_head, input, &journey.app, &revisions[1].cargo_config)
                 .unwrap_or_else(|e| AppResult { duration_ns: 0, identity: format!("ERROR: {e}") })
         })
         .inputs(input_pairs)
         .check(|a, b| !a.identity.starts_with("ERROR:") && a.identity == b.identity)
         .wall_meter(|output| output.duration_ns)
-        .run(&Config { revs: Revs { old: Some(old_rev.to_string()), new: Some(new_rev.to_string()) }, ..Config::default() })
+        .run(&Config {
+            revs: Revs { old: Some(format!("app {app_base} / libs {old_rev}")), new: Some(format!("app {app_head} / libs {new_rev}")) },
+            ..Config::default()
+        })
         .map_err(|e| e.to_string())?;
     if let Some(path) = out {
         std::fs::write(path, report.to_json()).map_err(|e| format!("{}: {e}", path.display()))?;
     }
-    Ok(report)
+    Ok(Some(report))
 }
 
 fn arg(args: &[String], flag: &str) -> Result<String, String> {
@@ -696,20 +716,31 @@ fn arg(args: &[String], flag: &str) -> Result<String, String> {
     args.get(pos + 1).cloned().ok_or_else(|| format!("{flag} needs a value"))
 }
 
+fn optional_arg(args: &[String], flag: &str) -> Option<String> {
+    args.iter().position(|v| v == flag).and_then(|i| args.get(i + 1)).cloned()
+}
+
 fn execute_cli(args: &[String]) -> Result<bool, String> {
     match args.first().map(String::as_str) {
         Some("run") => {
             let journey = choose(catalog()?, &arg(args, "--journey")?)?;
             let current = std::env::var("CRAFT_JOURNEY_REV").unwrap_or_else(|_| "working-tree".into());
-            let report = execute(&journey, &current, &current, Some(Path::new(&arg(args, "--out")?)))?;
+            let report = execute(&journey, &current, &current, "working-tree", "working-tree", Some(Path::new(&arg(args, "--out")?)), false)?
+                .ok_or("run unexpectedly skipped its measurement")?;
             print!("{}", report.to_markdown());
             Ok(report.publishable)
         }
         Some("compare") => {
             let (base, head) = (arg(args, "--base")?, arg(args, "--head")?);
             let journey = choose(catalog()?, &arg(args, "--journey")?)?;
+            let app_base = optional_arg(args, "--app-base").unwrap_or_else(|| "HEAD".into());
+            let app_head = optional_arg(args, "--app-head").unwrap_or_else(|| "HEAD".into());
             let out = args.iter().position(|v| v == "--out").and_then(|i| args.get(i + 1)).map(Path::new);
-            let report = execute(&journey, &base, &head, out)?;
+            let prepare_only = args.iter().any(|arg| arg == "--prepare-only");
+            let Some(report) = execute(&journey, &base, &head, &app_base, &app_head, out, prepare_only)? else {
+                println!("prepared {} for app {app_base} → {app_head}, craft-libs {base} → {head}", journey.name);
+                return Ok(true);
+            };
             print!("{}", report.to_markdown());
             if report.publishable {
                 println!("verdict: {}", report.aggregate.wall.verdict().label());
