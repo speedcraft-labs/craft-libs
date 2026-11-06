@@ -1,0 +1,34 @@
+name = "pdfcraft-public-domain"
+description = "Public-domain U.S. government PDFs for real-file PdfCraft edit journeys."
+
+[[file]]
+path = "irs-f990-2025.pdf"
+url = "https://www.irs.gov/pub/irs-pdf/f990.pdf"
+sha256 = "0b715d2790691ca6d4fb16ba0923e3cdf1d0e04cd26ea48788d41a708e945533"
+licence = "U.S. government work; public domain (17 U.S.C. § 105)"
+provenance = "https://www.irs.gov/pub/irs-pdf/f990.pdf"
+tags = ["pdf", "forms", "acroform", "government", "javascript", "hierarchical-fields", "checkboxes"]
+
+[[file]]
+path = "irs-f1040-2025.pdf"
+url = "https://www.irs.gov/pub/irs-pdf/f1040.pdf"
+sha256 = "3d31c226df0d189ced80e039d01cf0f8820c1019681a0f0ca6264de277b7e982"
+licence = "U.S. government work; public domain (17 U.S.C. § 105)"
+provenance = "https://www.irs.gov/pub/irs-pdf/f1040.pdf"
+tags = ["pdf", "forms", "acroform", "government", "javascript", "hierarchical-fields", "checkboxes"]
+
+[[file]]
+path = "uscode-title26-2023.pdf"
+url = "https://www.govinfo.gov/content/pkg/USCODE-2023-title26/pdf/USCODE-2023-title26.pdf"
+sha256 = "0b8dd9e1d8132c09a2d56c60ec827a1195b61ce53a4a285a15255de29ad656ba"
+licence = "U.S. government work; public domain (17 U.S.C. § 105)"
+provenance = "https://www.govinfo.gov/content/pkg/USCODE-2023-title26/pdf/USCODE-2023-title26.pdf"
+tags = ["pdf", "government", "large", "4211-pages"]
+
+[[file]]
+path = "opm-sf85p-2017.pdf"
+url = "https://www.opm.gov/forms/pdf_fill/sf85p.pdf"
+sha256 = "d2f5168d71aba229f2b98b9b33c729833331156ce384e0010435b647608bf2e1"
+licence = "U.S. government work; public domain (17 U.S.C. § 105)"
+provenance = "https://www.opm.gov/forms/pdf_fill/sf85p.pdf"
+tags = ["pdf", "forms", "government", "xfa", "javascript", "hierarchical-fields", "checkboxes", "choices"]
