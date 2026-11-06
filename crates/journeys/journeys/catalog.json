@@ -55,6 +55,14 @@
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "pdfcraft-engine", "--example", "export_bench"] },
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "pdfcraft-engine", "--example", "export_bench", "--", "{input}", "72", "png", "5"], "output": "pdfcraft-export" },
       "inputs": [{ "name": "form", "path": "pdfcraft-fixtures/form.pdf" }]
+    },
+    {
+      "name": "vectorcraft.export-svg.still-life",
+      "app": "vectorcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/vectorcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "vectorcraft-engine", "--example", "export_bench"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "vectorcraft-engine", "--example", "export_bench", "--", "svg", "{input}"], "env": { "ITERS": "5" }, "output": "vectorcraft-export" },
+      "inputs": [{ "name": "still-life", "path": "vectorcraft-fixtures/still-life.vectorcraft" }]
     }
   ]
 }

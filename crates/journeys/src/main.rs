@@ -55,6 +55,7 @@ enum OutputProtocol {
     DeckcraftBench,
     LightcraftDrag,
     PdfcraftExport,
+    VectorcraftExport,
 }
 
 #[derive(Debug)]
@@ -209,6 +210,27 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
                 .map(|(_, hash)| hash.trim())
                 .filter(|hash| !hash.is_empty())
                 .ok_or_else(|| "pdfcraft export output is missing its output hash".to_string())?;
+            ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
+        }
+        OutputProtocol::VectorcraftExport => {
+            let line = stdout
+                .lines()
+                .find(|line| line.contains(": median ") && line.ends_with(" bytes)"))
+                .ok_or_else(|| "vectorcraft export output is missing its summary".to_string())?;
+            let (label, rest) = line.split_once(": median ").ok_or_else(|| "vectorcraft export output is missing its file label".to_string())?;
+            let (millis, rest) = rest.split_once(" ms, min ").ok_or_else(|| "vectorcraft export output is missing median milliseconds".to_string())?;
+            let millis = millis.parse::<f64>().map_err(|e| format!("invalid vectorcraft export time: {e}"))?;
+            if !millis.is_finite() || millis < 0.0 {
+                return Err("vectorcraft export time must be finite and non-negative".into());
+            }
+            let bytes = rest
+                .strip_suffix(" bytes)")
+                .and_then(|r| r.rsplit_once('('))
+                .map(|(_, count)| count)
+                .ok_or_else(|| "vectorcraft export output is missing output size".to_string())?
+                .parse::<u64>()
+                .map_err(|e| format!("invalid vectorcraft output size: {e}"))?;
+            let identity = format!("{label}:{bytes}");
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
     };
