@@ -75,7 +75,9 @@ cargo run --release -p craft-journeys -- prepare --base BASE_LIBS_REV --head HEA
 `compare` builds and runs both requested craft-libs revisions and prints the speed verdict.
 `prepare` verifies the selected inputs and builds both app/library revisions without collecting
 measurements. Use it before acquiring the shared benchmark lock so Cargo compilation stays outside
-the locked measurement window; `run` and `compare` can then reuse the same revision-keyed targets.
+the locked measurement window. After preparation, `run` and `compare` accept `--no-build` to skip
+their build phase; adapters configured with `{app_binary}` then execute the prepared binary
+directly, without invoking Cargo during samples.
 Set `CRAFT_JOURNEYS_APP_BASE_REV` and `CRAFT_JOURNEYS_APP_HEAD_REV` to compare app revisions;
 they default to `HEAD` and the same revision. Raw report revision labels record both app and
 craft-libs revisions. Each app build and run gets a target directory keyed by both revisions,

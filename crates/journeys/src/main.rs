@@ -9,7 +9,7 @@ use craft_bench::{Config, Paired, Report, report::Revs};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-const USAGE: &str = "usage:\n  craft-journeys run --journey X --out file.json\n  craft-journeys compare --base REV --head REV --journey X\n  craft-journeys prepare --base REV --head REV --journey X";
+const USAGE: &str = "usage:\n  craft-journeys run --journey X --out file.json [--no-build]\n  craft-journeys compare --base REV --head REV --journey X [--no-build]\n  craft-journeys prepare --base REV --head REV --journey X";
 
 #[derive(Debug, Deserialize)]
 struct Catalog {
@@ -96,7 +96,13 @@ fn render(s: &str, rev: &str, input: &Input, app: &str, app_repo: &Path) -> Stri
 }
 
 fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: &Input, app: &str, cargo_config: &Path) -> Result<AppResult, String> {
-    let mut cmd = Command::new(render(&spec.program, rev, input, app, cwd));
+    let app_binary = target_dir(app, rev, app_rev).join(format!("release/examples/perf_probe{}", std::env::consts::EXE_SUFFIX));
+    let program = if spec.program.contains("{app_binary}") {
+        spec.program.replace("{app_binary}", &app_binary.to_string_lossy())
+    } else {
+        render(&spec.program, rev, input, app, cwd)
+    };
+    let mut cmd = Command::new(program);
     cmd.current_dir(cwd)
         .env("CRAFT_JOURNEY_REV", rev)
         .env("ARTCRAFT_CORPUS", corpus_root())
@@ -764,13 +770,15 @@ fn prepare(journey: &Journey, old_rev: &str, new_rev: &str) -> Result<(), String
     Ok(())
 }
 
-fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) -> Result<Report, String> {
+fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, build: bool) -> Result<Report, String> {
     let context = journey_context(journey, old_rev, new_rev)?;
-    for (rev, app_rev, checkout, libs) in [
-        (old_rev, context.app_base.as_str(), &context.checkouts[0], &context.revisions[0]),
-        (new_rev, context.app_head.as_str(), &context.checkouts[1], &context.revisions[1]),
-    ] {
-        build_app(journey, rev, app_rev, &context.inputs[0], checkout, libs)?;
+    if build {
+        for (rev, app_rev, checkout, libs) in [
+            (old_rev, context.app_base.as_str(), &context.checkouts[0], &context.revisions[0]),
+            (new_rev, context.app_head.as_str(), &context.checkouts[1], &context.revisions[1]),
+        ] {
+            build_app(journey, rev, app_rev, &context.inputs[0], checkout, libs)?;
+        }
     }
     let JourneyContext { inputs, app_base, app_head, checkouts, revisions } = context;
     let input_pairs: Vec<_> = inputs.into_iter().map(|i| (i.name.clone(), i)).collect();
@@ -807,7 +815,8 @@ fn execute_cli(args: &[String]) -> Result<bool, String> {
         Some("run") => {
             let journey = choose(catalog()?, &arg(args, "--journey")?)?;
             let current = std::env::var("CRAFT_JOURNEY_REV").unwrap_or_else(|_| "working-tree".into());
-            let report = execute(&journey, &current, &current, Some(Path::new(&arg(args, "--out")?)))?;
+            let build = !args.iter().any(|value| value == "--no-build");
+            let report = execute(&journey, &current, &current, Some(Path::new(&arg(args, "--out")?)), build)?;
             print!("{}", report.to_markdown());
             Ok(report.publishable)
         }
@@ -815,7 +824,8 @@ fn execute_cli(args: &[String]) -> Result<bool, String> {
             let (base, head) = (arg(args, "--base")?, arg(args, "--head")?);
             let journey = choose(catalog()?, &arg(args, "--journey")?)?;
             let out = args.iter().position(|v| v == "--out").and_then(|i| args.get(i + 1)).map(Path::new);
-            let report = execute(&journey, &base, &head, out)?;
+            let build = !args.iter().any(|value| value == "--no-build");
+            let report = execute(&journey, &base, &head, out, build)?;
             print!("{}", report.to_markdown());
             if report.publishable {
                 println!("verdict: {}", report.aggregate.wall.verdict().label());

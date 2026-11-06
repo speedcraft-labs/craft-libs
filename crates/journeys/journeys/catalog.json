@@ -29,7 +29,7 @@
       "app": "wordcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/wordcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "wordcraft-ui-egui", "--example", "perf_probe"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "wordcraft-ui-egui", "--example", "perf_probe", "--", "{input}", "--first-page-only"], "output": "wordcraft-probe" },
+      "run": { "program": "{app_binary}", "args": ["{input}", "--first-page-only"], "output": "wordcraft-probe" },
       "inputs": [{ "name": "WordCraft-1096-pages", "path": ".journey-fixtures/wordcraft-open/wordcraft-1096.docx" }]
     },
     {
