@@ -83,7 +83,8 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
         .env("SQLX_OFFLINE", "true")
         .env("RUST_MIN_STACK", "8388608");
     if let Some(root) = std::env::var_os("ARTCRAFT_HYPER_ROOT") {
-        cmd.env("CRAFT_I18N_DIR", PathBuf::from(root).join("repos/libs/craft-i18n"));
+        let root = PathBuf::from(root);
+        cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
     }
     cmd.args(spec.args.iter().map(|a| render(a, rev, input, app)));
     let output = cmd.output().map_err(|e| format!("launch {}: {e}", spec.program))?;
@@ -270,7 +271,8 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
             .env("SQLX_OFFLINE", "true")
             .env("RUST_MIN_STACK", "8388608");
         if let Some(root) = std::env::var_os("ARTCRAFT_HYPER_ROOT") {
-            cmd.env("CRAFT_I18N_DIR", PathBuf::from(root).join("repos/libs/craft-i18n"));
+            let root = PathBuf::from(root);
+            cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
         }
         cmd.args(journey.build.args.iter().map(|a| render(a, rev, &journey.inputs[0], &journey.app)));
         let result = cmd.output().map_err(|e| format!("build {} at {rev}: {e}", journey.app))?;
