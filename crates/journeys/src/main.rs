@@ -718,7 +718,7 @@ fn target_root() -> PathBuf {
 
 fn target_dir(app: &str, libs_rev: &str, app_rev: &str) -> PathBuf {
     let root = target_root();
-    let revision_key = format!("{libs_rev}\0{app_rev}");
+    let revision_key = format!("{libs_rev}:{app_rev}");
     let rev_hash = format!("{:x}", Sha256::digest(revision_key.as_bytes()));
     root.join(app).join(&rev_hash[..16])
 }
@@ -759,7 +759,15 @@ fn journey_context(journey: &Journey, old_rev: &str, new_rev: &str) -> Result<Jo
 }
 
 fn build_app(journey: &Journey, rev: &str, app_rev: &str, input: &Input, checkout: &AppCheckout, libs: &LibRevision) -> Result<(), String> {
-    let mut cmd = Command::new(render(&journey.build.program, rev, input, &journey.app, &checkout.path));
+    let build_program = render(&journey.build.program, rev, input, &journey.app, &checkout.path);
+    let cargo_build = Path::new(&build_program).file_name().is_some_and(|name| name == "cargo");
+    let mut cmd = if cargo_build {
+        let mut command = Command::new("nice");
+        command.args(["-n", "19", "cargo"]).env("CARGO_BUILD_JOBS", "8");
+        command
+    } else {
+        Command::new(build_program)
+    };
     cmd.current_dir(&checkout.path)
         .env("CRAFT_JOURNEY_REV", rev)
         .env("ARTCRAFT_CORPUS", corpus_root())
@@ -770,7 +778,7 @@ fn build_app(journey: &Journey, rev: &str, app_rev: &str, input: &Input, checkou
         let root = PathBuf::from(root);
         cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
     }
-    if Path::new(&journey.build.program).file_name().is_some_and(|name| name == "cargo") {
+    if cargo_build {
         cmd.args(["--config"]).arg(&libs.cargo_config);
         for config in &journey.build.cargo_config_overrides {
             cmd.args(["--config"]).arg(render(config, rev, input, &journey.app, &checkout.path));
