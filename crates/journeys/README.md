@@ -36,12 +36,11 @@ generated-workbook benchmark, SoundCraft's synthetic mix-throughput benchmark, a
 generated-project open benchmark. These adapters extract the native measurement and a stable
 document or workload identity. A journey with no external inputs supplies one app-generated
 synthetic case.
-`compare` treats `--base` and `--head` as craft-libs revisions. It can also compare app code with
-`--app-base` and `--app-head`; when omitted, it uses the current app working tree for both sides.
-App and library revision worktrees are cached under the configured target directory so a separate
-`prepare` command can compile both sides before the benchmark lock is taken. The app's dependency
-lockfiles are isolated in those app worktrees. Before any app build starts, the runner verifies
-that each input is listed in its `.craft-corpus.json` manifest and that its SHA-256 matches.
+`compare` treats `--base` and `--head` as craft-libs revisions. App revisions can be selected with
+`CRAFT_JOURNEYS_APP_BASE_REV` and `CRAFT_JOURNEYS_APP_HEAD_REV`; these default to `HEAD` and the
+base app revision. The runner checks each input against its `.craft-corpus.json` manifest and
+SHA-256 before building. It keeps revision worktrees and Cargo patch files under the configured
+target root so prepared builds can be reused.
 
 ### Available journeys
 
@@ -51,7 +50,7 @@ that each input is listed in its `.craft-corpus.json` manifest and that its SHA-
 | `cadcraft.open-dxf.large-map` | CADCraft | Open the pinned Graz map DXF |
 | `cadcraft.open-dxf.usa` | CADCraft | Open the pinned USA DXF |
 | `cadcraft.open-dxf.us-main` | CADCraft | Open the pinned US-main DXF |
-| `wordcraft.open-office-docx` | WordCraft | Open the pinned City-City DOCX |
+| `wordcraft.open-office-docx` | WordCraft | Open the pinned synthetic 1,096-page DOCX and measure from file open through the first painted page |
 | `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
 | `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
 | `pdfcraft.edit-100k-pages` | PdfCraft | Add text to a generated 100,000-page document |
@@ -72,21 +71,27 @@ Run and compare:
 ```sh
 cargo run --release -p craft-journeys -- run --journey cadcraft.open-dxf.large-map --out baselines/cadcraft-open.json
 cargo run --release -p craft-journeys -- compare --base BASE_LIBS_REV --head HEAD_LIBS_REV --journey wordcraft.open-office-docx --out baselines/wordcraft-open.json
-cargo run --release -p craft-journeys -- prepare --journey photocraft.content-aware-scale.24mp --base LIBS_REV --head LIBS_REV --app-base APP_BASE --app-head APP_HEAD
-cargo run --release -p craft-journeys -- compare --base LIBS_REV --head LIBS_REV --app-base APP_BASE --app-head APP_HEAD --journey photocraft.content-aware-scale.24mp --out photocraft-cas.json
+cargo run --release -p craft-journeys -- prepare --base BASE_LIBS_REV --head HEAD_LIBS_REV --journey wordcraft.open-office-docx
 ```
 
 `run` pairs the current craft-libs working tree against itself to produce a baseline report.
 `compare` builds and runs both requested craft-libs revisions and prints the speed verdict.
-It can also compare app revisions with `--app-base` and `--app-head`; if omitted, both app sides
-use `HEAD`. The report records app revisions alongside craft-libs revisions.
-`--prepare-only` builds both sides into persistent task-local worktrees and target directories,
-without measuring. Use it before acquiring the shared bench lock; the subsequent `compare` then
-reuses those builds while the lock is held.
-Both commands return exit code 1 for a non-publishable report; errors return 2.
+`prepare` verifies the selected inputs and builds both app/library revisions without collecting
+measurements. Use it before acquiring the shared benchmark lock so Cargo compilation stays outside
+the locked measurement window. After preparation, `run` and `compare` accept `--no-build` to skip
+their build phase; adapters configured with `{app_binary}` then execute the prepared binary
+directly, without invoking Cargo during samples.
+Set `CRAFT_JOURNEYS_APP_BASE_REV` and `CRAFT_JOURNEYS_APP_HEAD_REV` to compare app revisions;
+they default to `HEAD` and the same revision. Raw report revision labels record both app and
+craft-libs revisions. Each app build and run gets a target directory keyed by both revisions,
+and revision worktrees plus Cargo patch files keep stable paths under the selected target root,
+so paired runs reuse their warmed binaries instead of rebuilding one side over the other.
+Run `prepare` before acquiring the shared benchmark lock, then use `--no-build` with `run` or
+`compare` while the lock is held. Both commands return exit code 1 for a non-publishable report;
+errors return 2.
 
 For the shipped catalog, set the hyper checkout, corpus and build directory first. App builds
-are isolated by app, craft-libs revision, and app revision under the selected target root, so ABBA samples
+are isolated by app and both revisions under the selected target root, so ABBA samples
 don't replace each other's executable:
 
 ```sh
