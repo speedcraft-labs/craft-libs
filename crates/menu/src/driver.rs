@@ -302,10 +302,11 @@ impl NativeMenu {
             .unwrap_or(raw.events.len());
         let press = matches!(event, egui::Event::Key { .. });
         raw.events.insert(at, event);
-        if tap && press {
-            if let Some(release) = key_event(chord, false) {
-                raw.events.insert(at + 1, release);
-            }
+        if tap
+            && press
+            && let Some(release) = key_event(chord, false)
+        {
+            raw.events.insert(at + 1, release);
         }
     }
 

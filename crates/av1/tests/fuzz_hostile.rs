@@ -98,10 +98,18 @@ const DEADLINE_SECS: u64 = 600;
 
 #[test]
 fn hostile_streams_never_panic() {
-    support::with_deadline(DEADLINE_SECS, sweep);
+    support::with_deadline(DEADLINE_SECS, || sweep(false));
 }
 
-fn sweep() {
+/// The exhaustive mutation matrix is intentionally available for the corpus CI job, but its
+/// per-case fresh decoder startup makes it unsuitable for every workspace test run.
+#[test]
+#[ignore = "exhaustive hostile AV1 mutation sweep; run in the Agentbox corpus job"]
+fn hostile_streams_exhaustive_never_panic() {
+    support::with_deadline(DEADLINE_SECS, || sweep(true));
+}
+
+fn sweep(exhaustive: bool) {
     let Some(ff) = support::ffmpeg_or_skip("AV1 fuzz") else { return };
     for &(name, args, pix) in SEEDS {
         if !support::ffmpeg_has_encoder(&ff, "libsvtav1") {
@@ -116,21 +124,25 @@ fn sweep() {
             continue;
         }
         // truncate each of the first frames at every length
-        for fi in 0..seed.len().min(3) {
+        for fi in 0..seed.len().min(if exhaustive { 3 } else { 1 }) {
             let len = seed[fi].len();
-            for n in (0..len).step_by((len / 200).max(1)) {
+            let stride = if exhaustive { (len / 200).max(1) } else { (len / 8).max(1) };
+            for n in (0..len).step_by(stride) {
                 let mut d = seed.clone();
                 d[fi].truncate(n);
                 run_all(&d, &format!("{name} frame {fi} truncate {n}"));
             }
         }
         // header region of every frame: every byte to a few values, every bit
-        for fi in 0..seed.len() {
-            for p in 0..seed[fi].len().min(96) {
-                for v in [0u8, 0xff, 0x80, 0x01, 0x7f] {
-                    let mut d = seed.clone();
-                    d[fi][p] = v;
-                    run_all(&d, &format!("{name} frame {fi} byte {p}={v:#x}"));
+        for fi in 0..if exhaustive { seed.len() } else { seed.len().min(1) } {
+            let positions = if exhaustive { 96 } else { 8 };
+            for p in 0..seed[fi].len().min(positions) {
+                if exhaustive {
+                    for v in [0u8, 0xff, 0x80, 0x01, 0x7f] {
+                        let mut d = seed.clone();
+                        d[fi][p] = v;
+                        run_all(&d, &format!("{name} frame {fi} byte {p}={v:#x}"));
+                    }
                 }
                 for b in 0..8 {
                     let mut d = seed.clone();
@@ -140,7 +152,7 @@ fn sweep() {
             }
         }
         let mut rng = Rng(0x9e3779b97f4a7c15 ^ name.len() as u64);
-        for i in 0..iters() {
+        for i in 0..if exhaustive { iters() } else { 8 } {
             let mut d = seed.clone();
             for _ in 0..1 + rng.below(6) {
                 let fi = rng.below(d.len());
