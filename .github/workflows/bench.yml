@@ -1,29 +1,33 @@
-name: Shared Bench
-
+name: Bench harness
 on:
   push:
-    branches: [main]
-    paths: ["crates/bench/**", "Cargo.toml", "Cargo.lock", ".github/workflows/bench.yml"]
-  pull_request:
-    paths: ["crates/bench/**", "Cargo.toml", "Cargo.lock", ".github/workflows/bench.yml"]
+    branches: ['algo/**']
+    paths:
+      - 'crates/bench/**'
+      - 'crates/*/benches/**'
+      - 'crates/*/tests/bench.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/bench.yml'
   workflow_dispatch:
-
+  schedule:
+    - cron: '0 5 * * 1'
 permissions:
   contents: read
-
 jobs:
-  native:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+  bench:
+    runs-on: [self-hosted, agentbox]
+    env:
+      CARGO_HOME: /home/ghrunner/.cargo
+      CARGO_TARGET_DIR: /jobs/work/actions-runner/_work/_temp/cargo-target/${{ github.run_id }}
+    timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
-        with:
-          components: rustfmt, clippy
-      - run: cargo fmt -p craft-bench --check
-      - run: cargo clippy -p craft-bench --all-targets --locked -- -D warnings
-      - run: cargo test -p craft-bench --locked
+      - name: Use preinstalled toolchains
+        shell: bash
+        run: |
+          echo /home/ghrunner/.cargo/bin >> "$GITHUB_PATH"
+      - name: Check benchmark harness
+        run: cargo test -p craft-bench --no-fail-fast

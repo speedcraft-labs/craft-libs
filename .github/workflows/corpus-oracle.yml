@@ -1,0 +1,62 @@
+name: Corpus and oracles
+on:
+  push:
+    branches: ['algo/**']
+    paths:
+      - 'crates/corpus/**'
+      - 'crates/oracle/**'
+      - 'tools/**-oracle/**'
+      - 'tools/inflate-oracle/lean/**'
+      - 'docs/verification/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/corpus-oracle.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * 1'
+permissions:
+  contents: read
+jobs:
+  oracle:
+    runs-on: [self-hosted, agentbox]
+    env:
+      CARGO_HOME: /home/ghrunner/.cargo
+      CARGO_TARGET_DIR: /jobs/work/actions-runner/_work/_temp/cargo-target/${{ github.run_id }}
+      ARTCRAFT_CORPUS: /jobs/work/speedcraft-labs/hyper/corpus
+      CRAFT_AV1_HOSTILE_TIMEOUT_SECS: '3600'
+      LEAN_ZIP_INFLATE: ${{ github.workspace }}/tools/inflate-oracle/lean/.lake/build/bin/lzinflate
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Use preinstalled toolchains
+        shell: bash
+        run: |
+          echo /home/ghrunner/.cargo/bin >> "$GITHUB_PATH"
+          echo /home/ghrunner/.elan/bin >> "$GITHUB_PATH"
+      - name: Checkout pinned lean-zip dependency
+        uses: actions/checkout@v4
+        with:
+          repository: kim-em/lean-zip
+          ref: 2f7a63f38195bc667a926881b55d10c9f8a88eeb
+          path: tools/inflate-oracle/lean-zip
+          persist-credentials: false
+      - name: Build Lean inflate oracle
+        run: lake build lzinflate
+        working-directory: tools/inflate-oracle/lean
+      - name: Run corpus and oracle suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test -p craft-corpus --no-fail-fast
+          cargo test -p craft-oracle --no-fail-fast
+          for manifest in tools/*-oracle/Cargo.toml; do
+            echo "==> $manifest"
+            cargo test --manifest-path "$manifest" --no-fail-fast
+          done
+          for manifest in tools/*-oracle/Cargo.toml; do
+            echo "==> ignored corpus tests: $manifest"
+            cargo test --manifest-path "$manifest" --no-fail-fast -- --ignored
+          done
+          cargo test -p craft-av1 --test fuzz_hostile -- --ignored

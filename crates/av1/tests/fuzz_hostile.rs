@@ -3,7 +3,9 @@
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::process::{Command, Stdio};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Instant;
 
 #[path = "../test-support/mod.rs"]
 mod support;
@@ -60,6 +62,7 @@ fn make(ff: &std::path::Path, name: &str, args: &str, pix: &str) -> Option<Vec<V
 }
 
 static PANICS: AtomicUsize = AtomicUsize::new(0);
+static CASE_TIMES: Mutex<Vec<(u128, String)>> = Mutex::new(Vec::new());
 
 /// Decoder worker threads may catch panics and turn them into errors; count them so they still fail the test.
 fn count_panics() {
@@ -73,6 +76,7 @@ fn count_panics() {
 }
 
 fn run_all(frames: &[Vec<u8>], label: &str) {
+    let started = Instant::now();
     support::set_progress(label);
     count_panics();
     let before = PANICS.load(Ordering::SeqCst);
@@ -86,6 +90,7 @@ fn run_all(frames: &[Vec<u8>], label: &str) {
         }
     }));
     assert!(res.is_ok() && PANICS.load(Ordering::SeqCst) == before, "panic: {label}");
+    CASE_TIMES.lock().unwrap().push((started.elapsed().as_millis(), label.to_owned()));
 }
 
 /// Random-mutation rounds per seed (raise with FILMCRAFT_FUZZ_ITERS for a long hunt).
@@ -123,6 +128,8 @@ fn sweep(exhaustive: bool) {
             support::skip("AV1 fuzz", &format!("the {name} seed has no frames"));
             continue;
         }
+        // Same-size valid control for comparing hostile-case decoder cost.
+        run_all(&seed, &format!("{name} valid baseline"));
         // truncate each of the first frames at every length
         for fi in 0..seed.len().min(if exhaustive { 3 } else { 1 }) {
             let len = seed[fi].len();
@@ -168,5 +175,11 @@ fn sweep(exhaustive: bool) {
             }
             run_all(&d, &format!("{name} random {i}"));
         }
+    }
+    let mut cases = CASE_TIMES.lock().unwrap().clone();
+    cases.sort_by(|a, b| b.0.cmp(&a.0));
+    eprintln!("AV1 hostile case profile (wall time across both decoder thread settings):");
+    for (millis, label) in cases.iter().take(20) {
+        eprintln!("AV1_HOSTILE_CASE {millis}ms {label}");
     }
 }
