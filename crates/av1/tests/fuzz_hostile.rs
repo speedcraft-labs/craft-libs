@@ -46,6 +46,7 @@ fn make(ff: &std::path::Path, name: &str, args: &str, pix: &str) -> Option<Vec<V
         let a: Vec<&str> = args.split_whitespace().collect();
         matches!(
             Command::new(ff)
+                // SVT-AV1 2.3.0 rejects source heights below 64; keep fixture generation valid.
                 .args(["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=25", "-frames:v", "6", "-pix_fmt", pix])
                 .args(a)
                 .args(["-f", "ivf"])
