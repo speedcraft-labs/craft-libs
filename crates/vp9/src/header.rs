@@ -638,7 +638,7 @@ fn read_inter_frame_probs(bd: &mut BoolDecoder, h: &mut FrameHeader, fc: &mut Fr
 }
 
 /// Parse the compressed header (6.3) into `h` and the probabilities `fc`.
-pub fn parse_compressed(data: &[u8], h: &mut FrameHeader, fc: &mut FrameContext) -> Result<()> {
+pub fn parse_compressed(data: &[u8], h: &mut FrameHeader, fc: &mut FrameContext) -> Result<bool> {
     let mut bd = BoolDecoder::new_vp9(data)?;
     // read_tx_mode (6.3.1)
     h.tx_mode = if h.lossless {
@@ -661,7 +661,7 @@ pub fn parse_compressed(data: &[u8], h: &mut FrameHeader, fc: &mut FrameContext)
         read_inter_frame_probs(&mut bd, h, fc);
     }
     bd.finish_vp9()?;
-    Ok(())
+    Ok(bd.had_nonzero_padding())
 }
 
 /// Superframe index parsing (Annex B): the frames of a chunk.
@@ -704,7 +704,7 @@ mod tests {
     fn compressed_boolean_partition_validation() {
         let mut header = FrameHeader { lossless: true, frame_is_intra: true, ..FrameHeader::default() };
         let mut context = FrameContext::default();
-        assert_eq!(parse_compressed(&[0; 32], &mut header, &mut context), Ok(()));
+        assert_eq!(parse_compressed(&[0; 32], &mut header, &mut context), Ok(false));
         for (data, expected) in [
             (&[][..], craft_bitstream::BoolError::UnexpectedEof),
             (&[0][..], craft_bitstream::BoolError::UnexpectedEof),
@@ -714,7 +714,8 @@ mod tests {
         }
         let mut padding = [0; 32];
         padding[31] = 1;
-        assert_eq!(parse_compressed(&padding, &mut header, &mut context), Err(Error::Boolean(craft_bitstream::BoolError::NonzeroPadding)));
+        // Nonzero trailing bits are diagnostic padding tolerated by libvpx, not a decode error.
+        assert_eq!(parse_compressed(&padding, &mut header, &mut context), Ok(true));
     }
 
     #[test]

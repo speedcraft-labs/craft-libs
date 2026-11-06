@@ -36,13 +36,15 @@ Structural/type preflight leaves parameter stores untouched on failure; semantic
 during the second pass can still update earlier parameter sets. Framing changes only on success.
 
 `Decoder::set_memory_budget` defaults to 4 GiB on 64-bit targets and 1 GiB on 32-bit
-targets. Before starting a picture, checked arithmetic budgets samples for
+targets. Before starting a picture, checked arithmetic budgets the decoded sample-plane
+allocations using their real storage size: one byte per sample when both luma and chroma
+are 8-bit (`u8` storage), otherwise two bytes per sample (`u16` storage). The limit covers
 `max_dec_pic_buffering + 1 current + max_in_flight + 1 gray backing` pictures, where
 `max_in_flight = max(threads, 1) + 2`. Unlike the fork's all-`u16` storage, shared
 storage uses one byte per sample only when both planes' bit depths are at most 8,
 otherwise two. Missing-reference identities share one reserved gray backing, not
 one allocation per missing reference. This is conservative sample-store admission,
-not a hard allocator limit: metadata, decoder work buffers, queued pictures from
+not a hard allocator limit: motion-field rows, metadata, decoder work buffers, queued pictures from
 previous formats and pictures retained by callers are not accounted for.
 
 ## Status

@@ -123,6 +123,8 @@ pub struct TileDecoder<'a> {
     mc_win: Vec<u16>,
     /// First error met while decoding (e.g. a block referencing an unusable reference frame).
     pub error: Option<crate::error::Error>,
+    /// Count of tile partitions accepted with nonzero trailing padding.
+    pub padding_warnings: u64,
 }
 
 impl<'a> TileDecoder<'a> {
@@ -184,6 +186,7 @@ impl<'a> TileDecoder<'a> {
             mc_tmp: vec![0; if s.refs.iter().flatten().any(|r| r.x_scale != 1 << 14 || r.y_scale != 1 << 14) { 64 * (64 * 5 + 16) } else { 64 * 71 }],
             mc_win: vec![0; 71 * 71],
             error: None,
+            padding_warnings: 0,
         }
     }
 
@@ -216,9 +219,12 @@ impl<'a> TileDecoder<'a> {
                 self.decode_partition(&mut bd, r, c, BLOCK_64X64);
             }
         }
-        if let Err(error) = bd.finish_vp9() {
-            self.error.get_or_insert(error.into());
-            return false;
+        match bd.finish_vp9() {
+            Err(error) => {
+                self.error.get_or_insert(error.into());
+                return false;
+            }
+            Ok(()) => self.padding_warnings += bd.had_nonzero_padding() as u64,
         }
         true
     }

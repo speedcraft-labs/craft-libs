@@ -15,9 +15,18 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock};
 
-/// Maximum luma samples accepted for one decoded reference frame: 8192x8192, above level 6.2's
-/// 8192x4352 (35 651 584 samples).
-const MAX_LUMA_SAMPLES: u64 = 1 << 26;
+/// Maximum decoded luma area, 16384x16384 samples. VP9 syntax dimensions may each reach 65536,
+/// but the aggregate cap bounds allocations while allowing wide, short streams.
+const MAX_LUMA_SAMPLES: u64 = 1 << 28;
+
+fn validate_frame_size(width: u32, height: u32) -> Result<()> {
+    ensure!(width <= 65536 && height <= 65536, "frame size {width}x{height} too large");
+    ensure!(
+        u64::from(width).checked_mul(u64::from(height)).is_some_and(|n| n <= MAX_LUMA_SAMPLES),
+        "frame size {width}x{height} exceeds the decoder memory limit"
+    );
+    Ok(())
+}
 
 fn store_fits(width: u32, height: u32, color: &crate::header::ColorConfig, pictures: usize, budget: u64) -> bool {
     let padded_width = u64::from(width).div_ceil(64) * 64;
@@ -62,6 +71,8 @@ pub struct DecodeStats {
     pub profiles: [u64; 4],
     /// Frames decoded in draft mode without the loop filter ([`Decoder::set_draft`]).
     pub draft_frames: u64,
+    /// Compressed headers and tile partitions with tolerated nonzero trailing padding.
+    pub nonzero_padding_warnings: u64,
 }
 
 /// A picture on its way out, in output order.
@@ -282,13 +293,7 @@ impl Decoder {
             self.pending.push_back(Pending::Existing(f, pts, false));
             return Ok(());
         }
-        ensure!(h.width <= 16384 && h.height <= 16384, "frame size {}x{} too large", h.width, h.height);
-        ensure!(
-            u64::from(h.width).checked_mul(u64::from(h.height)).is_some_and(|n| n <= MAX_LUMA_SAMPLES),
-            "frame size {}x{} exceeds the decoder memory limit",
-            h.width,
-            h.height
-        );
+        validate_frame_size(h.width, h.height)?;
         ensure!(
             store_fits(h.width, h.height, &h.color, 8usize.saturating_add(self.threads).saturating_add(3), self.memory_budget),
             "frame size {}x{} exceeds the decoder memory budget",
@@ -319,7 +324,7 @@ impl Decoder {
         ensure!(off + hs <= data.len(), "compressed header exceeds frame data");
         ensure!(off + hs < data.len(), "frame has no tile data");
         let mut fc = self.st.contexts[h.frame_context_idx as usize].clone();
-        parse_compressed(&data[off..off + hs], &mut h, &mut fc)?;
+        self.stats.nonzero_padding_warnings += parse_compressed(&data[off..off + hs], &mut h, &mut fc)? as u64;
         self.count_frame(&h);
 
         // References (8.5.2.3).
@@ -402,7 +407,7 @@ impl Decoder {
             (0..tile_cols).map(|i| (tile_offset(i, mi_cols, h.tile_cols_log2), tile_offset(i + 1, mi_cols, h.tile_cols_log2))).collect();
         let row_bounds: Vec<(usize, usize)> =
             (0..tile_rows).map(|i| (tile_offset(i, mi_rows, h.tile_rows_log2), tile_offset(i + 1, mi_rows, h.tile_rows_log2))).collect();
-        let decode_col = |ci: usize| -> (Strip, Option<Error>) {
+        let decode_col = |ci: usize| -> (Strip, Option<Error>, u64) {
             let (cs, ce) = col_bounds[ci];
             let mut td = TileDecoder::new(&shared, cs, ce);
             let mut err = None;
@@ -415,13 +420,14 @@ impl Decoder {
                 }
             }
             let e = td.error.take().or(err);
-            (td.strip, e)
+            (td.strip, e, td.padding_warnings)
         };
-        let results: Vec<(Strip, Option<Error>)> = self.run_parallel(tile_cols, &decode_col);
+        let results: Vec<(Strip, Option<Error>, u64)> = self.run_parallel(tile_cols, &decode_col);
         let mut counts = Counts::default();
         let mut strips = Vec::with_capacity(results.len());
         let mut error = None;
-        for (s, e) in results {
+        for (s, e, padding_warnings) in results {
+            self.stats.nonzero_padding_warnings += padding_warnings;
             if let Some(e) = e {
                 error.get_or_insert(e);
             }
@@ -601,7 +607,7 @@ impl Decoder {
 
 #[cfg(test)]
 mod budget_tests {
-    use super::store_fits;
+    use super::{store_fits, validate_frame_size};
     use crate::header::ColorConfig;
 
     #[test]
@@ -621,6 +627,14 @@ mod budget_tests {
         assert!(store_fits(3840, 2160, &color, 8 + 1 + 8 + 2, u64::MAX));
         assert!(!store_fits(16384, 16384, &color, 8 + 1 + 1 + 2, 1 << 30));
         assert!(!store_fits(u32::MAX, u32::MAX, &color, usize::MAX, u64::MAX));
+    }
+
+    #[test]
+    fn decoded_area_cap_rejects_large_area_but_allows_wide_short_frame() {
+        assert!(validate_frame_size(65536, 108).is_ok());
+        assert!(validate_frame_size(16384, 16384).is_ok());
+        assert!(validate_frame_size(16385, 16384).is_err());
+        assert!(validate_frame_size(65537, 1).is_err());
     }
 }
 

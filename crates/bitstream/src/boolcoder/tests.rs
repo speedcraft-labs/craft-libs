@@ -148,11 +148,7 @@ impl<'a> Reference<'a> {
         if self.position > self.data.len() * 8 {
             return Err(BoolError::UnexpectedEof);
         }
-        for position in self.position..self.data.len() * 8 {
-            if (self.data[position / 8] >> (7 - position % 8)) & 1 != 0 {
-                return Err(BoolError::NonzeroPadding);
-            }
-        }
+        // VP9 readers accept nonzero trailing padding, matching libvpx.
         Ok(())
     }
 }
@@ -290,11 +286,15 @@ fn vp9_marker_padding_and_exhaustion() {
     }
     for length in 1..=32 {
         let data = vec![0; length];
-        assert_eq!(BoolDecoder::new_vp9(&data).unwrap().finish_vp9(), Ok(()));
+        let mut decoder = BoolDecoder::new_vp9(&data).unwrap();
+        assert_eq!(decoder.finish_vp9(), Ok(()));
+        assert!(!decoder.had_nonzero_padding());
         for bit in 8..length * 8 {
             let mut mutated = data.clone();
             mutated[bit / 8] |= 1 << (7 - bit % 8);
-            assert_eq!(BoolDecoder::new_vp9(&mutated).unwrap().finish_vp9(), Err(BoolError::NonzeroPadding));
+            let mut decoder = BoolDecoder::new_vp9(&mutated).unwrap();
+            assert_eq!(decoder.finish_vp9(), Ok(()));
+            assert!(decoder.had_nonzero_padding());
         }
     }
     let mut decoder = BoolDecoder::new_vp9(&[0]).unwrap();

@@ -15,12 +15,12 @@ rejects too). Per-stream lines: `codec-conformance-results.tsv`.
 | H.264 | JVT H.264.1 (FATE mirror) | 195 | 99 | 0 | 96 | ffmpeg decode, digest per stream |
 | HEVC | JCT-VC H.265.1 (FATE mirror) | 184 | 170 | 0 | 14 | ffmpeg decode, digest per stream (equal to the official md5 where checked) |
 | VP8 | libvpx `vp80-*` | 62 | 62 | 0 | 0 | published per-frame `.md5` |
-| VP9 | libvpx `vp90/91/92/93-2-*` | 343 | 340 | 3 | 0 | published per-frame `.md5` |
+| VP9 | libvpx `vp90/91/92/93-2-*` | 343 | 341 | 2 | 0 | published per-frame `.md5` |
 | AV1 | libaom `av1-1-*` | 244 | 244 | 0 | 0 | published per-frame `.md5` |
-| | | 1028 | 915 | 3 | 110 | |
+| | | 1028 | 916 | 2 | 110 | |
 
-The 3 VP9 failures are registered in the test (`KNOWN_FAILURES`, with reasons) and are findings below; a suite fails on a new failure,
-on a registered one that starts passing, and below its `MIN_PASS` floor (H.264 99, HEVC 170, VP8 62, VP9 340, AV1 244).
+The two remaining VP9 failures are registered in the test (`KNOWN_FAILURES`, with their reasons) and are findings below; a suite fails on a new failure,
+on a registered one that starts passing, and below its `MIN_PASS` floor (H.264 99, HEVC 170, VP8 62, VP9 341, AV1 244).
 
 ### By profile
 
@@ -32,7 +32,7 @@ on a registered one that starts passing, and below its `MIN_PASS` floor (H.264 9
 | HEVC | Main 10 (11 streams) | 10 | 0 | 1 |
 | HEVC | RExt (10 streams) | 0 | 0 | 10 |
 | VP8 | all | 62 | 0 | 0 |
-| VP9 | profile 0 (`vp90`, 331) | 329 | 2 | 0 |
+| VP9 | profile 0 (`vp90`, 331) | 330 | 1 | 0 |
 | VP9 | profile 1 (`vp91`, 4) | 3 | 1 | 0 |
 | VP9 | profile 2, 3 (`vp92` 2, `vp93` 6; 10 and 12 bit) | 8 | 0 | 0 |
 | AV1 | 8-bit (`b8`) | 178 | 0 | 0 |
@@ -79,14 +79,11 @@ The visible effect: before, playback after an end-of-sequence or an IRAP with `n
 
 ## Findings (not fixed: policy, or no reference)
 
-1. **VP9 is stricter than libvpx, by design (#131), and rejects two libvpx vectors.**
-   - `vp90-2-13-largescaling.webm` (frame width 19200): `crates/vp9/src/decoder.rs:285` caps each dimension at 16384 (filmcraft #2930, a hostile-input
-     guard); VP9 allows 65536. libvpx decodes it. Decision needed: raise the cap for streams whose decoded area is small (19200x108 is 2 Mpixel), or keep it.
-   - `vp90-2-15-fuzz-flicker.webm`: "boolean partition exhausted" at packet 4. libvpx zero-fills a tile partition that ends early; `exit_bool` here rejects it.
-     With the padding/overread check disabled (experiment, not committed) the stream **matches the libvpx md5**, so the decode is right and only the strictness differs.
-   - A fuzz-derived vector failing under a strict decoder is expected; whether playback of such files should fail is a product decision (a lenient mode would change nothing for valid streams).
-2. **`vp91-2-04-yv444.webm`** (profile 1, 4:4:4, 1280x720, 5 frames): craft rejects it ("nonzero VP9 boolean padding", packet 0). With the check disabled the frames do not
-   match its `.md5` either. ffmpeg's native decoder and its libvpx wrapper both fail on this file too (4 of 5 frames "invalid data"; "Invalid frame marker"), and the `.md5` lines are named
+1. **VP9 tolerates nonzero boolean padding and supports large, narrow dimensions (#210, #251).**
+   - Nonzero trailing boolean-decoder padding is reported in `DecodeStats::nonzero_padding_warnings` and does not fail the decode; actual partition exhaustion remains an error.
+   - VP9 dimensions are accepted through 65536, with decoded luma area capped at 16384×16384. The `vp90-2-13-largescaling.webm` vector (19200×108) passes; larger-area frames are rejected before allocation.
+   - `vp90-2-15-fuzz-flicker.webm` still hits boolean partition exhaustion; ffmpeg 7.1.5 rejects it too.
+2. **`vp91-2-04-yv444.webm`** (profile 1, 4:4:4, 1280x720, 5 frames): craft rejects it even when nonzero padding is tolerated. ffmpeg's native decoder and its libvpx wrapper also fail on this file (4 of 5 frames "invalid data"; "Invalid frame marker"), and the `.md5` lines are named
    `d.1280x720_NNNNN.yv12`, so the md5 is not for a plain 4:4:4 decode. Most likely an invalid or legacy vector; no verdict on the decoder from it. The other profile 1 vectors
    (`yuv422`, `yuv440`, `yuv444`) pass.
 3. **H.264 has no interlaced support** (78 of 195 JVT streams, plus PAFF/MBAFF in every broadcast-style FRExt stream). README-listed, but the largest single gap against the suite; it is the first

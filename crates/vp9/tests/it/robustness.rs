@@ -6,15 +6,26 @@ use craft_vp9::Decoder;
 use std::time::{Duration, Instant};
 
 #[test]
-fn nonzero_tile_padding_is_rejected() {
+fn nonzero_tile_padding_is_tolerated_without_changing_the_decode() {
     let Some((ivf, _)) = common::ensure(common::fixture("default_good")) else { return };
     let data = std::fs::read(ivf).unwrap();
     let frames = common::ivf_frames(&data);
-    let mut frame = frames[0].to_vec();
-    frame.push(1);
+    let mut padded = frames[0].to_vec();
+    padded.push(1);
     for threads in [1, 4] {
-        let mut decoder = Decoder::with_threads(threads);
-        assert!(matches!(decoder.decode(&frame, 0), Err(craft_vp9::Error::Boolean(craft_bitstream::BoolError::NonzeroPadding))));
+        let decode = |bytes: &[u8]| {
+            let mut decoder = Decoder::with_threads(threads);
+            let mut pictures = decoder.decode(bytes, 0).unwrap();
+            pictures.extend(decoder.flush());
+            (pictures, decoder.stats().nonzero_padding_warnings)
+        };
+        let (expected, _) = decode(frames[0]);
+        let (actual, warnings) = decode(&padded);
+        assert!(warnings > 0, "nonzero padding was not reported as a warning");
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            assert_eq!((&actual.y, &actual.u, &actual.v), (&expected.y, &expected.u, &expected.v));
+        }
     }
 }
 

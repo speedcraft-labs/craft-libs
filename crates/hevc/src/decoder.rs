@@ -411,7 +411,8 @@ impl Decoder {
         } else {
             (width / u64::from(sps.sub_width_c())).checked_mul(height / u64::from(sps.sub_height_c())).and_then(|samples| samples.checked_mul(2))
         };
-        let bytes_per_sample = if stores_u8(sps.bit_depth_luma, sps.bit_depth_chroma) { 1 } else { 2 };
+        let bytes_per_sample =
+            if stores_u8(sps.bit_depth_luma, sps.bit_depth_chroma) { std::mem::size_of::<u8>() as u64 } else { std::mem::size_of::<u16>() as u64 };
         let pictures = u64::from(sps.max_dec_pic_buffering).checked_add(2).and_then(|count| count.checked_add(self.max_in_flight as u64));
         let store_bytes = luma
             .and_then(|samples| chroma.and_then(|chroma| samples.checked_add(chroma)))
@@ -742,13 +743,17 @@ mod tests {
         missing_refs(&mut source, 0, &[]);
         let original = source.pending.take().unwrap();
         for threads in [1, 4] {
-            for (luma_depth, chroma_depth, bytes_per_sample) in [(8, 8, 1), (10, 10, 2), (8, 10, 2), (12, 8, 2)] {
+            for (luma_depth, chroma_depth) in [(8, 8), (10, 10), (8, 10), (12, 8)] {
                 let mut sps = (*original.sps).clone();
                 sps.bit_depth_luma = luma_depth;
                 sps.bit_depth_chroma = chroma_depth;
                 let sps = Arc::new(sps);
                 let mut decoder = Decoder::with_threads(threads);
-                let one = (96 * 64 + 2 * 48 * 32) * bytes_per_sample;
+                // This SPS is 96x64 4:2:0; size the budget from the actual sample element type
+                // used by FrameRow's u8/u16 plane allocations.
+                let bytes_per_sample = if stores_u8(luma_depth, chroma_depth) { std::mem::size_of::<u8>() } else { std::mem::size_of::<u16>() };
+                let sample_count = 96 * 64 + 2 * 48 * 32;
+                let one = sample_count * bytes_per_sample as u64;
                 let pictures = u64::from(sps.max_dec_pic_buffering) + 2 + decoder.max_in_flight as u64;
                 let budget = one * pictures;
                 decoder.set_memory_budget(budget - 1);

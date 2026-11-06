@@ -938,7 +938,7 @@ vp9	vp90-2-10-show-existing-frame2.webm	pass
 vp9	vp90-2-11-size-351x287.webm	pass	
 vp9	vp90-2-11-size-351x288.webm	pass	
 vp9	vp90-2-11-size-352x287.webm	pass	
-vp9	vp90-2-13-largescaling.webm	fail	packet 0: invalid bitstream: frame size 19200x108 too large
+vp9	vp90-2-13-largescaling.webm	pass
 vp9	vp90-2-14-resize-10frames-fp-tiles-1-2-4-8.webm	pass	
 vp9	vp90-2-14-resize-10frames-fp-tiles-1-2.webm	pass	
 vp9	vp90-2-14-resize-10frames-fp-tiles-1-4.webm	pass	
@@ -1017,7 +1017,7 @@ vp9	vp90-2-22-svc_1280x720_1.webm	pass
 vp9	vp91-2-04-yuv422.webm	pass	
 vp9	vp91-2-04-yuv440.webm	pass	
 vp9	vp91-2-04-yuv444.webm	pass	
-vp9	vp91-2-04-yv444.webm	fail	packet 0: boolean bitstream error: nonzero VP9 boolean padding
+vp9	vp91-2-04-yv444.webm	fail	packet 1: boolean bitstream error: boolean partition exhausted
 vp9	vp92-2-20-10bit-yuv420.webm	pass	
 vp9	vp92-2-20-12bit-yuv420.webm	pass	
 vp9	vp93-2-20-10bit-yuv422.webm	pass	
