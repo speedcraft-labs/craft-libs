@@ -47,6 +47,7 @@ manifest and that its SHA-256 matches.
 
 | Journey | App | Measured operation |
 | --- | --- | --- |
+| `cadcraft.edit-hatched-drawing.12k` | CADCraft | Edit one entity in a deterministic generated 12,000-hatch drawing |
 | `cadcraft.open-dxf.large-map` | CADCraft | Open the pinned Graz map DXF |
 | `cadcraft.open-dxf.usa` | CADCraft | Open the pinned USA DXF |
 | `cadcraft.open-dxf.us-main` | CADCraft | Open the pinned US-main DXF |

@@ -25,6 +25,8 @@ struct Journey {
     build: CommandSpec,
     run: CommandSpec,
     #[serde(default)]
+    run_head: Option<CommandSpec>,
+    #[serde(default)]
     inputs: Vec<Input>,
 }
 
@@ -56,6 +58,7 @@ enum OutputProtocol {
     #[default]
     Markers,
     CadcraftOpen,
+    CadcraftEdit,
     WordcraftProbe,
     DeckcraftBench,
     LightcraftDrag,
@@ -156,6 +159,23 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
                 return Err("cadcraft open time must be finite and non-negative".into());
             }
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.trim().as_bytes())))
+        }
+        OutputProtocol::CadcraftEdit => {
+            if !stdout.lines().any(|line| line.contains("identical=true")) {
+                return Err("cadcraft edit output did not confirm identical display lists".into());
+            }
+            let duration_ns = stdout
+                .lines()
+                .find_map(|line| line.strip_prefix("CRAFT_JOURNEY_NS="))
+                .ok_or_else(|| "cadcraft edit output is missing CRAFT_JOURNEY_NS".to_string())?
+                .parse::<u64>()
+                .map_err(|e| format!("invalid cadcraft edit duration: {e}"))?;
+            let identity = stdout
+                .lines()
+                .find_map(|line| line.strip_prefix("CRAFT_OUTPUT_HASH="))
+                .ok_or_else(|| "cadcraft edit output is missing CRAFT_OUTPUT_HASH".to_string())?
+                .to_owned();
+            (duration_ns, identity)
         }
         OutputProtocol::WordcraftProbe | OutputProtocol::DeckcraftBench => {
             let value: serde_json::Value = serde_json::from_str(stdout.trim()).map_err(|e| format!("invalid app JSON output: {e}"))?;
@@ -671,13 +691,14 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
         }
     }
     let input_pairs: Vec<_> = inputs.into_iter().map(|i| (i.name.clone(), i)).collect();
+    let head_run = journey.run_head.as_ref().unwrap_or(&journey.run);
     let report = Paired::new(format!("{} / {}", journey.app, journey.name))
         .old(|input: &Input| {
             run_command(&journey.run, &checkouts[0].path, old_rev, input, &journey.app, &revisions[0].cargo_config)
                 .unwrap_or_else(|e| AppResult { duration_ns: 0, identity: format!("ERROR: {e}") })
         })
         .new(|input: &Input| {
-            run_command(&journey.run, &checkouts[1].path, new_rev, input, &journey.app, &revisions[1].cargo_config)
+            run_command(head_run, &checkouts[1].path, new_rev, input, &journey.app, &revisions[1].cargo_config)
                 .unwrap_or_else(|e| AppResult { duration_ns: 0, identity: format!("ERROR: {e}") })
         })
         .inputs(input_pairs)
