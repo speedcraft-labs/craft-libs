@@ -219,6 +219,10 @@ struct AppCheckout {
 }
 
 impl AppCheckout {
+    fn alias(checkout: &Self) -> Self {
+        Self { repo: checkout.repo.clone(), path: checkout.path.clone(), owned_worktree: false }
+    }
+
     fn at(repo: &Path, rev: &str, side: usize) -> Result<Self, String> {
         if rev == "working-tree" {
             return Ok(Self { repo: repo.to_path_buf(), path: repo.to_path_buf(), owned_worktree: false });
@@ -253,6 +257,10 @@ struct LibRevision {
 }
 
 impl LibRevision {
+    fn alias(revision: &Self) -> Self {
+        Self { _checkout: AppCheckout::alias(&revision._checkout), cargo_config: revision.cargo_config.clone() }
+    }
+
     fn at(repo: &Path, rev: &str, side: usize) -> Result<Self, String> {
         let checkout = AppCheckout::at(repo, rev, side)?;
         let metadata = Command::new("cargo")
@@ -351,9 +359,13 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
     if !repo.is_dir() {
         return Err(format!("app repo does not exist: {}", repo.display()));
     }
-    let checkouts = [AppCheckout::at(&repo, "HEAD", 0)?, AppCheckout::at(&repo, "HEAD", 1)?];
+    let app_old = AppCheckout::at(&repo, "HEAD", 0)?;
+    let app_new = if old_rev == new_rev { AppCheckout::alias(&app_old) } else { AppCheckout::at(&repo, "HEAD", 1)? };
+    let checkouts = [app_old, app_new];
     let lib_repo = craft_libs_repo()?;
-    let revisions = [LibRevision::at(&lib_repo, old_rev, 0)?, LibRevision::at(&lib_repo, new_rev, 1)?];
+    let libs_old = LibRevision::at(&lib_repo, old_rev, 0)?;
+    let libs_new = if old_rev == new_rev { LibRevision::alias(&libs_old) } else { LibRevision::at(&lib_repo, new_rev, 1)? };
+    let revisions = [libs_old, libs_new];
     for (rev, checkout, libs) in [(old_rev, &checkouts[0], &revisions[0]), (new_rev, &checkouts[1], &revisions[1])] {
         let mut cmd = Command::new(render(&journey.build.program, rev, &journey.inputs[0], &journey.app));
         cmd.current_dir(&checkout.path)
