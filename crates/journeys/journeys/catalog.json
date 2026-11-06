@@ -4,9 +4,9 @@
       "name": "cadcraft.edit-hatched-drawing.12k",
       "app": "cadcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
-      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "cadcraft-cli", "--", "perf", "12000"], "env": { "CADCRAFT_PERF_HATCHED": "1", "CADCRAFT_PERF_HATCHED_MODE": "full" }, "output": "cadcraft-edit" },
-      "run_head": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "cadcraft-cli", "--", "perf", "12000"], "env": { "CADCRAFT_PERF_HATCHED": "1", "CADCRAFT_PERF_HATCHED_MODE": "incremental" }, "output": "cadcraft-edit" }
+      "build": { "program": "true", "args": [] },
+      "run": { "program": "{target_dir}/release/cadcraft-cli", "args": ["perf", "12000"], "env": { "CADCRAFT_PERF_HATCHED": "1", "CADCRAFT_PERF_HATCHED_MODE": "full" }, "output": "cadcraft-edit" },
+      "run_head": { "program": "{target_dir}/release/cadcraft-cli", "args": ["perf", "12000"], "env": { "CADCRAFT_PERF_HATCHED": "1", "CADCRAFT_PERF_HATCHED_MODE": "incremental" }, "output": "cadcraft-edit" }
     },
     {
       "name": "cadcraft.open-dxf.large-map",

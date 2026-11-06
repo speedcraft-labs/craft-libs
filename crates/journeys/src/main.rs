@@ -96,6 +96,7 @@ fn render(s: &str, rev: &str, input: &Input, app: &str, app_repo: &Path) -> Stri
         .replace("{input}", &path.to_string_lossy())
         .replace("{input_name}", &input.name)
         .replace("{app}", app)
+        .replace("{target_dir}", &target_dir(app, rev).to_string_lossy())
         .replace("{app_repo}", &app_repo.to_string_lossy())
 }
 
