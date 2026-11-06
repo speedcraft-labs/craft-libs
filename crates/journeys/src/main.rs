@@ -61,6 +61,7 @@ enum OutputProtocol {
     EffectcraftOps,
     PhotocraftLargeImage,
     FigcraftPerf,
+    GridcraftPerf,
 }
 
 #[derive(Debug)]
@@ -333,6 +334,29 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
             let identity = format!("{title}|{header}|render 1440×900 @100%");
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
+        OutputProtocol::GridcraftPerf => {
+            let summary = stdout
+                .lines()
+                .find(|line| line.starts_with("fill ") && line.contains("x6 values:"))
+                .ok_or_else(|| "gridcraft perf output is missing its row-count summary".to_string())?;
+            let shape = summary.split_once(": ").map(|(shape, _)| shape).ok_or_else(|| "gridcraft perf summary is malformed".to_string())?;
+            let saved = stdout
+                .lines()
+                .find(|line| line.starts_with("save xlsx ("))
+                .ok_or_else(|| "gridcraft perf output is missing its workbook size".to_string())?;
+            let bytes = saved
+                .strip_prefix("save xlsx (")
+                .and_then(|s| s.split_once(" bytes): ").map(|(size, _)| size))
+                .ok_or_else(|| "gridcraft perf save summary is malformed".to_string())?;
+            let open = stdout
+                .lines()
+                .find(|line| line.starts_with("open xlsx + full recalc:"))
+                .and_then(|line| line.split_once(": ").map(|(_, timing)| timing))
+                .ok_or_else(|| "gridcraft perf output is missing the open measurement".to_string())?;
+            let duration_ns = parse_duration_debug_ns(open, "gridcraft")?;
+            let identity = format!("{shape}|xlsx-bytes:{bytes}");
+            (duration_ns, format!("{:x}", Sha256::digest(identity.as_bytes())))
+        }
     };
     Ok(AppResult { duration_ns, identity })
 }
@@ -503,6 +527,26 @@ fn package_name(manifest: &str) -> Option<String> {
 
 fn toml_string(value: &str) -> String {
     format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n"))
+}
+
+fn parse_duration_debug_ns(value: &str, app: &str) -> Result<u64, String> {
+    let (number, scale) = if let Some(n) = value.strip_suffix("ns") {
+        (n, 1.0)
+    } else if let Some(n) = value.strip_suffix("µs") {
+        (n, 1_000.0)
+    } else if let Some(n) = value.strip_suffix("ms") {
+        (n, 1_000_000.0)
+    } else if let Some(n) = value.strip_suffix('s') {
+        (n, 1_000_000_000.0)
+    } else {
+        return Err(format!("{app} benchmark has an unknown duration unit: {value:?}"));
+    };
+    let number = number.parse::<f64>().map_err(|e| format!("invalid {app} duration: {e}"))?;
+    let nanos = number * scale;
+    if !nanos.is_finite() || nanos < 0.0 || nanos > u64::MAX as f64 {
+        return Err(format!("{app} duration must be finite and non-negative"));
+    }
+    Ok(nanos as u64)
 }
 
 fn craft_libs_repo() -> Result<PathBuf, String> {

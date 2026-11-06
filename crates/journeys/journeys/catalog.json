@@ -91,6 +91,13 @@
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/figcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "figcraft-cli"] },
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "figcraft-cli", "--", "--no-system-fonts", "perf", "--layers", "100", "--instances", "0"], "output": "figcraft-perf" }
+    },
+    {
+      "name": "gridcraft.synthetic-workbook-open",
+      "app": "gridcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "gridcraft-engine", "--example", "perf"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "gridcraft-engine", "--example", "perf", "--", "1000"], "output": "gridcraft-perf" }
     }
   ]
 }
