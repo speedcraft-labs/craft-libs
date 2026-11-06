@@ -11,7 +11,7 @@ pub enum BoolError {
     UnexpectedEof,
     /// The VP9 partition marker was not zero.
     InvalidMarker,
-    /// Unconsumed VP9 padding contained a nonzero bit.
+    /// Legacy variant retained for compatibility; VP9 now reports this with `had_nonzero_padding`.
     NonzeroPadding,
     /// A tree was incomplete, cyclic, or addressed an invalid node.
     InvalidTree,
@@ -37,12 +37,13 @@ pub struct BoolDecoder<'a> {
     count: i32,
     range: u32,
     error: Option<BoolError>,
+    nonzero_padding: bool,
 }
 
 impl<'a> BoolDecoder<'a> {
     /// Start a VP8 partition without consuming a marker. Missing input reads as zero.
     pub fn new(data: &'a [u8]) -> Self {
-        let mut decoder = Self { data, value: 0, count: -8, range: 255, error: None };
+        let mut decoder = Self { data, value: 0, count: -8, range: 255, error: None, nonzero_padding: false };
         decoder.refill();
         decoder
     }
@@ -160,7 +161,7 @@ impl<'a> BoolDecoder<'a> {
         0
     }
 
-    /// VP9 `exit_bool`: reject overreads and require all unconsumed bits to be zero.
+    /// VP9 `exit_bool`: reject overreads. Nonzero trailing padding is tolerated, as in libvpx.
     /// Arithmetic value bits are not padding; buffered bits below them and unread bytes are.
     pub fn finish_vp9(&mut self) -> Result<(), BoolError> {
         if self.count < 0 {
@@ -169,10 +170,15 @@ impl<'a> BoolDecoder<'a> {
         if let Some(error) = self.error {
             return Err(error);
         }
-        if self.value << 8 != 0 || self.data.iter().any(|&byte| byte != 0) {
-            return Err(BoolError::NonzeroPadding);
-        }
+        // libvpx tolerates nonzero trailing padding. It does not affect the decoded symbols,
+        // so record it as a warning rather than rejecting an otherwise decodable partition.
+        self.nonzero_padding = self.value << 8 != 0 || self.data.iter().any(|&byte| byte != 0);
         Ok(())
+    }
+
+    /// Whether [`finish_vp9`](Self::finish_vp9) found nonzero trailing padding.
+    pub fn had_nonzero_padding(&self) -> bool {
+        self.nonzero_padding
     }
 }
 

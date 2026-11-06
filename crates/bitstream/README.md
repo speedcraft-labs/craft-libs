@@ -13,8 +13,8 @@ no input indexing outside refill. Probability adaptation remains in each codec.
 
 - `new` starts a VP8 partition, preserving zero extension beyond its end.
 - `new_vp9` rejects empty partitions and nonzero marker bits.
-- `finish_vp9` checks actual consumption rather than prefetched bytes, rejects overreads,
-  and checks all remaining buffered/unread padding bits for zero.
+- `finish_vp9` checks actual consumption rather than prefetched bytes and rejects overreads;
+  nonzero remaining padding is recorded by `had_nonzero_padding` for the caller to report.
 - Literals, equiprobable flags, signed fields and tree/subtree reads share the same state.
   Literal and signed widths are capped to their return types. Malformed trees have bounded
   traversal, return zero and record an error reported by `finish_vp9`.
