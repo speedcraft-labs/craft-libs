@@ -88,7 +88,7 @@ fn choose(catalog: Catalog, name: &str) -> Result<Journey, String> {
 }
 
 fn render(s: &str, rev: &str, input: &Input, app: &str, app_repo: &Path) -> String {
-    let path = if input.path.is_absolute() { input.path.clone() } else { PathBuf::from(corpus_root()).join(&input.path) };
+    let path = resolve_input_path(&input.path);
     s.replace("{rev}", rev)
         .replace("{input}", &path.to_string_lossy())
         .replace("{input_name}", &input.name)
@@ -161,11 +161,16 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
             let value: serde_json::Value = serde_json::from_str(stdout.trim()).map_err(|e| format!("invalid app JSON output: {e}"))?;
             let (millis, identity) = match spec.output {
                 OutputProtocol::WordcraftProbe => (
-                    value.get("open_ms").and_then(serde_json::Value::as_f64).ok_or_else(|| "wordcraft probe JSON is missing open_ms".to_string())?,
                     value
-                        .get("typing_para_len")
+                        .get("first_frames_ms")
+                        .and_then(serde_json::Value::as_array)
+                        .and_then(|frames| frames.first())
+                        .and_then(serde_json::Value::as_f64)
+                        .ok_or_else(|| "wordcraft probe JSON is missing first_frames_ms[0]".to_string())?,
+                    value
+                        .get("page_count")
                         .and_then(serde_json::Value::as_u64)
-                        .ok_or_else(|| "wordcraft probe JSON is missing typing_para_len".to_string())?
+                        .ok_or_else(|| "wordcraft probe JSON is missing page_count".to_string())?
                         .to_string(),
                 ),
                 OutputProtocol::DeckcraftBench => {
@@ -425,7 +430,47 @@ fn corpus_root() -> String {
         .unwrap_or_else(|_| std::env::var("ARTCRAFT_HYPER_ROOT").map_or_else(|_| "../../corpus".to_string(), |root| format!("{root}/corpus")))
 }
 
+fn resolve_input_path(path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        return path.to_path_buf();
+    }
+    if let Ok(relative) = path.strip_prefix(".journey-fixtures") {
+        return PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures").join(relative);
+    }
+    PathBuf::from(corpus_root()).join(path)
+}
+
 fn verify_corpus_input(path: &Path) -> Result<(), String> {
+    if let Ok(relative) = path.strip_prefix(".journey-fixtures") {
+        let fixture = resolve_input_path(path);
+        let parts: Vec<_> = relative.components().collect();
+        if parts.len() < 2 || parts.iter().any(|part| !matches!(part, std::path::Component::Normal(_))) {
+            return Err(format!("invalid journey fixture path: {}", path.display()));
+        }
+        let dataset = parts[0].as_os_str().to_string_lossy();
+        let file = parts[1..].iter().fold(PathBuf::new(), |mut acc, part| {
+            acc.push(part);
+            acc
+        });
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures").join(dataset.as_ref());
+        let manifest_path = root.join(".craft-corpus.json");
+        let manifest: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&manifest_path).map_err(|e| format!("{}: {e}", manifest_path.display()))?)
+                .map_err(|e| format!("{}: {e}", manifest_path.display()))?;
+        let expected = manifest
+            .get("files")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|files| files.iter().find(|item| item.get("path").and_then(serde_json::Value::as_str) == Some(file.to_string_lossy().as_ref())))
+            .and_then(|item| item.get("sha256"))
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| format!("journey fixture is not pinned in {}: {}", manifest_path.display(), file.display()))?;
+        let actual = format!("{:x}", Sha256::digest(std::fs::read(&fixture).map_err(|e| format!("{}: {e}", fixture.display()))?));
+        return if actual == expected {
+            Ok(())
+        } else {
+            Err(format!("journey fixture hash mismatch for {}: expected {expected}, got {actual}", fixture.display()))
+        };
+    }
     let root = PathBuf::from(corpus_root());
     let resolved = if path.is_absolute() { path.to_path_buf() } else { root.join(path) };
     let relative = resolved.strip_prefix(&root).map_err(|_| format!("corpus input must be under {}: {}", root.display(), resolved.display()))?;
@@ -460,6 +505,9 @@ fn verify_corpus_input(path: &Path) -> Result<(), String> {
 }
 
 fn app_repo(path: &Path) -> Result<PathBuf, String> {
+    if let Some(path) = std::env::var_os("CRAFT_JOURNEYS_APP_REPO") {
+        return Ok(PathBuf::from(path));
+    }
     if let Some(suffix) = path.to_string_lossy().strip_prefix("$ARTCRAFT_HYPER_ROOT/") {
         let root = std::env::var_os("ARTCRAFT_HYPER_ROOT").ok_or("set ARTCRAFT_HYPER_ROOT to the hyper checkout")?;
         return Ok(PathBuf::from(root).join(suffix));
@@ -639,8 +687,10 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
     if !repo.is_dir() {
         return Err(format!("app repo does not exist: {}", repo.display()));
     }
-    let app_old = AppCheckout::at(&repo, "HEAD", 0)?;
-    let app_new = if old_rev == new_rev { AppCheckout::alias(&app_old) } else { AppCheckout::at(&repo, "HEAD", 1)? };
+    let app_base = std::env::var("CRAFT_JOURNEYS_APP_BASE_REV").unwrap_or_else(|_| "HEAD".into());
+    let app_head = std::env::var("CRAFT_JOURNEYS_APP_HEAD_REV").unwrap_or_else(|_| app_base.clone());
+    let app_old = AppCheckout::at(&repo, &app_base, 0)?;
+    let app_new = if app_base == app_head { AppCheckout::alias(&app_old) } else { AppCheckout::at(&repo, &app_head, 1)? };
     let checkouts = [app_old, app_new];
     let lib_repo = craft_libs_repo()?;
     let libs_old = LibRevision::at(&lib_repo, old_rev, 0)?;

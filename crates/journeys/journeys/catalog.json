@@ -29,8 +29,8 @@
       "app": "wordcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/wordcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "wordcraft-ui-egui", "--example", "perf_probe"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "wordcraft-ui-egui", "--example", "perf_probe", "--", "{input}"], "output": "wordcraft-probe" },
-      "inputs": [{ "name": "City-City", "path": "office-openxml-sdk/test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/O14ISOStrict/Word/City-City.docx" }]
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "wordcraft-ui-egui", "--example", "perf_probe", "--", "{input}", "--first-page-only"], "output": "wordcraft-probe" },
+      "inputs": [{ "name": "WordCraft-1096-pages", "path": ".journey-fixtures/wordcraft-open/wordcraft-1096.docx" }]
     },
     {
       "name": "deckcraft.open-office-pptx",
