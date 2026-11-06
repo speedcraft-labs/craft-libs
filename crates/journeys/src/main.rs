@@ -672,6 +672,8 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, old_app_rev: &str, n
     let libs_old = LibRevision::at(&lib_repo, old_rev, 0)?;
     let libs_new = if old_rev == new_rev { LibRevision::alias(&libs_old) } else { LibRevision::at(&lib_repo, new_rev, 1)? };
     let revisions = [libs_old, libs_new];
+    let old_label = revision_label(&repo, old_rev, old_app_rev)?;
+    let new_label = revision_label(&repo, new_rev, new_app_rev)?;
     build_variants(journey, &inputs[0], old_rev, new_rev, old_app_rev, new_app_rev, &checkouts, &revisions)?;
     let input_pairs: Vec<_> = inputs.into_iter().map(|i| (i.name.clone(), i)).collect();
     let report = Paired::new(format!("{} / {}", journey.app, journey.name))
@@ -686,10 +688,7 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, old_app_rev: &str, n
         .inputs(input_pairs)
         .check(|a, b| !a.identity.starts_with("ERROR:") && a.identity == b.identity)
         .wall_meter(|output| output.duration_ns)
-        .run(&Config {
-            revs: Revs { old: Some(revision_label(&repo, old_rev, old_app_rev)?), new: Some(revision_label(&repo, new_rev, new_app_rev)?) },
-            ..Config::default()
-        })
+        .run(&Config { revs: Revs { old: Some(old_label), new: Some(new_label) }, ..Config::default() })
         .map_err(|e| e.to_string())?;
     if let Some(path) = out {
         std::fs::write(path, report.to_json()).map_err(|e| format!("{}: {e}", path.display()))?;
