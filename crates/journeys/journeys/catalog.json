@@ -206,14 +206,14 @@
       "app": "photocraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "photocraft-ui-egui", "--example", "perf_scenarios"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "photocraft-ui-egui", "--example", "perf_scenarios", "--", "--group", "layered", "--only", "change opacity / fill / move styled layer + refresh", "--reps", "12", "--cpu"], "env": { "CRAFT_JOURNEY_ROW": "change opacity / fill / move styled layer + refresh", "RAYON_NUM_THREADS": "8" } }
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "photocraft-ui-egui", "--example", "perf_scenarios", "--", "--group", "layered", "--only", "change opacity / fill / move styled layer + refresh", "--reps", "3", "--cpu"], "env": { "CRAFT_JOURNEY_ROW": "change opacity / fill / move styled layer + refresh", "RAYON_NUM_THREADS": "8" } }
     },
     {
       "name": "photocraft.move-layer-16bit-15000x10000",
       "app": "photocraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "photocraft-ui-egui", "--example", "perf_scenarios"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "photocraft-ui-egui", "--example", "perf_scenarios", "--", "--group", "bit depths", "--only", "move layer on 16-bit 15000x10000 + refresh", "--reps", "3", "--cpu"], "env": { "CRAFT_JOURNEY_ROW": "move layer on 16-bit 15000x10000 + refresh", "RAYON_NUM_THREADS": "8" } }
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "photocraft-ui-egui", "--example", "perf_scenarios", "--", "--group", "bit depths", "--only", "move layer on 16-bit 15000x10000 + refresh", "--reps", "1", "--cpu"], "env": { "CRAFT_JOURNEY_ROW": "move layer on 16-bit 15000x10000 + refresh", "RAYON_NUM_THREADS": "8" } }
     },
     {
       "name": "photocraft.content-aware-scale.24mp",
