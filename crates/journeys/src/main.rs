@@ -164,9 +164,11 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
                     value
                         .get("first_frames_ms")
                         .and_then(serde_json::Value::as_array)
-                        .and_then(|frames| frames.first())
+                        // The headless app deliberately waits two frames for font installation;
+                        // frame 2 is the first one that paints a page.
+                        .and_then(|frames| frames.get(2))
                         .and_then(serde_json::Value::as_f64)
-                        .ok_or_else(|| "wordcraft probe JSON is missing first_frames_ms[0]".to_string())?,
+                        .ok_or_else(|| "wordcraft probe JSON is missing first_frames_ms[2]".to_string())?,
                     value
                         .get("page_count")
                         .and_then(serde_json::Value::as_u64)
