@@ -16,6 +16,9 @@ permissions:
 jobs:
   oracle:
     runs-on: [self-hosted, agentbox]
+    env:
+      CARGO_HOME: /home/ghrunner/.cargo
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target/${{ github.run_id }}
     timeout-minutes: 360
     env:
       ARTCRAFT_CORPUS: /jobs/work/speedcraft-labs/hyper/corpus

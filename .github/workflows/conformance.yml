@@ -21,6 +21,9 @@ permissions:
 jobs:
   conformance:
     runs-on: [self-hosted, agentbox]
+    env:
+      CARGO_HOME: /home/ghrunner/.cargo
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target/${{ github.run_id }}
     timeout-minutes: 360
     strategy:
       fail-fast: false

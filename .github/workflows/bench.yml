@@ -15,6 +15,9 @@ permissions:
 jobs:
   bench:
     runs-on: [self-hosted, agentbox]
+    env:
+      CARGO_HOME: /home/ghrunner/.cargo
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target/${{ github.run_id }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
