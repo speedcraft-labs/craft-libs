@@ -76,7 +76,15 @@ fn render(s: &str, rev: &str, input: &Input, app: &str) -> String {
 
 fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &str) -> Result<AppResult, String> {
     let mut cmd = Command::new(render(&spec.program, rev, input, app));
-    cmd.current_dir(cwd).env("CRAFT_JOURNEY_REV", rev).env("ARTCRAFT_CORPUS", corpus_root()).env("CARGO_TARGET_DIR", target_dir(app, rev));
+    cmd.current_dir(cwd)
+        .env("CRAFT_JOURNEY_REV", rev)
+        .env("ARTCRAFT_CORPUS", corpus_root())
+        .env("CARGO_TARGET_DIR", target_dir(app, rev))
+        .env("SQLX_OFFLINE", "true")
+        .env("RUST_MIN_STACK", "8388608");
+    if let Some(root) = std::env::var_os("ARTCRAFT_HYPER_ROOT") {
+        cmd.env("CRAFT_I18N_DIR", PathBuf::from(root).join("repos/libs/craft-i18n"));
+    }
     cmd.args(spec.args.iter().map(|a| render(a, rev, input, app)));
     let output = cmd.output().map_err(|e| format!("launch {}: {e}", spec.program))?;
     if !output.status.success() {
@@ -227,7 +235,12 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
         cmd.current_dir(&checkout.path)
             .env("CRAFT_JOURNEY_REV", rev)
             .env("ARTCRAFT_CORPUS", corpus_root())
-            .env("CARGO_TARGET_DIR", target_dir(&journey.app, rev));
+            .env("CARGO_TARGET_DIR", target_dir(&journey.app, rev))
+            .env("SQLX_OFFLINE", "true")
+            .env("RUST_MIN_STACK", "8388608");
+        if let Some(root) = std::env::var_os("ARTCRAFT_HYPER_ROOT") {
+            cmd.env("CRAFT_I18N_DIR", PathBuf::from(root).join("repos/libs/craft-i18n"));
+        }
         cmd.args(journey.build.args.iter().map(|a| render(a, rev, &journey.inputs[0], &journey.app)));
         let result = cmd.output().map_err(|e| format!("build {} at {rev}: {e}", journey.app))?;
         if !result.status.success() {
