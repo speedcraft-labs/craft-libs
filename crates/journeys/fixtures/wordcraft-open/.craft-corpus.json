@@ -4,9 +4,14 @@
   "files": [
     {
       "path": "wordcraft-1096.docx",
-      "sha256": "20966b36bd835f71a0050f57dce3172cd38b4fcea5cac9480a083a4fedc3f846",
-      "bytes": 4212,
-      "tags": ["docx", "synthetic", "wordcraft", "1096-pages"],
+      "sha256": "7ad72304ef527465085689118dba3b62f9d4bd9610ce81353b90f84c7bed8070",
+      "bytes": 11751,
+      "tags": [
+        "docx",
+        "synthetic",
+        "wordcraft",
+        "1096-pages"
+      ],
       "redistributable": true,
       "licence": "CC0-1.0"
     }

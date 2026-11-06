@@ -160,21 +160,25 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
         OutputProtocol::WordcraftProbe | OutputProtocol::DeckcraftBench => {
             let value: serde_json::Value = serde_json::from_str(stdout.trim()).map_err(|e| format!("invalid app JSON output: {e}"))?;
             let (millis, identity) = match spec.output {
-                OutputProtocol::WordcraftProbe => (
-                    value
+                OutputProtocol::WordcraftProbe => {
+                    let first_page_ms = value
                         .get("first_frames_ms")
                         .and_then(serde_json::Value::as_array)
                         // The headless app deliberately waits two frames for font installation;
                         // frame 2 is the first one that paints a page.
                         .and_then(|frames| frames.get(2))
                         .and_then(serde_json::Value::as_f64)
-                        .ok_or_else(|| "wordcraft probe JSON is missing first_frames_ms[2]".to_string())?,
-                    value
+                        .ok_or_else(|| "wordcraft probe JSON is missing first_frames_ms[2]".to_string())?;
+                    let page_count = value
                         .get("page_count")
                         .and_then(serde_json::Value::as_u64)
-                        .ok_or_else(|| "wordcraft probe JSON is missing page_count".to_string())?
-                        .to_string(),
-                ),
+                        .ok_or_else(|| "wordcraft probe JSON is missing page_count".to_string())?;
+                    let body_paragraphs = value
+                        .get("body_paragraphs")
+                        .and_then(serde_json::Value::as_u64)
+                        .ok_or_else(|| "wordcraft probe JSON is missing body_paragraphs".to_string())?;
+                    (first_page_ms, format!("{page_count}|{body_paragraphs}"))
+                }
                 OutputProtocol::DeckcraftBench => {
                     let open_ms = value
                         .get("steps")
