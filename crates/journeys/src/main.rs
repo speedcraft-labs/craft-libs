@@ -54,6 +54,7 @@ enum OutputProtocol {
     WordcraftProbe,
     DeckcraftBench,
     LightcraftDrag,
+    PdfcraftExport,
 }
 
 #[derive(Debug)]
@@ -186,6 +187,28 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
             if identity.is_empty() {
                 return Err("lightcraft output is missing texture dimensions".into());
             }
+            ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
+        }
+        OutputProtocol::PdfcraftExport => {
+            let line = stdout
+                .lines()
+                .find(|line| line.contains(" median ") && line.contains(" bytes, hash "))
+                .ok_or_else(|| "pdfcraft export output is missing its summary".to_string())?;
+            let millis = line
+                .split_once(" median ")
+                .and_then(|(_, rest)| rest.split_once(" ms,"))
+                .map(|(value, _)| value)
+                .ok_or_else(|| "pdfcraft export output is missing median milliseconds".to_string())?
+                .parse::<f64>()
+                .map_err(|e| format!("invalid pdfcraft export time: {e}"))?;
+            if !millis.is_finite() || millis < 0.0 {
+                return Err("pdfcraft export time must be finite and non-negative".into());
+            }
+            let identity = line
+                .split_once(" bytes, hash ")
+                .map(|(_, hash)| hash.trim())
+                .filter(|hash| !hash.is_empty())
+                .ok_or_else(|| "pdfcraft export output is missing its output hash".to_string())?;
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
     };

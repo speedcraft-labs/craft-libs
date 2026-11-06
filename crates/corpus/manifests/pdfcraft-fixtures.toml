@@ -1,0 +1,16 @@
+name = "pdfcraft-fixtures"
+description = "Small permissively licensed PDF fixtures used by app-level performance journeys."
+
+[[git]]
+repo = "storytold/pdfcraft"
+commit = "15c505d1c656a5d5cb82e5c14193b48d42e6a085"
+paths = ["crates/ui-egui/tests/data/form.pdf"]
+licence = "MIT OR Apache-2.0"
+provenance = "https://github.com/storytold/pdfcraft/tree/15c505d1c656a5d5cb82e5c14193b48d42e6a085/crates/ui-egui/tests/data/form.pdf"
+tags = ["pdf", "forms"]
+redistributable = true
+
+[[git.file]]
+path = "crates/ui-egui/tests/data/form.pdf"
+sha256 = "c6f8b656e225101129aa36bd5467adc8dba16730915f19caca17f6a546d0b040"
+dest = "form.pdf"

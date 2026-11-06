@@ -21,8 +21,9 @@ markers invalidate the output check. Commands must be one-shot and leave the app
 operation outside process startup when the app channel reports a more precise duration.
 
 The checked-in catalog includes native parsers for CADCraft `perf FILE`, WordCraft's
-`perf_probe` JSON, and DeckCraft `bench FILE --json`; those adapters extract the native open
-measurement and a stable document identity. `compare` treats `--base` and `--head` as craft-libs
+`perf_probe` JSON, DeckCraft `bench FILE --json`, LightCraft's slider latency table, and
+PdfCraft's `export_bench` summary; those adapters extract the native measurement and a stable
+document or render identity. `compare` treats `--base` and `--head` as craft-libs
 revisions. It builds detached temporary worktrees for both library revisions, then builds the
 same app source in separate temporary worktrees with Cargo path patches pointing at each library
 revision. The app's dependency lockfiles are isolated in those temporary app worktrees. Before
@@ -49,6 +50,7 @@ export ARTCRAFT_HYPER_ROOT=/jobs/work/speedcraft-labs/hyper
 export ARTCRAFT_CORPUS="$ARTCRAFT_HYPER_ROOT/corpus"
 export CRAFT_JOURNEYS_TARGET_DIR=/jobs/work/speedcraft-labs/targets/phase0-craft-journeys
 cargo run -p craft-corpus -- fetch crates/corpus/manifests/pngsuite.toml "$ARTCRAFT_CORPUS/pngsuite"
+cargo run -p craft-corpus -- fetch crates/corpus/manifests/pdfcraft-fixtures.toml "$ARTCRAFT_CORPUS/pdfcraft-fixtures"
 cargo run --release -p craft-journeys -- run --journey cadcraft.open-dxf.large-map --out cadcraft-open.json
 cargo run --release -p craft-journeys -- compare --base BASE_LIBS_REV --head HEAD_LIBS_REV --journey wordcraft.open-office-docx --out wordcraft-open.json
 cargo run --release -p craft-journeys -- run --journey lightcraft.slider-exposure-latency --out lightcraft-exposure.json

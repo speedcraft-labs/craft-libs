@@ -47,6 +47,14 @@
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "lightcraft-ui-egui", "--example", "drag_latency"] },
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "lightcraft-ui-egui", "--example", "drag_latency", "--", ".craft-journeys-library", "{input}", "light.exposure"], "env": { "GPU": "0", "TICKS": "30" }, "output": "lightcraft-drag" },
       "inputs": [{ "name": "ibasn6a16", "path": "pngsuite/ibasn6a16.png" }]
+    },
+    {
+      "name": "pdfcraft.export-pdf.form-fixture",
+      "app": "pdfcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "pdfcraft-engine", "--example", "export_bench"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "pdfcraft-engine", "--example", "export_bench", "--", "{input}", "72", "png", "5"], "output": "pdfcraft-export" },
+      "inputs": [{ "name": "form", "path": "pdfcraft-fixtures/form.pdf" }]
     }
   ]
 }
