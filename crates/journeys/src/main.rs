@@ -41,6 +41,10 @@ struct CommandSpec {
     args: Vec<String>,
     #[serde(default)]
     env: BTreeMap<String, String>,
+    /// Extra Cargo config values after the craft-libs revision patches. This lets an adapter use
+    /// an app-local patched dependency while keeping the rest of the revision's patch set.
+    #[serde(default)]
+    cargo_config_overrides: Vec<String>,
     /// Output protocol: `markers` (default) or a native app channel parser.
     #[serde(default)]
     output: OutputProtocol,
@@ -83,13 +87,17 @@ fn choose(catalog: Catalog, name: &str) -> Result<Journey, String> {
     catalog.journeys.into_iter().find(|j| j.name == name).ok_or_else(|| format!("unknown journey {name:?}"))
 }
 
-fn render(s: &str, rev: &str, input: &Input, app: &str) -> String {
+fn render(s: &str, rev: &str, input: &Input, app: &str, app_repo: &Path) -> String {
     let path = if input.path.is_absolute() { input.path.clone() } else { PathBuf::from(corpus_root()).join(&input.path) };
-    s.replace("{rev}", rev).replace("{input}", &path.to_string_lossy()).replace("{input_name}", &input.name).replace("{app}", app)
+    s.replace("{rev}", rev)
+        .replace("{input}", &path.to_string_lossy())
+        .replace("{input_name}", &input.name)
+        .replace("{app}", app)
+        .replace("{app_repo}", &app_repo.to_string_lossy())
 }
 
 fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &str, cargo_config: &Path) -> Result<AppResult, String> {
-    let mut cmd = Command::new(render(&spec.program, rev, input, app));
+    let mut cmd = Command::new(render(&spec.program, rev, input, app, cwd));
     cmd.current_dir(cwd)
         .env("CRAFT_JOURNEY_REV", rev)
         .env("ARTCRAFT_CORPUS", corpus_root())
@@ -101,12 +109,15 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
         cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
     }
     for (key, value) in &spec.env {
-        cmd.env(key, render(value, rev, input, app));
+        cmd.env(key, render(value, rev, input, app, cwd));
     }
     if Path::new(&spec.program).file_name().is_some_and(|name| name == "cargo") {
         cmd.args(["--config"]).arg(cargo_config);
+        for config in &spec.cargo_config_overrides {
+            cmd.args(["--config"]).arg(render(config, rev, input, app, cwd));
+        }
     }
-    cmd.args(spec.args.iter().map(|a| render(a, rev, input, app)));
+    cmd.args(spec.args.iter().map(|a| render(a, rev, input, app, cwd)));
     let output = cmd.output().map_err(|e| format!("launch {}: {e}", spec.program))?;
     if !output.status.success() {
         return Err(format!(
@@ -226,7 +237,8 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
                 .find(|line| line.contains(": median ") && line.ends_with(" bytes)"))
                 .ok_or_else(|| "vectorcraft export output is missing its summary".to_string())?;
             let (label, rest) = line.split_once(": median ").ok_or_else(|| "vectorcraft export output is missing its file label".to_string())?;
-            let (millis, rest) = rest.split_once(" ms, min ").ok_or_else(|| "vectorcraft export output is missing median milliseconds".to_string())?;
+            let (millis, rest) =
+                rest.split_once(" ms, min ").ok_or_else(|| "vectorcraft export output is missing median milliseconds".to_string())?;
             let millis = millis.parse::<f64>().map_err(|e| format!("invalid vectorcraft export time: {e}"))?;
             if !millis.is_finite() || millis < 0.0 {
                 return Err("vectorcraft export time must be finite and non-negative".into());
@@ -269,16 +281,23 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
         }
         OutputProtocol::EffectcraftOps => {
             let value: serde_json::Value = serde_json::from_str(stdout.trim()).map_err(|e| format!("invalid effectcraft bench JSON: {e}"))?;
-            let measures = value.get("measures").and_then(serde_json::Value::as_array).ok_or_else(|| "effectcraft bench JSON is missing measures".to_string())?;
+            let measures = value
+                .get("measures")
+                .and_then(serde_json::Value::as_array)
+                .ok_or_else(|| "effectcraft bench JSON is missing measures".to_string())?;
             let open = measures
                 .iter()
                 .find(|row| row.get("name").and_then(serde_json::Value::as_str) == Some("open"))
                 .ok_or_else(|| "effectcraft bench JSON is missing the open measurement".to_string())?;
-            let millis = open.get("ms").and_then(serde_json::Value::as_f64).ok_or_else(|| "effectcraft open measurement is missing ms".to_string())?;
+            let millis =
+                open.get("ms").and_then(serde_json::Value::as_f64).ok_or_else(|| "effectcraft open measurement is missing ms".to_string())?;
             if !millis.is_finite() || millis < 0.0 {
                 return Err("effectcraft open time must be finite and non-negative".into());
             }
-            let spec = value.get("spec").and_then(serde_json::Value::as_str).ok_or_else(|| "effectcraft bench JSON is missing its generated project spec".to_string())?;
+            let spec = value
+                .get("spec")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| "effectcraft bench JSON is missing its generated project spec".to_string())?;
             let shape = measures
                 .iter()
                 .filter_map(|row| {
@@ -298,10 +317,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
                 .ok_or_else(|| "photocraft benchmark output is missing its document summary".to_string())?;
             let details = document.strip_prefix("document ").ok_or_else(|| "invalid photocraft document summary".to_string())?;
             let (dimensions, rest) = details.split_once(" (").ok_or_else(|| "photocraft summary is missing image dimensions".to_string())?;
-            let op = rest
-                .split_once(", op ")
-                .map(|(_, op)| op.trim())
-                .ok_or_else(|| "photocraft summary is missing its operation".to_string())?;
+            let op = rest.split_once(", op ").map(|(_, op)| op.trim()).ok_or_else(|| "photocraft summary is missing its operation".to_string())?;
             let measured = stdout
                 .lines()
                 .find(|line| line.starts_with("open (decode + document)"))
@@ -321,15 +337,24 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
         OutputProtocol::FigcraftPerf => {
-            let title = stdout.lines().find(|line| line.starts_with("figcraft perf ("))
+            let title = stdout
+                .lines()
+                .find(|line| line.starts_with("figcraft perf ("))
                 .ok_or_else(|| "figcraft perf output is missing its title".to_string())?;
-            let header = stdout.lines().find(|line| line.starts_with("| operation |"))
+            let header = stdout
+                .lines()
+                .find(|line| line.starts_with("| operation |"))
                 .ok_or_else(|| "figcraft perf output is missing its layer-count header".to_string())?;
-            let line = stdout.lines().find(|line| line.starts_with("| render 1440×900 @100% |"))
+            let line = stdout
+                .lines()
+                .find(|line| line.starts_with("| render 1440×900 @100% |"))
                 .ok_or_else(|| "figcraft perf output is missing its viewport render row".to_string())?;
             let cells: Vec<_> = line.split('|').map(str::trim).collect();
-            let millis = cells.get(2).ok_or_else(|| "figcraft perf render row is missing a measurement".to_string())?
-                .parse::<f64>().map_err(|e| format!("invalid figcraft render time: {e}"))?;
+            let millis = cells
+                .get(2)
+                .ok_or_else(|| "figcraft perf render row is missing a measurement".to_string())?
+                .parse::<f64>()
+                .map_err(|e| format!("invalid figcraft render time: {e}"))?;
             if !millis.is_finite() || millis < 0.0 {
                 return Err("figcraft render time must be finite and non-negative".into());
             }
@@ -392,8 +417,10 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
             if !millis.is_finite() || millis < 0.0 {
                 return Err("filmcraft open time must be finite and non-negative".into());
             }
-            let clips = open.get("clips").and_then(serde_json::Value::as_u64).ok_or_else(|| "filmcraft open row is missing its clip count".to_string())?;
-            let megabytes = open.get("mbytes").and_then(serde_json::Value::as_f64).ok_or_else(|| "filmcraft open row is missing project size".to_string())?;
+            let clips =
+                open.get("clips").and_then(serde_json::Value::as_u64).ok_or_else(|| "filmcraft open row is missing its clip count".to_string())?;
+            let megabytes =
+                open.get("mbytes").and_then(serde_json::Value::as_f64).ok_or_else(|| "filmcraft open row is missing project size".to_string())?;
             let identity = format!("{clips} clips|{megabytes:.1} MB project");
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
@@ -628,7 +655,7 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
     let libs_new = if old_rev == new_rev { LibRevision::alias(&libs_old) } else { LibRevision::at(&lib_repo, new_rev, 1)? };
     let revisions = [libs_old, libs_new];
     for (rev, checkout, libs) in [(old_rev, &checkouts[0], &revisions[0]), (new_rev, &checkouts[1], &revisions[1])] {
-        let mut cmd = Command::new(render(&journey.build.program, rev, &inputs[0], &journey.app));
+        let mut cmd = Command::new(render(&journey.build.program, rev, &inputs[0], &journey.app, &checkout.path));
         cmd.current_dir(&checkout.path)
             .env("CRAFT_JOURNEY_REV", rev)
             .env("ARTCRAFT_CORPUS", corpus_root())
@@ -641,8 +668,11 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
         }
         if Path::new(&journey.build.program).file_name().is_some_and(|name| name == "cargo") {
             cmd.args(["--config"]).arg(&libs.cargo_config);
+            for config in &journey.build.cargo_config_overrides {
+                cmd.args(["--config"]).arg(render(config, rev, &inputs[0], &journey.app, &checkout.path));
+            }
         }
-        cmd.args(journey.build.args.iter().map(|a| render(a, rev, &inputs[0], &journey.app)));
+        cmd.args(journey.build.args.iter().map(|a| render(a, rev, &inputs[0], &journey.app, &checkout.path)));
         let result = cmd.output().map_err(|e| format!("build {} at {rev}: {e}", journey.app))?;
         if !result.status.success() {
             return Err(format!("build {} at {rev} failed ({})\n{}", journey.app, result.status, String::from_utf8_lossy(&result.stderr)));

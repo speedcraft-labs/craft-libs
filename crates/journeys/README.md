@@ -22,6 +22,11 @@ those values from app output instead of marker lines. Missing measurements or id
 the output check. Commands must be one-shot and leave the app's measured operation outside process
 startup when the app channel reports a more precise duration.
 
+Cargo adapters may add `cargo_config_overrides` after the selected craft-libs revision's Cargo
+patch config. The `{app_repo}` placeholder resolves to the app's isolated worktree. This lets an
+app use a newer app-local vendored dependency when its API is ahead of the craft-libs workspace
+copy.
+
 The checked-in catalog includes native parsers for CADCraft `perf FILE`, WordCraft's
 `perf_probe` JSON, DeckCraft `bench FILE --json`, LightCraft's slider latency table, PdfCraft's
 `export_bench` summary, VectorCraft's `export_bench` summary, and DesignCraft's deterministic
