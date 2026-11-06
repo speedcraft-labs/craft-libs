@@ -61,6 +61,8 @@ target root so prepared builds can be reused.
 | `effectcraft.synthetic-project-open` | EffectCraft | Open a generated project sized toward the surveyed 125 MB |
 | `effectcraft.first-frame-heavy-comp` | EffectCraft | Render a cold full-resolution (1,920×1,080) first frame of a generated 5,000-layer composition |
 | `photocraft.synthetic-image-open` | PhotoCraft | Open a generated 4096×2731 image on CPU |
+| `photocraft.layer-opacity-fill-move-styled` | PhotoCraft | Change opacity/fill and move a styled layer on a 20 MP document |
+| `photocraft.move-layer-16bit-15000x10000` | PhotoCraft | Move a layer on a 15000×10000 16-bit canvas |
 | `photocraft.content-aware-scale.24mp` | PhotoCraft | Remove 10% of a generated 6000×4000 photo-like image by seam carving |
 | `figcraft.synthetic-viewport-render` | FigCraft | Render a 100-layer synthetic document |
 | `gridcraft.synthetic-workbook-open` | GridCraft | Open and recalculate a generated 1,000-row workbook |
@@ -87,6 +89,9 @@ they default to `HEAD` and the same revision. Raw report revision labels record 
 craft-libs revisions. Each app build and run gets a target directory keyed by both revisions,
 and revision worktrees plus Cargo patch files keep stable paths under the selected target root,
 so paired runs reuse their warmed binaries instead of rebuilding one side over the other.
+The PhotoCraft layer journeys run the prepared `perf_scenarios` executable by its `{target_dir}`
+path, so a locked measurement never invokes Cargo. Adapter builds use `nice -n 19` and eight Cargo
+jobs.
 Run `prepare` before acquiring the shared benchmark lock, then use `--no-build` with `run` or
 `compare` while the lock is held. Both commands return exit code 1 for a non-publishable report;
 errors return 2.
