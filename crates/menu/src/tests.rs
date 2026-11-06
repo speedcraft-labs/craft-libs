@@ -21,6 +21,11 @@ fn held([cmd, ctrl, alt, shift]: [bool; 4]) -> Option<craft_keymap::Mods> {
     Some(craft_keymap::Mods { cmd, ctrl, alt, shift })
 }
 
+#[test]
+fn keypad_key_has_no_synthetic_egui_event() {
+    assert!(key_event(&chord("Cmd+Keypad1"), true).is_none());
+}
+
 fn typing(text_editing: bool) -> Gate {
     Gate { text_editing, ..Gate::default() }
 }
@@ -250,10 +255,10 @@ fn chords_become_egui_key_presses() {
     assert!(!native_ok(&chord("Alt+F")));
     assert!(!native_ok(&chord("Shift+X")));
 
-    let egui::Event::Key { key, modifiers, pressed: true, .. } = key_event(&chord("Shift+Cmd+Z"), true) else { panic!("a key press") };
+    let egui::Event::Key { key, modifiers, pressed: true, .. } = key_event(&chord("Shift+Cmd+Z"), true).unwrap() else { panic!("a key press") };
     assert_eq!(key, Key::Z);
     assert!(modifiers.command && modifiers.mac_cmd && modifiers.shift && !modifiers.ctrl && !modifiers.alt);
-    let ctrl = key_event(&chord("Ctrl+Cmd+M"), true);
+    let ctrl = key_event(&chord("Ctrl+Cmd+M"), true).unwrap();
     assert!(matches!(ctrl, egui::Event::Key { modifiers, .. } if modifiers.ctrl && modifiers.command));
 
     // Every shortcut the layout writes is a key equivalent; the app's F7 is display-only.
@@ -322,7 +327,7 @@ fn key_equivalents_become_one_key_press() {
     let mut menu = NativeMenu::new(Box::new(Fake { events: events.clone(), ..Default::default() })).clipboard_keys(ClipboardKeys::Raw);
     let paste = Chord::parse("Cmd+V").unwrap();
     let release = egui::Event::Key { key: Key::V, physical_key: Some(Key::V), pressed: false, repeat: false, modifiers: Modifiers::COMMAND };
-    let press = key_event(&paste, true);
+    let press = key_event(&paste, true).unwrap();
 
     events.borrow_mut().push(Event::Key(paste));
     let mut raw = egui::RawInput { events: vec![egui::Event::ModifiersChanged(Modifiers::COMMAND), release.clone()], ..Default::default() };
@@ -465,7 +470,7 @@ fn clipboard_key_equivalents_reach_text_fields() {
     let release = key(Key::C, false, Modifiers::COMMAND);
     let mut raw = egui::RawInput { events: vec![release.clone()], ..Default::default() };
     menu.raw_input(&mut raw);
-    let shift_v = key_event(&chord("Cmd+Shift+V"), true);
+    let shift_v = key_event(&chord("Cmd+Shift+V"), true).unwrap();
     assert_eq!(raw.events, [egui::Event::Copy, release, egui::Event::Cut, shift_v], "⌘⇧V is an app shortcut");
 
     events.borrow_mut().push(equivalent("Cmd+V"));
@@ -484,7 +489,7 @@ fn clipboard_key_equivalents_reach_text_fields() {
     events.borrow_mut().extend([equivalent("Cmd+C"), equivalent("Cmd+V")]);
     let mut raw = egui::RawInput::default();
     menu.raw_input(&mut raw);
-    let press = |s: &str| key_event(&chord(s), true);
+    let press = |s: &str| key_event(&chord(s), true).unwrap();
     assert_eq!(raw.events, [press("Cmd+C"), press("Cmd+V")]);
 }
 

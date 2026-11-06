@@ -129,7 +129,7 @@ fn a_click_on_a_text_editing_item_while_typing_taps_its_shortcut() {
     events.borrow_mut().extend([Event::Tap(undo), Event::Tap(copy)]);
     let mut raw = egui::RawInput::default();
     menu.raw_input(&mut raw);
-    assert_eq!(raw.events, [key_event(&undo, true), key_event(&undo, false), egui::Event::Copy]);
+    assert_eq!(raw.events, [key_event(&undo, true).unwrap(), key_event(&undo, false).unwrap(), egui::Event::Copy]);
     assert!(take_clicks(&mut menu).is_empty());
 }
 
@@ -207,7 +207,7 @@ fn recording_a_shortcut_passes_key_equivalents_through() {
     events.borrow_mut().extend([Event::Key(chord("Cmd+C")), Event::Key(chord("Cmd+V"))]);
     let mut raw = egui::RawInput::default();
     menu.raw_input(&mut raw);
-    assert_eq!(raw.events, [key_event(&chord("Cmd+C"), true), key_event(&chord("Cmd+V"), true)], "no Copy or Paste events");
+    assert_eq!(raw.events, [key_event(&chord("Cmd+C"), true).unwrap(), key_event(&chord("Cmd+V"), true).unwrap()], "no Copy or Paste events");
 }
 
 /// Dynamic lists (recent files, workspaces) change the tree: adding or removing one rebuilds,
