@@ -223,6 +223,19 @@
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "gridcraft-engine", "--example", "perf", "--", "1000"], "output": "gridcraft-perf" }
     },
     {
+      "name": "gridcraft.edit-100k-dependents",
+      "app": "gridcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "gridcraft-engine", "--example", "edit_dependents_perf"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "gridcraft-engine", "--example", "edit_dependents_perf", "--", "{input_name}", "{input}"], "output": "markers" },
+      "inputs": [
+        { "name": "synthetic-100k-chain-fanout", "path": "" },
+        { "name": "office-poi-51710", "path": "office-poi/spreadsheet/51710.xlsx" },
+        { "name": "office-poi-2_8mb", "path": "office-poi/spreadsheet/LIBRE_OFFICE-116306-0.xlsx" },
+        { "name": "office-libreoffice-129969-min", "path": "office-libreoffice/sc/qa/unit/data/xlsx/129969-min.xlsx" }
+      ]
+    },
+    {
       "name": "soundcraft.synthetic-mix-throughput",
       "app": "soundcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/soundcraft",
