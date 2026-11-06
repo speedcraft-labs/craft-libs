@@ -27,8 +27,8 @@ jobs:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
       - run: cargo fmt --check
-      - run: cargo clippy -p craft-font-store --all-targets --locked -- -D warnings
-      - run: cargo test -p craft-font-store --locked
+      - run: cargo clippy -p craft-font-store --all-targets -- -D warnings
+      - run: cargo test -p craft-font-store
       - name: Check the web build
         if: runner.os == 'Linux'
-        run: cargo check -p craft-font-store --target wasm32-unknown-unknown --locked
+        run: cargo check -p craft-font-store --target wasm32-unknown-unknown

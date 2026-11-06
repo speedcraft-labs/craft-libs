@@ -35,4 +35,4 @@ jobs:
         with:
           persist-credentials: false
       - name: Conformance
-        run: cargo test --locked --release -p craft-conformance --test ${{ matrix.codec }} -- --nocapture
+        run: cargo test --release -p craft-conformance --test ${{ matrix.codec }} -- --nocapture

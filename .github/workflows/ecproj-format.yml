@@ -29,6 +29,6 @@ jobs:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
       - run: cargo fmt --check
-      - run: cargo clippy -p craft-ecproj-format --all-targets --locked -- -D warnings
-      - run: cargo test -p craft-ecproj-format --locked -- --nocapture
-      - run: cargo check -p craft-ecproj-format --locked --target wasm32-unknown-unknown
+      - run: cargo clippy -p craft-ecproj-format --all-targets -- -D warnings
+      - run: cargo test -p craft-ecproj-format -- --nocapture
+      - run: cargo check -p craft-ecproj-format --target wasm32-unknown-unknown

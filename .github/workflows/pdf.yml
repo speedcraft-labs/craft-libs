@@ -44,9 +44,9 @@ jobs:
           python scripts/fetch-pdf-test-fonts.py "$RUNNER_TEMP/craft-pdf-test-fonts"
           echo "CRAFT_PDF_TEST_FONT_DIR=$RUNNER_TEMP/craft-pdf-test-fonts" >> "$GITHUB_ENV"
       - run: cargo fmt --check
-      - run: cargo clippy -p craft-pdf --all-targets --all-features --locked -- -D warnings
-      - run: cargo test -p craft-pdf --all-features --locked
-      - run: cargo test --manifest-path crates/pdf/read-only-contract/Cargo.toml --locked
+      - run: cargo clippy -p craft-pdf --all-targets --all-features -- -D warnings
+      - run: cargo test -p craft-pdf --all-features
+      - run: cargo test --manifest-path crates/pdf/read-only-contract/Cargo.toml
   backends:
     name: PDF vendored contracts
     runs-on: ubuntu-latest
@@ -84,9 +84,9 @@ jobs:
         shell: bash
         run: |
           runner_version=$(python3 -c 'import tomllib; d=tomllib.load(open("Cargo.lock", "rb")); print(next(p["version"] for p in d["package"] if p["name"] == "wasm-bindgen"))')
-          cargo install wasm-bindgen-cli --version "$runner_version" --locked
-      - run: cargo test -p craft-pdf --all-features --locked --target wasm32-unknown-unknown
-      - run: cargo test --manifest-path crates/pdf/read-only-contract/Cargo.toml --locked --target wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version "$runner_version"
+      - run: cargo test -p craft-pdf --all-features --target wasm32-unknown-unknown
+      - run: cargo test --manifest-path crates/pdf/read-only-contract/Cargo.toml --target wasm32-unknown-unknown
   plate-test:
     name: Plate tests and craft-prepress
     runs-on: ubuntu-latest
@@ -107,5 +107,5 @@ jobs:
           python scripts/test-fetch-pdf-test-fonts.py
           python scripts/fetch-pdf-test-fonts.py "$RUNNER_TEMP/craft-pdf-test-fonts"
           echo "CRAFT_PDF_TEST_FONT_DIR=$RUNNER_TEMP/craft-pdf-test-fonts" >> "$GITHUB_ENV"
-      - run: cargo clippy -p craft-plate-test -p craft-prepress --all-targets --all-features --locked -- -D warnings
-      - run: cargo test -p craft-plate-test -p craft-prepress --all-features --locked
+      - run: cargo clippy -p craft-plate-test -p craft-prepress --all-targets --all-features -- -D warnings
+      - run: cargo test -p craft-plate-test -p craft-prepress --all-features

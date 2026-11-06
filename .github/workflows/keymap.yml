@@ -40,15 +40,15 @@ jobs:
         with:
           key: craft-keymap-linux
       - run: cargo fmt -p craft-keymap --check
-      - run: cargo clippy -p craft-keymap --all-targets --no-default-features --locked -- -D warnings
+      - run: cargo clippy -p craft-keymap --all-targets --no-default-features -- -D warnings
       # `snapshot` covers `ui` and `egui` and compiles the dialog screenshots, which need a GPU
       # to run, so the test steps leave them out.
-      - run: cargo clippy -p craft-keymap --all-targets --features snapshot --locked -- -D warnings
+      - run: cargo clippy -p craft-keymap --all-targets --features snapshot -- -D warnings
       # Doctests run once, in the `ui` step.
       - name: Test core
-        run: cargo test -p craft-keymap --no-default-features --lib --tests --locked
+        run: cargo test -p craft-keymap --no-default-features --lib --tests
       - name: Test egui dispatch and the shortcuts dialog
-        run: cargo test -p craft-keymap --features ui --locked
+        run: cargo test -p craft-keymap --features ui
   native:
     timeout-minutes: 15
     name: Keymap (${{ matrix.os }})
@@ -75,7 +75,7 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: craft-keymap-${{ matrix.os }}
-      - run: cargo test -p craft-keymap --features ui --locked
+      - run: cargo test -p craft-keymap --features ui
   wasm:
     timeout-minutes: 10
     name: Keymap WASM
@@ -90,4 +90,4 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: craft-keymap-wasm
-      - run: cargo check -p craft-keymap --features ui --locked --target wasm32-unknown-unknown
+      - run: cargo check -p craft-keymap --features ui --target wasm32-unknown-unknown

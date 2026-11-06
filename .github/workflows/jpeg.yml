@@ -32,6 +32,6 @@ jobs:
         with:
           key: craft-jpeg
       - run: cargo fmt -p craft-jpeg --check
-      - run: cargo clippy -p craft-jpeg --all-targets --locked -- -D warnings
-      - run: cargo test -p craft-jpeg --locked
-      - run: cargo check -p craft-jpeg --locked --target wasm32-unknown-unknown
+      - run: cargo clippy -p craft-jpeg --all-targets -- -D warnings
+      - run: cargo test -p craft-jpeg
+      - run: cargo check -p craft-jpeg --target wasm32-unknown-unknown

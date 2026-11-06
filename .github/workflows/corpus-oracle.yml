@@ -27,13 +27,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo test --locked -p craft-corpus --no-fail-fast
-          cargo test --locked -p craft-oracle --no-fail-fast
+          cargo test -p craft-corpus --no-fail-fast
+          cargo test -p craft-oracle --no-fail-fast
           for manifest in tools/*-oracle/Cargo.toml; do
             echo "==> $manifest"
-            cargo test --manifest-path "$manifest" --locked --no-fail-fast
+            cargo test --manifest-path "$manifest" --no-fail-fast
           done
           for manifest in tools/*-oracle/Cargo.toml; do
             echo "==> ignored corpus tests: $manifest"
-            cargo test --manifest-path "$manifest" --locked --no-fail-fast -- --ignored
+            cargo test --manifest-path "$manifest" --no-fail-fast -- --ignored
           done

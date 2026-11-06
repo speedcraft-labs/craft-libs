@@ -31,7 +31,7 @@ jobs:
           components: rustfmt, clippy
       - run: cargo fmt --check
       # Default (no egui) and the egui feature both build and lint cleanly.
-      - run: cargo clippy -p craft-window --all-targets --locked -- -D warnings
-      - run: cargo clippy -p craft-window --all-targets --locked --features egui -- -D warnings
-      - run: cargo test -p craft-window --locked -- --nocapture
-      - run: cargo test -p craft-window --locked --features egui -- --nocapture
+      - run: cargo clippy -p craft-window --all-targets -- -D warnings
+      - run: cargo clippy -p craft-window --all-targets --features egui -- -D warnings
+      - run: cargo test -p craft-window -- --nocapture
+      - run: cargo test -p craft-window --features egui -- --nocapture

@@ -26,6 +26,6 @@ jobs:
           components: clippy
           # The macOS code is linted on Linux: it compiles for the target without the SDK.
           targets: aarch64-apple-darwin
-      - run: cargo clippy -p craft-dialogs --all-targets --locked -- -D warnings
-      - run: cargo clippy -p craft-dialogs --target aarch64-apple-darwin --locked -- -D warnings
-      - run: cargo test -p craft-dialogs --locked
+      - run: cargo clippy -p craft-dialogs --all-targets -- -D warnings
+      - run: cargo clippy -p craft-dialogs --target aarch64-apple-darwin -- -D warnings
+      - run: cargo test -p craft-dialogs

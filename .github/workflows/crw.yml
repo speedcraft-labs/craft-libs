@@ -35,8 +35,8 @@ jobs:
         with:
           key: craft-crw-${{ matrix.os }}
       - run: cargo fmt -p craft-crw --check
-      - run: cargo clippy -p craft-crw --all-targets --locked -- -D warnings
-      - run: cargo test -p craft-crw --locked
+      - run: cargo clippy -p craft-crw --all-targets -- -D warnings
+      - run: cargo test -p craft-crw
 
   wasm:
     timeout-minutes: 10
@@ -52,7 +52,7 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: craft-crw-wasm
-      - run: cargo check -p craft-crw --locked --target wasm32-unknown-unknown
+      - run: cargo check -p craft-crw --target wasm32-unknown-unknown
 
   samples:
     timeout-minutes: 20
@@ -73,7 +73,7 @@ jobs:
           key: crw-samples-${{ hashFiles('crates/crw/tests/samples.json') }}
       - name: Fetch the pinned CC0 sample files (raw.pixls.us)
         run: python scripts/fetch-crw-samples.py "$RUNNER_TEMP/crw-samples"
-      - run: cargo test -p craft-crw --release --locked --test samples -- --nocapture
+      - run: cargo test -p craft-crw --release --test samples -- --nocapture
         env:
           CRAFT_CRW_SAMPLES: ${{ runner.temp }}/crw-samples
           CRAFT_CRW_REQUIRE_SAMPLES: "1"

@@ -43,12 +43,12 @@ jobs:
       - run: cargo fmt -p craft-proof --check
       - name: Without Language data (a fork, docs.rs, offline)
         run: |
-          cargo clippy -p craft-proof --all-targets --locked -- -D warnings
-          cargo test -p craft-proof --locked
-          cargo check -p craft-proof --locked --target wasm32-unknown-unknown
+          cargo clippy -p craft-proof --all-targets -- -D warnings
+          cargo test -p craft-proof
+          cargo check -p craft-proof --target wasm32-unknown-unknown
       - name: A release without Language data fails
         run: |
-          if CRAFT_I18N_REQUIRED=1 cargo check -p craft-proof --locked 2>build.log; then
+          if CRAFT_I18N_REQUIRED=1 cargo check -p craft-proof 2>build.log; then
             echo "::error::CRAFT_I18N_REQUIRED=1 without CRAFT_I18N_DIR built"; exit 1
           fi
           grep -q "CRAFT_I18N_REQUIRED=1 but CRAFT_I18N_DIR is unset" build.log
@@ -57,12 +57,12 @@ jobs:
           CRAFT_I18N_DIR: ${{ github.workspace }}/craft-i18n
           CRAFT_I18N_REQUIRED: "1"
         run: |
-          cargo clippy -p craft-proof --all-targets --locked -- -D warnings
-          cargo test -p craft-proof --locked
-          cargo check -p craft-proof --locked --target wasm32-unknown-unknown
+          cargo clippy -p craft-proof --all-targets -- -D warnings
+          cargo test -p craft-proof
+          cargo check -p craft-proof --target wasm32-unknown-unknown
       - name: The English-only build (CRAFT_PROOF_EMBED=en, CP4.4's default once Language packs ship)
         env:
           CRAFT_I18N_DIR: ${{ github.workspace }}/craft-i18n
           CRAFT_I18N_REQUIRED: "1"
           CRAFT_PROOF_EMBED: en
-        run: cargo test -p craft-proof --locked
+        run: cargo test -p craft-proof

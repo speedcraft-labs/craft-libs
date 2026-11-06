@@ -37,23 +37,23 @@ jobs:
         run: |
           for f in "" decode decode-native symphonia encode lossless-encode pcm-encode flac-encode peaks serde; do
             echo "::group::features: ${f:-none}"
-            cargo clippy -p craft-audio --all-targets --locked --no-default-features ${f:+--features "$f"} -- -D warnings
+            cargo clippy -p craft-audio --all-targets --no-default-features ${f:+--features "$f"} -- -D warnings
             echo "::endgroup::"
           done
-      - run: cargo clippy -p craft-audio --all-targets --locked --all-features -- -D warnings
+      - run: cargo clippy -p craft-audio --all-targets --all-features -- -D warnings
       # missing_docs is a warning in the crate; -D warnings makes it (and broken links) fail here.
-      - run: cargo doc -p craft-audio --all-features --no-deps --locked
+      - run: cargo doc -p craft-audio --all-features --no-deps
         env:
           RUSTDOCFLAGS: "-D warnings"
       # Partial feature sets must document too (their links to other features are allowed to dangle).
-      - run: cargo doc -p craft-audio --no-default-features --features decode-native --no-deps --locked
+      - run: cargo doc -p craft-audio --no-default-features --features decode-native --no-deps
         env:
           RUSTDOCFLAGS: "-D warnings"
-      - run: cargo doc -p craft-audio --no-default-features --features lossless-encode --no-deps --locked
+      - run: cargo doc -p craft-audio --no-default-features --features lossless-encode --no-deps
         env:
           RUSTDOCFLAGS: "-D warnings"
-      - run: cargo check -p craft-audio --all-features --locked --target wasm32-unknown-unknown
-      - run: cargo check -p craft-audio --no-default-features --features lossless-encode --locked --target wasm32-unknown-unknown
+      - run: cargo check -p craft-audio --all-features --target wasm32-unknown-unknown
+      - run: cargo check -p craft-audio --no-default-features --features lossless-encode --target wasm32-unknown-unknown
   msrv:
     timeout-minutes: 10
     name: Audio on the minimum Rust version
@@ -67,7 +67,7 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: craft-audio-msrv
-      - run: cargo +1.95.0 check -p craft-audio -p craft-media --all-features --locked
+      - run: cargo +1.95.0 check -p craft-audio -p craft-media --all-features
   features:
     timeout-minutes: 10
     name: Audio tests without symphonia and lossless-encode only
@@ -80,10 +80,10 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: craft-audio-features
-      - run: cargo test -p craft-audio --no-default-features --features lossless-encode --locked
-      - run: cargo test -p craft-audio --no-default-features --features pcm-encode --locked --lib
-      - run: cargo test -p craft-audio --no-default-features --features flac-encode --locked --lib
-      - run: cargo test -p craft-audio --no-default-features --features decode-native --locked
+      - run: cargo test -p craft-audio --no-default-features --features lossless-encode
+      - run: cargo test -p craft-audio --no-default-features --features pcm-encode --lib
+      - run: cargo test -p craft-audio --no-default-features --features flac-encode --lib
+      - run: cargo test -p craft-audio --no-default-features --features decode-native
   test:
     timeout-minutes: 20
     name: Audio tests with ffmpeg oracles
@@ -113,10 +113,10 @@ jobs:
           }
           install_ffmpeg > "$RUNNER_TEMP/apt.log" 2>&1 &
           apt=$!
-          cargo test -p craft-audio --all-features --locked --no-run
+          cargo test -p craft-audio --all-features --no-run
           wait "$apt" || { cat "$RUNNER_TEMP/apt.log"; exit 1; }
           ffmpeg -hide_banner -version | sed -n 1p
-      - run: cargo test -p craft-audio --all-features --locked
+      - run: cargo test -p craft-audio --all-features
         env:
           CRAFT_MEDIA_REQUIRE_ORACLES: "1"
           CRAFT_MEDIA_FIXTURES_DIR: ${{ runner.temp }}/media-fixtures

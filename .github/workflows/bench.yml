@@ -21,4 +21,4 @@ jobs:
         with:
           persist-credentials: false
       - name: Check benchmark harness
-        run: cargo test --locked -p craft-bench --no-fail-fast
+        run: cargo test -p craft-bench --no-fail-fast
