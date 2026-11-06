@@ -36,6 +36,26 @@ revision. The app's dependency lockfiles are isolated in those temporary app wor
 any app build starts, the runner verifies that each input is listed in its `.craft-corpus.json`
 manifest and that its SHA-256 matches.
 
+### Available journeys
+
+| Journey | App | Measured operation |
+| --- | --- | --- |
+| `cadcraft.open-dxf.large-map` | CADCraft | Open the pinned Graz map DXF |
+| `cadcraft.open-dxf.usa` | CADCraft | Open the pinned USA DXF |
+| `cadcraft.open-dxf.us-main` | CADCraft | Open the pinned US-main DXF |
+| `wordcraft.open-office-docx` | WordCraft | Open the pinned City-City DOCX |
+| `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
+| `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
+| `pdfcraft.export-pdf.form-fixture` | PdfCraft | Export the pinned one-page form PDF to PNG |
+| `vectorcraft.export-svg.still-life` | VectorCraft | Export the pinned Still Life document to SVG |
+| `designcraft.synthetic-performance` | DesignCraft | Compose a deterministic synthetic document |
+| `effectcraft.synthetic-project-open` | EffectCraft | Open the generated small project |
+| `photocraft.synthetic-image-open` | PhotoCraft | Open a generated 4096×2731 image on CPU |
+| `figcraft.synthetic-viewport-render` | FigCraft | Render a 100-layer synthetic document |
+| `gridcraft.synthetic-workbook-open` | GridCraft | Open and recalculate a generated 1,000-row workbook |
+| `soundcraft.synthetic-mix-throughput` | SoundCraft | Mix 32 generated tracks over 4 seconds |
+| `filmcraft.synthetic-project-open` | FilmCraft | Open a generated project with the 360p clip fixture |
+
 Run and compare:
 
 ```sh
