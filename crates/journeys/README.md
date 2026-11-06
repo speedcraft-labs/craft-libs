@@ -23,8 +23,9 @@ operation outside process startup when the app channel reports a more precise du
 The checked-in catalog includes native parsers for CADCraft `perf FILE`, WordCraft's
 `perf_probe` JSON, DeckCraft `bench FILE --json`, LightCraft's slider latency table, PdfCraft's
 `export_bench` summary, VectorCraft's `export_bench` summary, and DesignCraft's deterministic
-synthetic `perf` channel; those adapters extract the native measurement and a stable document or
-render identity. A journey with no external inputs supplies one app-generated synthetic case.
+synthetic `perf` channel, and EffectCraft's generated-project operation benchmark; those adapters
+extract the native measurement and a stable document or render identity. A journey with no
+external inputs supplies one app-generated synthetic case.
 `compare` treats `--base` and `--head` as craft-libs
 revisions. It builds detached temporary worktrees for both library revisions, then builds the
 same app source in separate temporary worktrees with Cargo path patches pointing at each library

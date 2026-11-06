@@ -70,6 +70,13 @@
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/designcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "designcraft-cli"] },
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "designcraft-cli", "--", "perf", "--pages", "1", "--frames", "8", "--chars", "10000", "--images", "1", "--runs", "3"], "output": "designcraft-perf" }
+    },
+    {
+      "name": "effectcraft.synthetic-project-open",
+      "app": "effectcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--small", "--json"], "output": "effectcraft-ops" }
     }
   ]
 }
