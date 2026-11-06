@@ -157,7 +157,11 @@ fn execute_cli(args: &[String]) -> Result<bool, String> {
             let journey = choose(catalog()?, &arg(args, "--journey")?)?;
             let report = execute(&journey, &base, &head, None)?;
             print!("{}", report.to_markdown());
-            println!("verdict: {}", report.aggregate.wall.verdict().label());
+            if report.publishable {
+                println!("verdict: {}", report.aggregate.wall.verdict().label());
+            } else {
+                println!("verdict: not publishable ({})", report.publish_problems().join("; "));
+            }
             Ok(report.publishable)
         }
         _ => Err(USAGE.to_string()),
