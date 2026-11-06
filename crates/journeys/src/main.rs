@@ -74,7 +74,7 @@ fn render(s: &str, rev: &str, input: &Input, app: &str) -> String {
     s.replace("{rev}", rev).replace("{input}", &path.to_string_lossy()).replace("{input_name}", &input.name).replace("{app}", app)
 }
 
-fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &str) -> Result<AppResult, String> {
+fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &str, cargo_config: &Path) -> Result<AppResult, String> {
     let mut cmd = Command::new(render(&spec.program, rev, input, app));
     cmd.current_dir(cwd)
         .env("CRAFT_JOURNEY_REV", rev)
@@ -85,6 +85,9 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
     if let Some(root) = std::env::var_os("ARTCRAFT_HYPER_ROOT") {
         let root = PathBuf::from(root);
         cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
+    }
+    if Path::new(&spec.program).file_name().is_some_and(|name| name == "cargo") {
+        cmd.args(["--config"]).arg(cargo_config);
     }
     cmd.args(spec.args.iter().map(|a| render(a, rev, input, app)));
     let output = cmd.output().map_err(|e| format!("launch {}: {e}", spec.program))?;
@@ -210,6 +213,7 @@ fn app_repo(path: &Path) -> Result<PathBuf, String> {
 }
 
 struct AppCheckout {
+    repo: PathBuf,
     path: PathBuf,
     owned_worktree: bool,
 }
@@ -217,7 +221,7 @@ struct AppCheckout {
 impl AppCheckout {
     fn at(repo: &Path, rev: &str, side: usize) -> Result<Self, String> {
         if rev == "working-tree" {
-            return Ok(Self { path: repo.to_path_buf(), owned_worktree: false });
+            return Ok(Self { repo: repo.to_path_buf(), path: repo.to_path_buf(), owned_worktree: false });
         }
         let nonce = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| e.to_string())?.as_nanos();
         let path = std::env::temp_dir().join(format!("craft-journeys-{}-{side}-{nonce}", std::process::id()));
@@ -231,16 +235,102 @@ impl AppCheckout {
         if !result.status.success() {
             return Err(format!("git worktree for {rev} failed ({}): {}", result.status, String::from_utf8_lossy(&result.stderr)));
         }
-        Ok(Self { path, owned_worktree: true })
+        Ok(Self { repo: repo.to_path_buf(), path, owned_worktree: true })
     }
 }
 
 impl Drop for AppCheckout {
     fn drop(&mut self) {
         if self.owned_worktree {
-            let _ = Command::new("git").args(["worktree", "remove", "--force"]).arg(&self.path).output();
+            let _ = Command::new("git").args(["worktree", "remove", "--force"]).arg(&self.path).current_dir(&self.repo).output();
         }
     }
+}
+
+struct LibRevision {
+    _checkout: AppCheckout,
+    cargo_config: PathBuf,
+}
+
+impl LibRevision {
+    fn at(repo: &Path, rev: &str, side: usize) -> Result<Self, String> {
+        let checkout = AppCheckout::at(repo, rev, side)?;
+        let metadata = Command::new("cargo")
+            .args(["metadata", "--no-deps", "--format-version", "1", "--manifest-path"])
+            .arg(checkout.path.join("Cargo.toml"))
+            .current_dir(&checkout.path)
+            .output()
+            .map_err(|e| format!("launch cargo metadata for craft-libs {rev}: {e}"))?;
+        if !metadata.status.success() {
+            return Err(format!("cargo metadata for craft-libs {rev} failed: {}", String::from_utf8_lossy(&metadata.stderr)));
+        }
+        let metadata: serde_json::Value = serde_json::from_slice(&metadata.stdout).map_err(|e| format!("invalid craft-libs cargo metadata: {e}"))?;
+        let mut config = String::from("[patch.\"https://github.com/storytold/craft-libs\"]\n");
+        let packages = metadata.get("packages").and_then(serde_json::Value::as_array).ok_or("cargo metadata has no package list")?;
+        for package in packages {
+            let name = package.get("name").and_then(serde_json::Value::as_str).ok_or("cargo metadata package has no name")?;
+            let manifest = package.get("manifest_path").and_then(serde_json::Value::as_str).ok_or("cargo metadata package has no manifest_path")?;
+            let dir = Path::new(manifest).parent().ok_or_else(|| format!("invalid manifest path: {manifest}"))?;
+            config.push_str(&format!("{} = {{ path = {} }}\n", toml_string(name), toml_string(&dir.to_string_lossy())));
+        }
+        let mut vendors = Vec::new();
+        let vendor = checkout.path.join("vendor");
+        if vendor.is_dir() {
+            for entry in std::fs::read_dir(&vendor).map_err(|e| format!("{}: {e}", vendor.display()))? {
+                let dir = entry.map_err(|e| e.to_string())?.path();
+                let manifest = dir.join("Cargo.toml");
+                if !manifest.is_file() {
+                    continue;
+                }
+                let source = std::fs::read_to_string(&manifest).map_err(|e| format!("{}: {e}", manifest.display()))?;
+                if let Some(name) = package_name(&source) {
+                    vendors.push((name, dir));
+                }
+            }
+        }
+        if !vendors.is_empty() {
+            config.push_str("\n[patch.crates-io]\n");
+            for (name, dir) in vendors {
+                config.push_str(&format!("{} = {{ path = {} }}\n", toml_string(&name), toml_string(&dir.to_string_lossy())));
+            }
+        }
+        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| e.to_string())?.as_nanos();
+        let cargo_config = std::env::temp_dir().join(format!("craft-journeys-cargo-{}-{side}-{nonce}.toml", std::process::id()));
+        std::fs::write(&cargo_config, config).map_err(|e| format!("{}: {e}", cargo_config.display()))?;
+        Ok(Self { _checkout: checkout, cargo_config })
+    }
+}
+
+impl Drop for LibRevision {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.cargo_config);
+    }
+}
+
+fn package_name(manifest: &str) -> Option<String> {
+    let mut in_package = false;
+    for line in manifest.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_package = line == "[package]";
+        }
+        if in_package && let Some(value) = line.strip_prefix("name =") {
+            return Some(value.trim().trim_matches('"').to_string());
+        }
+    }
+    None
+}
+
+fn toml_string(value: &str) -> String {
+    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n"))
+}
+
+fn craft_libs_repo() -> Result<PathBuf, String> {
+    if let Some(path) = std::env::var_os("CRAFT_LIBS_REPO") {
+        return Ok(PathBuf::from(path));
+    }
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.ancestors().nth(2).map(Path::to_path_buf).ok_or_else(|| "cannot locate craft-libs workspace root".to_string())
 }
 
 fn target_dir(app: &str, rev: &str) -> PathBuf {
@@ -261,8 +351,10 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
     if !repo.is_dir() {
         return Err(format!("app repo does not exist: {}", repo.display()));
     }
-    let checkouts = [AppCheckout::at(&repo, old_rev, 0)?, AppCheckout::at(&repo, new_rev, 1)?];
-    for (rev, checkout) in [(old_rev, &checkouts[0]), (new_rev, &checkouts[1])] {
+    let checkouts = [AppCheckout::at(&repo, "HEAD", 0)?, AppCheckout::at(&repo, "HEAD", 1)?];
+    let lib_repo = craft_libs_repo()?;
+    let revisions = [LibRevision::at(&lib_repo, old_rev, 0)?, LibRevision::at(&lib_repo, new_rev, 1)?];
+    for (rev, checkout, libs) in [(old_rev, &checkouts[0], &revisions[0]), (new_rev, &checkouts[1], &revisions[1])] {
         let mut cmd = Command::new(render(&journey.build.program, rev, &journey.inputs[0], &journey.app));
         cmd.current_dir(&checkout.path)
             .env("CRAFT_JOURNEY_REV", rev)
@@ -274,6 +366,9 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
             let root = PathBuf::from(root);
             cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
         }
+        if Path::new(&journey.build.program).file_name().is_some_and(|name| name == "cargo") {
+            cmd.args(["--config"]).arg(&libs.cargo_config);
+        }
         cmd.args(journey.build.args.iter().map(|a| render(a, rev, &journey.inputs[0], &journey.app)));
         let result = cmd.output().map_err(|e| format!("build {} at {rev}: {e}", journey.app))?;
         if !result.status.success() {
@@ -283,11 +378,11 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
     let input_pairs: Vec<_> = journey.inputs.iter().cloned().map(|i| (i.name.clone(), i)).collect();
     let report = Paired::new(format!("{} / {}", journey.app, journey.name))
         .old(|input: &Input| {
-            run_command(&journey.run, &checkouts[0].path, old_rev, input, &journey.app)
+            run_command(&journey.run, &checkouts[0].path, old_rev, input, &journey.app, &revisions[0].cargo_config)
                 .unwrap_or_else(|e| AppResult { duration_ns: 0, identity: format!("ERROR: {e}") })
         })
         .new(|input: &Input| {
-            run_command(&journey.run, &checkouts[1].path, new_rev, input, &journey.app)
+            run_command(&journey.run, &checkouts[1].path, new_rev, input, &journey.app, &revisions[1].cargo_config)
                 .unwrap_or_else(|e| AppResult { duration_ns: 0, identity: format!("ERROR: {e}") })
         })
         .inputs(input_pairs)
