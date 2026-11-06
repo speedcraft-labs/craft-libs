@@ -24,7 +24,8 @@ The checked-in catalog includes native parsers for CADCraft `perf FILE`, WordCra
 `perf_probe` JSON, DeckCraft `bench FILE --json`, LightCraft's slider latency table, PdfCraft's
 `export_bench` summary, VectorCraft's `export_bench` summary, and DesignCraft's deterministic
 synthetic `perf` channel, EffectCraft's generated-project operation benchmark, and PhotoCraft's
-deterministic generated-image benchmark; those adapters extract the native measurement and a
+deterministic generated-image benchmark, and FigCraft's synthetic viewport benchmark; those
+adapters extract the native measurement and a
 stable document or render identity. A journey with no external inputs supplies one app-generated
 synthetic case.
 `compare` treats `--base` and `--head` as craft-libs

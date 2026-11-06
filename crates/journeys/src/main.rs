@@ -60,6 +60,7 @@ enum OutputProtocol {
     DesigncraftPerf,
     EffectcraftOps,
     PhotocraftLargeImage,
+    FigcraftPerf,
 }
 
 #[derive(Debug)]
@@ -314,6 +315,22 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, input: &Input, app: &s
                 return Err("photocraft open time must be finite and non-negative".into());
             }
             let identity = format!("{dimensions}|{op}");
+            ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
+        }
+        OutputProtocol::FigcraftPerf => {
+            let title = stdout.lines().find(|line| line.starts_with("figcraft perf ("))
+                .ok_or_else(|| "figcraft perf output is missing its title".to_string())?;
+            let header = stdout.lines().find(|line| line.starts_with("| operation |"))
+                .ok_or_else(|| "figcraft perf output is missing its layer-count header".to_string())?;
+            let line = stdout.lines().find(|line| line.starts_with("| render 1440×900 @100% |"))
+                .ok_or_else(|| "figcraft perf output is missing its viewport render row".to_string())?;
+            let cells: Vec<_> = line.split('|').map(str::trim).collect();
+            let millis = cells.get(2).ok_or_else(|| "figcraft perf render row is missing a measurement".to_string())?
+                .parse::<f64>().map_err(|e| format!("invalid figcraft render time: {e}"))?;
+            if !millis.is_finite() || millis < 0.0 {
+                return Err("figcraft render time must be finite and non-negative".into());
+            }
+            let identity = format!("{title}|{header}|render 1440×900 @100%");
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
     };
