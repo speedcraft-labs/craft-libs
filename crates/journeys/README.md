@@ -7,7 +7,7 @@ from that crate. The app adapter is a one-shot command configured in `journeys/c
 
 Each adapter command receives `CRAFT_JOURNEY_REV`, `ARTCRAFT_CORPUS`, and these expanded
 arguments: `{rev}`, `{app}`, `{input}`, `{input_name}`. The build command must build the app at
-the requested craft-libs revision. The run command exercises the app's existing perf/control
+the requested app revision. The run command exercises the app's existing perf/control
 channel on one pinned corpus input, then prints these lines to stdout:
 
 ```text
@@ -20,6 +20,12 @@ render/document/output identity; it must not include timing fields. Errors and m
 markers invalidate the output check. Commands must be one-shot and leave the app's measured
 operation outside process startup when the app channel reports a more precise duration.
 
+The checked-in catalog includes native parsers for CADCraft `perf FILE`, WordCraft's
+`perf_probe` JSON, and DeckCraft `bench FILE --json`; those adapters extract the native open
+measurement and a stable document identity. `compare` treats `--base` and `--head` as revisions
+in the selected app repository. It builds detached temporary Git worktrees for both revisions,
+then removes them. The app's dependency lockfiles remain part of the app revision under test.
+
 Run and compare:
 
 ```sh
@@ -30,3 +36,15 @@ cargo run --release -p craft-journeys -- compare --base BASE_REV --head HEAD_REV
 `run` pairs the current `CRAFT_JOURNEY_REV` (or `working-tree`) against itself to produce a
 baseline report. `compare` builds and runs both requested revisions and prints the speed verdict.
 Both commands return exit code 1 for a non-publishable report; errors return 2.
+
+For the shipped catalog, set the hyper checkout, corpus and build directory first. App builds
+are isolated by app and revision under the selected target root, so ABBA samples don't replace
+each other's executable:
+
+```sh
+export ARTCRAFT_HYPER_ROOT=/jobs/work/speedcraft-labs/hyper
+export ARTCRAFT_CORPUS="$ARTCRAFT_HYPER_ROOT/corpus"
+export CRAFT_JOURNEYS_TARGET_DIR=/jobs/work/speedcraft-labs/targets/phase0-craft-journeys
+cargo run --release -p craft-journeys -- run --journey cadcraft.open-dxf.large-map --out cadcraft-open.json
+cargo run --release -p craft-journeys -- compare --base BASE_APP_REV --head HEAD_APP_REV --journey wordcraft.open-office-docx --out wordcraft-open.json
+```

@@ -1,0 +1,44 @@
+{
+  "journeys": [
+    {
+      "name": "cadcraft.open-dxf.large-map",
+      "app": "cadcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "cadcraft-cli", "--", "perf", "{input}"], "output": "cadcraft-open" },
+      "inputs": [{ "name": "Graz_10km_3m", "path": "cad-ezdxf/docs/source/tutorials/src/geo/Graz_10km_3m.dxf" }]
+    },
+    {
+      "name": "cadcraft.open-dxf.usa",
+      "app": "cadcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "cadcraft-cli", "--", "perf", "{input}"], "output": "cadcraft-open" },
+      "inputs": [{ "name": "usa", "path": "cad-ezdxf/examples/addons/drawing/data/usa.dxf" }]
+    },
+    {
+      "name": "cadcraft.open-dxf.us-main",
+      "app": "cadcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "cadcraft-cli", "--", "perf", "{input}"], "output": "cadcraft-open" },
+      "inputs": [{ "name": "3_us_main", "path": "cad-ezdxf/examples/edgeminer/3_us_main.dxf" }]
+    },
+    {
+      "name": "wordcraft.open-office-docx",
+      "app": "wordcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/wordcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "wordcraft-ui-egui", "--example", "perf_probe"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "wordcraft-ui-egui", "--example", "perf_probe", "--", "{input}"], "output": "wordcraft-probe" },
+      "inputs": [{ "name": "City-City", "path": "office-openxml-sdk/test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/O14ISOStrict/Word/City-City.docx" }]
+    },
+    {
+      "name": "deckcraft.open-office-pptx",
+      "app": "deckcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/deckcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "deckcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "deckcraft-cli", "--", "bench", "{input}", "--runs", "10", "--json"], "output": "deckcraft-bench" },
+      "inputs": [{ "name": "2D-Area-O12-PPT-Charts", "path": "office-openxml-sdk/test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/O14ISOStrict/Graphics/2D Area-O12-PPT-Charts.pptx" }]
+    }
+  ]
+}
