@@ -166,6 +166,40 @@ fn corpus_root() -> String {
         .unwrap_or_else(|_| std::env::var("ARTCRAFT_HYPER_ROOT").map_or_else(|_| "../../corpus".to_string(), |root| format!("{root}/corpus")))
 }
 
+fn verify_corpus_input(path: &Path) -> Result<(), String> {
+    let root = PathBuf::from(corpus_root());
+    let resolved = if path.is_absolute() { path.to_path_buf() } else { root.join(path) };
+    let relative = resolved.strip_prefix(&root).map_err(|_| format!("corpus input must be under {}: {}", root.display(), resolved.display()))?;
+    let mut components = relative.components();
+    let dataset_component = components.next().ok_or_else(|| format!("invalid corpus path: {}", relative.display()))?;
+    if !matches!(dataset_component, std::path::Component::Normal(_)) {
+        return Err(format!("invalid corpus path: {}", relative.display()));
+    }
+    let dataset = dataset_component.as_os_str().to_str().ok_or_else(|| format!("invalid corpus path: {}", relative.display()))?;
+    let file = components.as_path();
+    if file.as_os_str().is_empty() || file.components().any(|c| !matches!(c, std::path::Component::Normal(_))) {
+        return Err(format!("invalid corpus path: {}", relative.display()));
+    }
+    let manifest_path = root.join(dataset).join(".craft-corpus.json");
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).map_err(|e| format!("{}: {e}", manifest_path.display()))?)
+            .map_err(|e| format!("{}: {e}", manifest_path.display()))?;
+    let file_name = file.to_string_lossy();
+    let entry = manifest
+        .get("files")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|files| files.iter().find(|item| item.get("path").and_then(serde_json::Value::as_str) == Some(file_name.as_ref())))
+        .ok_or_else(|| format!("input is not listed in {}: {}", manifest_path.display(), file.display()))?;
+    let expected =
+        entry.get("sha256").and_then(serde_json::Value::as_str).ok_or_else(|| format!("manifest entry has no sha256: {}", file.display()))?;
+    let bytes = std::fs::read(&resolved).map_err(|e| format!("{}: {e}", resolved.display()))?;
+    let actual = format!("{:x}", Sha256::digest(bytes));
+    if actual != expected {
+        return Err(format!("corpus input hash mismatch for {}: expected {expected}, got {actual}", resolved.display()));
+    }
+    Ok(())
+}
+
 fn app_repo(path: &Path) -> Result<PathBuf, String> {
     if let Some(suffix) = path.to_string_lossy().strip_prefix("$ARTCRAFT_HYPER_ROOT/") {
         let root = std::env::var_os("ARTCRAFT_HYPER_ROOT").ok_or("set ARTCRAFT_HYPER_ROOT to the hyper checkout")?;
@@ -220,10 +254,7 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>) 
         return Err(format!("journey {} has no pinned inputs", journey.name));
     }
     for input in &journey.inputs {
-        let resolved = if input.path.is_absolute() { input.path.clone() } else { PathBuf::from(corpus_root()).join(&input.path) };
-        if !resolved.exists() {
-            return Err(format!("pinned corpus input does not exist: {}", resolved.display()));
-        }
+        verify_corpus_input(&input.path)?;
     }
     let repo = app_repo(&journey.repo)?;
     if !repo.is_dir() {

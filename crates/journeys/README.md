@@ -24,7 +24,9 @@ The checked-in catalog includes native parsers for CADCraft `perf FILE`, WordCra
 `perf_probe` JSON, and DeckCraft `bench FILE --json`; those adapters extract the native open
 measurement and a stable document identity. `compare` treats `--base` and `--head` as revisions
 in the selected app repository. It builds detached temporary Git worktrees for both revisions,
-then removes them. The app's dependency lockfiles remain part of the app revision under test.
+then removes them. Before any app work starts, the runner verifies that each input is listed in
+its `.craft-corpus.json` manifest and that its SHA-256 matches. The app's dependency lockfiles
+remain part of the app revision under test.
 
 Run and compare:
 
