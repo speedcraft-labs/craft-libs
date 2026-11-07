@@ -62,7 +62,7 @@ pub fn find_bytes_overlapping_limited(matcher: &AhoCorasick, haystack: &[u8], pe
     by_pattern.into_iter().flatten().collect()
 }
 
-const CACHE_CAPACITY: usize = 32;
+const CACHE_CAPACITY: usize = 8;
 const MAX_CACHED_PATTERN: usize = 1024;
 struct CachedRegex {
     pattern: String,
@@ -79,7 +79,7 @@ thread_local! {
 /// Returns a cached regex clone, compiling each key at most once while it remains in the
 /// per-thread bounded FIFO cache. Oversized patterns are compiled but never retained.
 pub fn cached_regex(pattern: &str, insensitive: bool) -> Result<Regex, regex::Error> {
-    cached_regex_with_limits(pattern, insensitive, 1 << 20, 1 << 20, 250)
+    cached_regex_with_limits(pattern, insensitive, 10 * 1024 * 1024, 2 * 1024 * 1024, 250)
 }
 
 /// Same as [`cached_regex`], with explicit regex-automata and parser limits included in the key.
