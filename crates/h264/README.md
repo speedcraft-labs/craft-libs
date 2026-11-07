@@ -75,6 +75,10 @@ for pic in dec.flush() { /* ... */ }
 if let Some(err) = dec.take_error() { /* error reported by a decoding thread */ }
 ```
 
+Picture-worker errors are reported by `take_error()` after submitted pictures finish, so the error
+and returned picture hashes do not depend on which worker finishes first. Header and access-unit
+parse errors are returned directly from `decode()`.
+
 `decode` expects whole access units (a buffer with several complete access units — e.g. an
 entire Annex-B file — also works). `Decoder::stats()` returns counters of the coding tools seen
 (macroblock types, slice types, MMCOs, long-term marks, frame_num gaps, ...).
