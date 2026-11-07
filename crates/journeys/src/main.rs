@@ -95,11 +95,14 @@ fn choose(catalog: Catalog, name: &str) -> Result<Journey, String> {
 
 fn render(s: &str, rev: &str, input: &Input, app: &str, app_repo: &Path) -> String {
     let path = resolve_input_path(&input.path);
+    let journey_repo = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(2).map(Path::to_path_buf).unwrap_or_default();
     s.replace("{rev}", rev)
         .replace("{input}", &path.to_string_lossy())
         .replace("{input_name}", &input.name)
         .replace("{app}", app)
         .replace("{app_repo}", &app_repo.to_string_lossy())
+        .replace("{journey_repo}", &journey_repo.to_string_lossy())
+        .replace("{corpus}", &corpus_root())
 }
 
 fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: &Input, app: &str, cargo_config: &Path) -> Result<AppResult, String> {
@@ -111,6 +114,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
     let mut cmd = Command::new(program);
     cmd.current_dir(cwd)
         .env("CRAFT_JOURNEY_REV", rev)
+        .env("CRAFT_JOURNEY_APP_REV", app_rev)
         .env("ARTCRAFT_CORPUS", corpus_root())
         .env("CARGO_TARGET_DIR", target_dir(app, rev, app_rev))
         .env("SQLX_OFFLINE", "true")
