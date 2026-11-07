@@ -25,7 +25,7 @@ jobs:
     runs-on: [self-hosted, agentbox]
     env:
       CARGO_HOME: /home/ghrunner/.cargo
-      CARGO_TARGET_DIR: /jobs/work/actions-runner/_work/_temp/cargo-target/${{ github.run_id }}
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target/${{ github.run_id }}
       CRAFT_CORPUS_REQUIRE: '1'
       CRAFT_CORPUS_DIR: /jobs/work/speedcraft-labs/hyper/corpus
       CRAFT_AV1_HOSTILE_TIMEOUT_SECS: '3600'
