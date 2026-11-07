@@ -251,3 +251,59 @@ proptest! {
         prop_assert!(output.iter().flatten().zip(pixel).all(|(actual, expected)| (*actual - expected).abs() < 0.001));
     }
 }
+
+proptest! {
+    #[test]
+    fn rgba_pyramids_match_legacy_clamped_and_floor_results(
+        width in 1usize..12, height in 1usize..12,
+        pixels in prop::collection::vec(prop::array::uniform4(-50.0f32..50.0f32), 144..=144),
+    ) {
+        let source = &pixels[..width * height];
+
+        let (clamped_w, clamped_h) = (width.div_ceil(2), height.div_ceil(2));
+        let mut clamped_expected = vec![[0.0; 4]; clamped_w * clamped_h];
+        for y in 0..clamped_h {
+            for x in 0..clamped_w {
+                let mut acc = [0.0; 4];
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                    let sx = (2 * x + dx).min(width - 1);
+                    let sy = (2 * y + dy).min(height - 1);
+                    for (sum, value) in acc.iter_mut().zip(source[sy * width + sx]) {
+                        *sum += value;
+                    }
+                }
+                clamped_expected[y * clamped_w + x] = acc.map(|value| value * 0.25);
+            }
+        }
+        let (actual_w, actual_h, clamped_actual) = downsample2_clamped_rgba(source, width, height)
+            .expect("small non-empty clamped pyramid");
+        prop_assert_eq!((actual_w, actual_h), (clamped_w, clamped_h));
+        prop_assert_eq!(clamped_actual, clamped_expected);
+
+        let (floor_w, floor_h) = ((width / 2).max(1), (height / 2).max(1));
+        let mut floor_expected = vec![[0.0; 4]; floor_w * floor_h];
+        for y in 0..floor_h {
+            for x in 0..floor_w {
+                let mut acc = [0.0; 4];
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                    let sx = (2 * x + dx).min(width - 1);
+                    let sy = (2 * y + dy).min(height - 1);
+                    for (sum, value) in acc.iter_mut().zip(source[sy * width + sx]) {
+                        *sum += value;
+                    }
+                }
+                floor_expected[y * floor_w + x] = acc.map(|value| value * 0.25);
+            }
+        }
+        let (actual_w, actual_h, floor_actual) = downsample2_floor_rgba(source, width, height)
+            .expect("small non-empty floor pyramid");
+        prop_assert_eq!((actual_w, actual_h), (floor_w, floor_h));
+        let packed_expected = floor_expected.iter().flatten().copied().collect::<Vec<_>>();
+        prop_assert_eq!(floor_actual, floor_expected);
+
+        let packed_source = source.iter().flatten().copied().collect::<Vec<_>>();
+        let (_, _, packed_actual) = downsample2_floor_rgba_f32(&packed_source, width, height)
+            .expect("small non-empty packed floor pyramid");
+        prop_assert_eq!(packed_actual, packed_expected);
+    }
+}
