@@ -27,3 +27,12 @@ licence = "NASJI library terms; personal and commercial use permitted, resale of
 provenance = "https://nasji.com/cad-blocks/floor-plans"
 tags = ["dxf", "architecture", "restroom", "144k-entities", "hatch", "blocks", "raster-images"]
 redistributable = false
+
+[[file]]
+path = "CADCraft_Heavy_Engineering_sample.dwg"
+url = "https://raw.githubusercontent.com/cyfung1031/uploads/9126f172518fc3b0ba6cda72ac4d8be9e1fa1fd1/cad-samples/CADCraft_Heavy_Engineering_sample.dwg"
+sha256 = "98761d5214f0456dd3e38822a46dd77b848d6e51be546c550b9570789e9549df"
+licence = "Publicly accessible; unrestricted for testing and demonstration per upstream CADCraft issue #1076"
+provenance = "https://github.com/storytold/cadcraft/issues/1076"
+tags = ["dwg", "engineering", "985k-entities", "8448-hatches", "blocks", "heavy"]
+redistributable = false

@@ -28,6 +28,15 @@
       "inputs": [{ "name": "Restroom-144k", "path": "cadcraft-real-drawings/restroom.dxf" }]
     },
     {
+      "name": "cadcraft.edit-heavy-engineering-dwg.985k",
+      "app": "cadcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
+      "run": { "program": "{target_dir}/release/cadcraft-cli", "args": ["perf", "{input}"], "env": { "CADCRAFT_PERF_EDIT_MODE": "full" }, "output": "cadcraft-edit" },
+      "run_head": { "program": "{target_dir}/release/cadcraft-cli", "args": ["perf", "{input}"], "env": { "CADCRAFT_PERF_EDIT_MODE": "incremental" }, "output": "cadcraft-edit" },
+      "inputs": [{ "name": "CADCraft-Heavy-Engineering-985k", "path": "cadcraft-real-drawings/CADCraft_Heavy_Engineering_sample.dwg" }]
+    },
+    {
       "name": "cadcraft.edit-hatched-drawing.12k",
       "app": "cadcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
