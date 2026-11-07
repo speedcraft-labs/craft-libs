@@ -14,6 +14,8 @@ on:
       - "crates/metafile/**"
       - "crates/archive/**"
       - "crates/pdf/**"
+      - "crates/opus/**"
+      - "crates/ooxml/**"
       - ".github/workflows/fuzz.yml"
 
 permissions:
@@ -47,6 +49,10 @@ jobs:
             target: zip
           - crate: pdf
             target: open
+          - crate: opus
+            target: decode
+          - crate: ooxml
+            target: parse
     env:
       CARGO_BUILD_JOBS: 4
       CARGO_TARGET_DIR: ${{ github.event_name == 'pull_request' && format('{0}/.fuzz-targets/{1}', github.workspace, matrix.crate) || format('/jobs/work/speedcraft-labs/targets/fuzzers-200-craft-libs/{0}', matrix.crate) }}
@@ -79,6 +85,12 @@ jobs:
                 done ;;
               pdf) find /jobs/work/speedcraft-labs/hyper/corpus -type f -iname '*.pdf' -size -4M | head -n 12 | while IFS= read -r seed; do cp -n "$seed" "$corpus/"; done || true ;;
               archive) find /jobs/work/speedcraft-labs/hyper/corpus -type f \( -iname '*.zip' -o -iname '*.xlsx' -o -iname '*.docx' -o -iname '*.pptx' \) -size -8M | head -n 32 | while IFS= read -r seed; do cp -n "$seed" "$corpus/"; done || true ;;
+              opus)
+                printf '\370\377\376' > "$corpus/valid-packet"
+                python3 -c 'from pathlib import Path; import sys; Path(sys.argv[1]).write_bytes(b"OpusHead" + bytes.fromhex("0101000080bb0000000000"))' "$corpus/opus-head" ;;
+              ooxml)
+                find /jobs/work/speedcraft-labs/hyper/corpus -type f \( -iname '*.docx' -o -iname '*.xlsx' -o -iname '*.pptx' \) -size -8M | head -n 12 | while IFS= read -r seed; do cp -n "$seed" "$corpus/"; done || true
+                python3 -c 'import sys, zipfile; z=zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED); z.writestr("[Content_Types].xml", b"<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"xml\" ContentType=\"application/xml\"/></Types>"); z.writestr("_rels/.rels", b"<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"/>"); z.close()' "$corpus/minimal-ooxml.zip" ;;
               *) ;;
             esac
           fi
