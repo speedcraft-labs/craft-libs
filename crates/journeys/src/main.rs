@@ -783,7 +783,8 @@ fn build_app(journey: &Journey, rev: &str, app_rev: &str, input: &Input, checkou
     let cargo_build = Path::new(&build_program).file_name().is_some_and(|name| name == "cargo");
     let mut cmd = if cargo_build {
         let mut command = Command::new("nice");
-        command.args(["-n", "19", "cargo"]).env("CARGO_BUILD_JOBS", "6");
+        let build_jobs = std::env::var("CARGO_BUILD_JOBS").unwrap_or_else(|_| "6".into());
+        command.args(["-n", "19", "cargo"]).env("CARGO_BUILD_JOBS", build_jobs);
         command
     } else {
         Command::new(build_program)
