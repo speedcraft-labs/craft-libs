@@ -1,0 +1,5 @@
+# Custom labels for org self-hosted runners used by workflows in this repository.
+self-hosted-runner:
+  labels:
+    - agentbox
+    - macos-release
