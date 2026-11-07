@@ -49,7 +49,7 @@ jobs:
             target: open
     env:
       CARGO_BUILD_JOBS: 4
-      CARGO_TARGET_DIR: /jobs/work/speedcraft-labs/targets/fuzzers-200-craft-libs
+      CARGO_TARGET_DIR: /jobs/work/speedcraft-labs/targets/fuzzers-200-craft-libs/${{ matrix.crate }}
       CARGO_TERM_COLOR: always
       FUZZ_CORPUS_ROOT: /jobs/work/speedcraft-labs/fuzz-corpus/craft-libs
     steps:
