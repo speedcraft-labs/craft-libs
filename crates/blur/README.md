@@ -62,8 +62,12 @@ Consequently the public `Recursive` quality has an explicit **sampled guard band
 below 8**, extending the upstream below-2.5 fallback rather than weakening the
 requested bound or modifying the borrowed recurrence. Above 65,536 it also uses
 Exact, avoiding the numerically ill-conditioned high-sigma third-order recurrence.
-No shape/variance certification is claimed for the raw recurrence beyond the
-tested range; consumers requiring an unconditional sampled result should use Exact.
+The `RecursiveRaw` property test compares 48 generated sigmas against the
+normalized sampled Gaussian and enforces maximum absolute impulse error <=0.03
+on [2.5, 8), <=0.01 on [8, 64], and relative variance error <0.5% on [2.5, 64].
+These are checked sample bounds rather than a proof for every real sigma; no
+shape/variance certification is claimed beyond the tested range. Consumers
+requiring an unconditional sampled result should use Exact.
 
 Use `Gaussian::new(sigma, Quality::RecursiveRaw)` when preserving LightCraft V3
 output is the contract. The former public-API mismatch at 2.5 <= sigma < 8 was

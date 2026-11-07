@@ -1,4 +1,4 @@
-//! Paired, same-binary comparison of the old three-box cascade and the recursive fix.
+//! Paired, same-binary comparison of the old three-box cascade and deployed RecursiveRaw quality.
 //! The output change is intentional; correctness is gated separately by the impulse variance and
 //! shape properties in `contracts.rs` and `variance.rs` against the calibrated sampled Gaussian.
 
@@ -26,9 +26,9 @@ fn paired_box_vs_recursive_by_sigma() -> Result<(), Box<dyn std::error::Error>> 
         let pixels = (0..shape.samples()).map(|i| ((i * 17 % 1021) as f32) / 1021.0).collect();
         (format!("sigma={sigma}"), Input { sigma, shape, pixels })
     });
-    let report = Paired::new("craft-blur: three-box vs Young–van Vliet")
+    let report = Paired::new("craft-blur: three-box vs RecursiveRaw")
         .old(|input: &Input| run(input, Quality::BoxApprox { passes: 3 }))
-        .new(|input: &Input| run(input, Quality::Recursive))
+        .new(|input: &Input| run(input, Quality::RecursiveRaw))
         .inputs(inputs)
         // Gaussian generations intentionally differ. Both outputs must be well-formed finite
         // images; the documented independent oracle tests establish the numeric error bounds.

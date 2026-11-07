@@ -1,5 +1,50 @@
 # 24 MP Gaussian timings
 
+## Issue #176: three boxes vs RecursiveRaw
+
+Measured 2026-11-07 on the Agentbox host (AMD Ryzen 9 5900XT, Linux
+x86_64), using the release profile and one 2048 × 2048 single-channel plane,
+confined to reserved benchmark CPUs 22–27 (`craft-bench` isolation mode).
+The old side uses `Quality::BoxApprox { passes: 3 }`; the new side uses the
+deployed `Quality::RecursiveRaw` selection (calibrated sampled Gaussian below
+sigma 2.5, YvV recurrence from 2.5 onward). Each timed call clones the input,
+constructs the filter and scratch, and applies it. `craft-bench` ran two
+warmups, ten paired runs per side, and 2,000 bootstrap resamples. The output
+check verified equal lengths and finite values; independent accuracy and shape
+properties compare the impulse response against the calibrated sampled Gaussian.
+The load guard reported 0.01 before and 0.00 after (limit 3.00), and marked the
+run publishable.
+
+| Sigma | Three boxes | RecursiveRaw | New / old (95% CI) |
+|---:|---:|---:|---:|
+| 1 | 80.017 ms | 14.717 ms | 0.184 [0.179, 0.191] |
+| 4 | 79.305 ms | 40.725 ms | 0.514 [0.504, 0.530] |
+| 8 | 79.951 ms | 39.822 ms | 0.498 [0.480, 0.538] |
+| 16 | 79.308 ms | 40.831 ms | 0.515 [0.504, 0.523] |
+| 32 | 80.504 ms | 42.096 ms | 0.523 [0.491, 0.533] |
+| 64 | 80.314 ms | 40.870 ms | 0.509 [0.497, 0.521] |
+| **Geometric mean** | | | **0.431 [0.425, 0.438]** |
+
+Process CPU-time geometric mean is also 0.431 [0.425, 0.438]. The output
+difference is intentional: the old integer-width cascade has quantized
+variance, while the new path matches the requested second moment. The raw
+`craft-bench` report is
+[`recursive-gaussian-agentbox-2026-11-07.json`](BENCHMARKS-data/recursive-gaussian-agentbox-2026-11-07.json).
+
+Reproduce by building first, outside the reserved benchmark CPUs, then running
+the built test executable under the benchmark lock and `bench-run` wrapper:
+
+```sh
+CARGO_BUILD_JOBS=4 CARGO_TARGET_DIR=/jobs/work/speedcraft-labs/targets/recursive-gaussian/craft-libs \
+  nice -n 19 cargo test -p craft-blur --release --test recursive_gaussian_bench --no-run
+BENCH_BIN="$(find /jobs/work/speedcraft-labs/targets/recursive-gaussian/craft-libs/release/deps \
+  -maxdepth 1 -type f -name 'recursive_gaussian_bench-*' -executable -print -quit)"
+flock /jobs/work/speedcraft-labs/bench.lock \
+  /jobs/work/speedcraft-labs/scripts/bench-run \
+  /usr/bin/env CRAFT_BLUR_BENCH_JSON="$PWD/crates/blur/BENCHMARKS-data/recursive-gaussian-agentbox-2026-11-07.json" \
+  nice -n 19 "$BENCH_BIN" --ignored --nocapture --test-threads=1
+```
+
 ## Wrap and sparse regions
 
 November 3, 2026, same rustup release toolchain and host as below. The opt-in
