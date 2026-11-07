@@ -161,10 +161,52 @@ pub fn reduce_box_f32(source: &[f32], source_size: [usize; 2], dest_size: [usize
 /// Odd source dimensions round up; the final footprint repeats the last row or column, matching
 /// the common compositor minification pyramid convention.
 pub fn downsample2_clamped_rgba(source: &[[f32; 4]], width: usize, height: usize) -> Option<(usize, usize, Vec<[f32; 4]>)> {
+    downsample2_rgba(source, width, height, true)
+}
+
+/// Build one RGBA pyramid level with the floor-sized 2×2 convention used by FilmCraft.
+///
+/// Odd trailing rows and columns are dropped. A one-pixel dimension is retained and sampled with
+/// clamped edges.
+pub fn downsample2_floor_rgba(source: &[[f32; 4]], width: usize, height: usize) -> Option<(usize, usize, Vec<[f32; 4]>)> {
+    downsample2_rgba(source, width, height, false)
+}
+
+/// Packed-float counterpart to [`downsample2_floor_rgba`], for RGBA buffers stored as a flat
+/// row-major `f32` slice.
+pub fn downsample2_floor_rgba_f32(source: &[f32], width: usize, height: usize) -> Option<(usize, usize, Vec<f32>)> {
+    if width == 0 || height == 0 || source.len() < width.checked_mul(height)?.checked_mul(4)? {
+        return None;
+    }
+    let (dw, dh) = ((width / 2).max(1), (height / 2).max(1));
+    let mut out = Vec::new();
+    out.try_reserve_exact(dw.checked_mul(dh)?.checked_mul(4)?).ok()?;
+    out.resize(dw * dh * 4, 0.0);
+    let reduce_row = |y: usize, row: &mut [f32]| {
+        for x in 0..dw {
+            for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                let index = ((2 * y + dy).min(height - 1) * width + (2 * x + dx).min(width - 1)) * 4;
+                for channel in 0..4 {
+                    row[x * 4 + channel] += source[index + channel];
+                }
+            }
+            for channel in 0..4 {
+                row[x * 4 + channel] *= 0.25;
+            }
+        }
+    };
+    #[cfg(feature = "rayon")]
+    out.par_chunks_mut(dw * 4).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    #[cfg(not(feature = "rayon"))]
+    out.chunks_mut(dw * 4).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    Some((dw, dh, out))
+}
+
+fn downsample2_rgba(source: &[[f32; 4]], width: usize, height: usize, round_up: bool) -> Option<(usize, usize, Vec<[f32; 4]>)> {
     if width == 0 || height == 0 || source.len() < width.checked_mul(height)? {
         return None;
     }
-    let (dw, dh) = (width.div_ceil(2), height.div_ceil(2));
+    let (dw, dh) = if round_up { (width.div_ceil(2), height.div_ceil(2)) } else { ((width / 2).max(1), (height / 2).max(1)) };
     let mut out = Vec::new();
     out.try_reserve_exact(dw.checked_mul(dh)?).ok()?;
     out.resize(dw * dh, [0.0; 4]);

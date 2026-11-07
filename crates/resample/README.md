@@ -15,6 +15,9 @@ has no runtime dependencies; enable `rayon` to parallelize the image reducers.
   fractional ratios and enlargements so callers can keep their established fallback filter.
 * `downsample2_clamped_rgba` builds one level of a clamped 2×2 RGBA pyramid. Odd dimensions round
   up and repeat the final row or column, as in affine minification pyramids.
+* `downsample2_floor_rgba` keeps the floor-sized pyramid convention where odd trailing edges are
+  discarded, as in FilmCraft's transformed-image path. `downsample2_floor_rgba_f32` accepts its
+  packed `f32` buffer without converting through temporary pixel arrays.
 
 Property tests check constants, label preservation, and odd-sized pyramid levels. The `rayon`
 feature keeps reductions row/pixel-parallel in image consumers.

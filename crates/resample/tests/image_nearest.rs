@@ -1,4 +1,7 @@
-use craft_resample::{NearestAlignment, downsample2_clamped_rgba, reduce_box_f32, resize_bilinear_u8_coverage, resize_nearest};
+use craft_resample::{
+    NearestAlignment, downsample2_clamped_rgba, downsample2_floor_rgba, downsample2_floor_rgba_f32, reduce_box_f32, resize_bilinear_u8_coverage,
+    resize_nearest,
+};
 use proptest::prelude::*;
 
 proptest! {
@@ -98,6 +101,18 @@ fn odd_pyramid_levels_clamp_the_edge_and_round_up() {
     let (w, h, output) = downsample2_clamped_rgba(&input, 3, 1).expect("non-empty image");
     assert_eq!((w, h), (2, 1));
     assert_eq!(output, vec![[0.0; 4]; 2]);
+}
+
+#[test]
+fn floor_pyramid_levels_drop_odd_trailing_rows_and_columns() {
+    let input = (0..15).map(|v| [v as f32; 4]).collect::<Vec<_>>();
+    let (w, h, output) = downsample2_floor_rgba(&input, 5, 3).expect("non-empty image");
+    assert_eq!((w, h), (2, 1));
+    assert_eq!(output, vec![[3.0; 4], [5.0; 4]]);
+    let packed = input.iter().flatten().copied().collect::<Vec<_>>();
+    let (packed_w, packed_h, packed_output) = downsample2_floor_rgba_f32(&packed, 5, 3).expect("packed non-empty image");
+    assert_eq!((packed_w, packed_h), (w, h));
+    assert_eq!(packed_output, output.iter().flatten().copied().collect::<Vec<_>>());
 }
 
 proptest! {
