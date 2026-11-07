@@ -356,9 +356,23 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
                 .and_then(serde_json::Value::as_str)
                 .ok_or_else(|| "effectcraft bench JSON is missing its generated project spec".to_string())?;
             let note = measure.get("note").and_then(serde_json::Value::as_str).unwrap_or("");
-            // The project hash in the note identifies the generated workload. Keep the adapter
-            // stable when the CLI adds a default-valued field to its human-readable spec.
-            let identity = format!("{measure_name}|{note}");
+            // A first-frame note also carries diagnostic fields such as how many layers the
+            // compositor culled. Those may change while the rendered pixels stay identical, so
+            // gate the journey on the frame hash itself. For open, the project hash identifies
+            // the generated workload and its output.
+            let identity = if measure_name == "firstFrame" {
+                let pixel_hash = note
+                    .split_once("; pixels ")
+                    .map(|(_, tail)| tail.split(';').next().unwrap_or_default().trim())
+                    .filter(|hash| hash.len() == 16 && hash.bytes().all(|byte| byte.is_ascii_hexdigit()))
+                    .ok_or_else(|| "effectcraft firstFrame note is missing its 64-bit pixel hash".to_string())?;
+                if !note.contains("profile matches true") {
+                    return Err("effectcraft firstFrame render and profiled output hashes differ".into());
+                }
+                format!("{measure_name}|pixels:{pixel_hash}")
+            } else {
+                format!("{measure_name}|{note}")
+            };
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
         OutputProtocol::PhotocraftLargeImage => {
