@@ -197,9 +197,15 @@ impl Report {
     }
 
     pub fn from_json(s: &str) -> Result<Self, ReportError> {
-        let v: serde_json::Value = serde_json::from_str(s).map_err(|e| ReportError::Json(e.to_string()))?;
+        let mut v: serde_json::Value = serde_json::from_str(s).map_err(|e| ReportError::Json(e.to_string()))?;
         let found = v.get("schema_version").and_then(serde_json::Value::as_u64).unwrap_or(0);
-        if found != u64::from(SCHEMA_VERSION) {
+        if found == 1 {
+            if let Some(object) = v.as_object_mut() {
+                object.insert("schema_version".into(), serde_json::Value::from(SCHEMA_VERSION));
+                object.entry("gpu_adapters").or_insert_with(|| serde_json::json!([]));
+                object.entry("prefix_cache").or_insert(serde_json::Value::Null);
+            }
+        } else if found != u64::from(SCHEMA_VERSION) {
             return Err(ReportError::Schema { found: u32::try_from(found).unwrap_or(u32::MAX) });
         }
         serde_json::from_value(v).map_err(|e| ReportError::Json(e.to_string()))

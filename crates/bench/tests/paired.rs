@@ -7,7 +7,10 @@ use std::sync::Arc;
 use craft_bench::compare::{Basis, Clock, compare};
 use craft_bench::probe::Throttle;
 use craft_bench::report::{ReportError, Verdict};
-use craft_bench::{BenchError, Config, Paired, Report, SCHEMA_VERSION, SystemProbe, report::{PrefixCacheSide, PrefixCacheStats}};
+use craft_bench::{
+    BenchError, Config, Paired, Report, SCHEMA_VERSION, SystemProbe,
+    report::{PrefixCacheSide, PrefixCacheStats},
+};
 
 struct Fake(Option<f64>);
 impl SystemProbe for Fake {
@@ -131,6 +134,15 @@ fn json_round_trips_and_rejects_other_schema_versions() {
     let json = r.to_json();
     assert!(json.contains("NVIDIA GeForce RTX 2080 Ti"));
     assert_eq!(Report::from_json(&json).unwrap(), r);
+    let mut legacy: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let legacy_object = legacy.as_object_mut().unwrap();
+    legacy_object.insert("schema_version".into(), serde_json::json!(1));
+    legacy_object.remove("gpu_adapters");
+    legacy_object.remove("prefix_cache");
+    let mut upgraded = r.clone();
+    upgraded.gpu_adapters.clear();
+    upgraded.prefix_cache = None;
+    assert_eq!(Report::from_json(&legacy.to_string()).unwrap(), upgraded);
     let bumped = json.replacen("\"schema_version\": 2", "\"schema_version\": 3", 1);
     assert_eq!(Report::from_json(&bumped).unwrap_err(), ReportError::Schema { found: 3 });
     assert!(matches!(Report::from_json("{"), Err(ReportError::Json(_))));

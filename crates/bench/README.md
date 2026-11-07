@@ -71,8 +71,9 @@ unreadable file, unsupported schema, or a contended report (override with `--all
 
 ## JSON schema (`schema_version` 2)
 
-All times are nanoseconds. Readers must reject other versions. Any change to field names or
-meaning bumps the version.
+All times are nanoseconds. Readers upgrade version 1 reports by supplying the new optional
+metadata fields, and reject other unsupported versions. Any change to field names or meaning
+bumps the version.
 
 ```
 {

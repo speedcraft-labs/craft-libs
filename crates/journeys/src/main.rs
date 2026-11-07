@@ -6,7 +6,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 use std::sync::{Arc, Mutex};
 
-use craft_bench::{Config, Paired, Report, report::{PrefixCacheSide, PrefixCacheStats, Revs}};
+use craft_bench::{
+    Config, Paired, Report,
+    report::{PrefixCacheSide, PrefixCacheStats, Revs},
+};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
@@ -903,13 +906,9 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
             result
         })
         .new(|input: &Input| {
-            let result = run_command(head_run, &checkouts[1].path, new_rev, &app_head, input, &journey.app, &revisions[1].cargo_config)
-                .unwrap_or_else(|e| AppResult {
-                    duration_ns: 0,
-                    identity: format!("ERROR: {e}"),
-                    gpu_adapter: None,
-                    prefix_hits: None,
-                    prefix_passes_skipped: None,
+            let result =
+                run_command(head_run, &checkouts[1].path, new_rev, &app_head, input, &journey.app, &revisions[1].cargo_config).unwrap_or_else(|e| {
+                    AppResult { duration_ns: 0, identity: format!("ERROR: {e}"), gpu_adapter: None, prefix_hits: None, prefix_passes_skipped: None }
                 });
             if let Some(adapter) = &result.gpu_adapter {
                 if let Ok(mut observed) = new_adapters.lock() {
