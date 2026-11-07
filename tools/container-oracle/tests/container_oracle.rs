@@ -53,7 +53,10 @@ fn doc_wrapped_new(b: &[u8]) -> Result<docside::DocObs, String> {
     docside::new::run(&docside::wrap_pcraft(b)?)
 }
 
-fn zip_scenarios(suite: &mut Suite, tag: &str, inputs: impl Fn() -> Inputs) {
+fn zip_scenarios<I>(suite: &mut Suite, tag: &str, inputs: impl Fn() -> I)
+where
+    I: IntoIterator<Item = (String, Vec<u8>)>,
+{
     let n = |s: &str| format!("{s}{tag}");
     suite.run(&n("pdfcraft-write"), "pdfcraft", "zip", inputs(), pdfcraft::old, pdfcraft::new, judge_write_l);
     suite.run(&n("effectcraft-write"), "effectcraft", "zip", inputs(), effectcraft_write::old, effectcraft_write::new, judge_write_l);
@@ -67,7 +70,10 @@ fn zip_scenarios(suite: &mut Suite, tag: &str, inputs: impl Fn() -> Inputs) {
     suite.run(&n("craftdoc-raw"), "craft-doc", "zip", inputs(), docside::old::run, docside::new::run, docside::judge);
 }
 
-fn cfb_scenarios(suite: &mut Suite, tag: &str, inputs: impl Fn() -> Inputs) {
+fn cfb_scenarios<I>(suite: &mut Suite, tag: &str, inputs: impl Fn() -> I)
+where
+    I: IntoIterator<Item = (String, Vec<u8>)>,
+{
     let n = |s: &str| format!("{s}{tag}");
     suite.run(&n("gridcraft-sniff"), "gridcraft", "cfb", inputs(), gridcraft::sniff_old, gridcraft::sniff_new, judge_bool);
     suite.run(&n("gridcraft-is-xls"), "gridcraft", "cfb", inputs(), gridcraft::is_xls_old, gridcraft::is_xls_new, judge_bool);
@@ -146,9 +152,9 @@ fn old_and_new_agree_on_the_office_corpus_and_hostile_inputs() {
     assert!(!files.zip.is_empty() && !files.cfb.is_empty(), "no corpus files under {:?}", root);
     let mut suite = Suite::new(registry(), out_dir());
     // Zip scenarios over every PK file; the doc scenario also over bundles wrapped around each file.
-    zip_scenarios(&mut suite, "", || read_lazy(&files.zip).collect());
+    zip_scenarios(&mut suite, "", || read_lazy(&files.zip));
     suite.run("craftdoc-wrapped", "craft-doc", "zip", read_lazy(&files.zip), doc_wrapped_old, doc_wrapped_new, docside::judge);
-    cfb_scenarios(&mut suite, "", || read_lazy(&files.cfb).collect());
+    cfb_scenarios(&mut suite, "", || read_lazy(&files.cfb));
     run_hostile(&mut suite);
     let _ = std::fs::write(
         suite.out.join("corpus.txt"),
