@@ -7,6 +7,12 @@ rust-version.workspace = true
 repository.workspace = true
 description = "Rational-ratio polyphase FIR resampler, verified against the direct upsample-filter-downsample form"
 
+[features]
+rayon = ["dep:rayon"]
+
+[dependencies]
+rayon = { workspace = true, optional = true }
+
 [dev-dependencies]
 proptest = { workspace = true }
 

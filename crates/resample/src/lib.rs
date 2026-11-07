@@ -24,6 +24,8 @@
 //! The equality of the two forms for every input, and the DC gain of a per-phase normalised
 //! prototype, are proved in Lean 4 in `lean/` (see `lean/TRUST.md`).
 
+#[cfg(feature = "rayon")]
+use rayon::prelude::*;
 use std::f64::consts::PI;
 use std::ops::{Add, Mul};
 
@@ -95,22 +97,24 @@ pub fn reduce_box_f32(source: &[f32], source_size: [usize; 2], dest_size: [usize
     let mut out = Vec::new();
     out.try_reserve_exact(dest_len).ok()?;
     out.resize(dest_len, 0.0);
-    for y in 0..dh {
-        for x in 0..dw {
-            let oi = (y * dw + x) * channels;
-            for j in 0..fy {
-                for i in 0..fx {
-                    let si = ((y * fy + j) * sw + x * fx + i) * channels;
-                    for c in 0..channels {
-                        out[oi + c] += source[si + c];
-                    }
+    let reduce_pixel = |pixel: usize, dest: &mut [f32]| {
+        let (x, y) = (pixel % dw, pixel / dw);
+        for j in 0..fy {
+            for i in 0..fx {
+                let si = ((y * fy + j) * sw + x * fx + i) * channels;
+                for c in 0..channels {
+                    dest[c] += source[si + c];
                 }
             }
-            for c in 0..channels {
-                out[oi + c] *= inv;
-            }
         }
-    }
+        for value in dest {
+            *value *= inv;
+        }
+    };
+    #[cfg(feature = "rayon")]
+    out.par_chunks_mut(channels).enumerate().for_each(|(pixel, dest)| reduce_pixel(pixel, dest));
+    #[cfg(not(feature = "rayon"))]
+    out.chunks_mut(channels).enumerate().for_each(|(pixel, dest)| reduce_pixel(pixel, dest));
     Some(out)
 }
 
@@ -125,24 +129,27 @@ pub fn downsample2_clamped_rgba(source: &[[f32; 4]], width: usize, height: usize
     let (dw, dh) = (width.div_ceil(2), height.div_ceil(2));
     let mut out = Vec::new();
     out.try_reserve_exact(dw.checked_mul(dh)?).ok()?;
-    for y in 0..dh {
-        for x in 0..dw {
-            let (sx, sy) = (2 * x, 2 * y);
-            let indices = [
-                sy * width + sx,
-                sy * width + (sx + 1).min(width - 1),
-                (sy + 1).min(height - 1) * width + sx,
-                (sy + 1).min(height - 1) * width + (sx + 1).min(width - 1),
-            ];
-            let mut px = [0.0; 4];
-            for index in indices {
-                for (channel, value) in px.iter_mut().enumerate() {
-                    *value += source[index][channel];
-                }
+    out.resize(dw * dh, [0.0; 4]);
+    let reduce_pixel = |pixel: usize, px: &mut [f32; 4]| {
+        let (x, y) = (pixel % dw, pixel / dw);
+        let (sx, sy) = (2 * x, 2 * y);
+        let indices = [
+            sy * width + sx,
+            sy * width + (sx + 1).min(width - 1),
+            (sy + 1).min(height - 1) * width + sx,
+            (sy + 1).min(height - 1) * width + (sx + 1).min(width - 1),
+        ];
+        for index in indices {
+            for (channel, value) in px.iter_mut().enumerate() {
+                *value += source[index][channel];
             }
-            out.push(px.map(|value| value * 0.25));
         }
-    }
+        px.iter_mut().for_each(|value| *value *= 0.25);
+    };
+    #[cfg(feature = "rayon")]
+    out.par_iter_mut().enumerate().for_each(|(pixel, dest)| reduce_pixel(pixel, dest));
+    #[cfg(not(feature = "rayon"))]
+    out.iter_mut().enumerate().for_each(|(pixel, dest)| reduce_pixel(pixel, dest));
     Some((dw, dh, out))
 }
 
