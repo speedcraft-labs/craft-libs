@@ -11,4 +11,5 @@ description = "Separable Gaussian and box filters with explicit numerical qualit
 workspace = true
 
 [dev-dependencies]
+craft-bench.workspace = true
 proptest.workspace = true
