@@ -60,7 +60,7 @@ target root so prepared builds can be reused.
 | `vectorcraft.export-svg.still-life` | VectorCraft | Export the pinned Still Life document to SVG |
 | `designcraft.synthetic-performance` | DesignCraft | Compose a deterministic synthetic document |
 | `effectcraft.synthetic-project-open` | EffectCraft | Open a generated project sized toward the surveyed 125 MB |
-| `effectcraft.first-frame-heavy-comp` | EffectCraft | Render a cold full-resolution (1,920×1,080) first frame of a generated 5,000-layer composition |
+| `effectcraft.first-frame-heavy-comp` | EffectCraft | Render a cold full-resolution (1,920×1,080) first frame of a realistic 5,000-layer composition with visible layer content |
 | `photocraft.synthetic-image-open` | PhotoCraft | Open a generated 4096×2731 image on CPU |
 | `photocraft.layer-opacity-fill-move-styled` | PhotoCraft | Change opacity/fill and move a styled layer on a 20 MP document |
 | `photocraft.move-layer-16bit-15000x10000` | PhotoCraft | Move a layer on a 15000×10000 16-bit canvas |

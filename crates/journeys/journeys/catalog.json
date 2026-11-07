@@ -200,7 +200,7 @@
       "app": "effectcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft-cli"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--measure", "firstFrame", "--layers", "5000", "--scale", "1.0", "--json"], "output": "effectcraft-ops", "measure": "firstFrame" }
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--measure", "firstFrame", "--layers", "5000", "--comps", "32", "--realistic", "--scale", "1.0", "--json"], "output": "effectcraft-ops", "measure": "firstFrame" }
     },
     {
       "name": "photocraft.synthetic-image-open",
