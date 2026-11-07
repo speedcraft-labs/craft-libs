@@ -66,12 +66,48 @@ pub fn resize_nearest<T: Copy>(
     }
     let mut out = Vec::new();
     out.try_reserve_exact(dest_len).ok()?;
+    if sw == dw && sh == dh {
+        out.extend_from_slice(&source[..source_len]);
+        return Some(out);
+    }
     for y in 0..dh {
-        let sy = nearest_index(y, sh, dh, alignment);
+        let sy = nearest_index(y, sh, dh, alignment)?;
         for x in 0..dw {
-            let sx = nearest_index(x, sw, dw, alignment);
+            let sx = nearest_index(x, sw, dw, alignment)?;
             let start = (sy * sw + sx) * channels;
             out.extend_from_slice(&source[start..start + channels]);
+        }
+    }
+    Some(out)
+}
+
+/// Bilinearly resize a single-channel 8-bit coverage mask using pixel-center coordinates.
+///
+/// This is for continuous coverage, not categorical labels: intermediate values are expected.
+/// Edge samples clamp to the nearest source edge, and results round to the nearest integer.
+pub fn resize_bilinear_u8_coverage(source: &[u8], source_size: [usize; 2], dest_size: [usize; 2]) -> Option<Vec<u8>> {
+    let [sw, sh] = source_size;
+    let [dw, dh] = dest_size;
+    if sw == 0 || sh == 0 || dw == 0 || dh == 0 {
+        return None;
+    }
+    let source_len = sw.checked_mul(sh)?;
+    let dest_len = dw.checked_mul(dh)?;
+    if source.len() < source_len {
+        return None;
+    }
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    for y in 0..dh {
+        let fy = ((y as f64 + 0.5) * sh as f64 / dh as f64 - 0.5).max(0.0);
+        let (y0, ty) = (fy.floor() as usize, fy.fract());
+        for x in 0..dw {
+            let fx = ((x as f64 + 0.5) * sw as f64 / dw as f64 - 0.5).max(0.0);
+            let (x0, tx) = (fx.floor() as usize, fx.fract());
+            let at = |sx: usize, sy: usize| f64::from(source[sy.min(sh - 1) * sw + sx.min(sw - 1)]);
+            let top = at(x0, y0) * (1.0 - tx) + at(x0.saturating_add(1), y0) * tx;
+            let bottom = at(x0, y0.saturating_add(1)) * (1.0 - tx) + at(x0.saturating_add(1), y0.saturating_add(1)) * tx;
+            out.push((top * (1.0 - ty) + bottom * ty).round().clamp(0.0, 255.0) as u8);
         }
     }
     Some(out)
@@ -97,24 +133,26 @@ pub fn reduce_box_f32(source: &[f32], source_size: [usize; 2], dest_size: [usize
     let mut out = Vec::new();
     out.try_reserve_exact(dest_len).ok()?;
     out.resize(dest_len, 0.0);
-    let reduce_pixel = |pixel: usize, dest: &mut [f32]| {
-        let (x, y) = (pixel % dw, pixel / dw);
-        for j in 0..fy {
-            for i in 0..fx {
-                let si = ((y * fy + j) * sw + x * fx + i) * channels;
-                for c in 0..channels {
-                    dest[c] += source[si + c];
+    let reduce_row = |y: usize, row: &mut [f32]| {
+        for x in 0..dw {
+            let dest = &mut row[x * channels..(x + 1) * channels];
+            for j in 0..fy {
+                for i in 0..fx {
+                    let si = ((y * fy + j) * sw + x * fx + i) * channels;
+                    for c in 0..channels {
+                        dest[c] += source[si + c];
+                    }
                 }
             }
-        }
-        for value in dest {
-            *value *= inv;
+            for value in dest {
+                *value *= inv;
+            }
         }
     };
     #[cfg(feature = "rayon")]
-    out.par_chunks_mut(channels).enumerate().for_each(|(pixel, dest)| reduce_pixel(pixel, dest));
+    out.par_chunks_mut(dw * channels).enumerate().for_each(|(y, row)| reduce_row(y, row));
     #[cfg(not(feature = "rayon"))]
-    out.chunks_mut(channels).enumerate().for_each(|(pixel, dest)| reduce_pixel(pixel, dest));
+    out.chunks_mut(dw * channels).enumerate().for_each(|(y, row)| reduce_row(y, row));
     Some(out)
 }
 
@@ -130,35 +168,39 @@ pub fn downsample2_clamped_rgba(source: &[[f32; 4]], width: usize, height: usize
     let mut out = Vec::new();
     out.try_reserve_exact(dw.checked_mul(dh)?).ok()?;
     out.resize(dw * dh, [0.0; 4]);
-    let reduce_pixel = |pixel: usize, px: &mut [f32; 4]| {
-        let (x, y) = (pixel % dw, pixel / dw);
-        let (sx, sy) = (2 * x, 2 * y);
-        let indices = [
-            sy * width + sx,
-            sy * width + (sx + 1).min(width - 1),
-            (sy + 1).min(height - 1) * width + sx,
-            (sy + 1).min(height - 1) * width + (sx + 1).min(width - 1),
-        ];
-        for index in indices {
-            for (channel, value) in px.iter_mut().enumerate() {
-                *value += source[index][channel];
+    let reduce_row = |y: usize, row: &mut [[f32; 4]]| {
+        for (x, px) in row.iter_mut().enumerate() {
+            let (sx, sy) = (2 * x, 2 * y);
+            let indices = [
+                sy * width + sx,
+                sy * width + (sx + 1).min(width - 1),
+                (sy + 1).min(height - 1) * width + sx,
+                (sy + 1).min(height - 1) * width + (sx + 1).min(width - 1),
+            ];
+            for index in indices {
+                for (channel, value) in px.iter_mut().enumerate() {
+                    *value += source[index][channel];
+                }
             }
+            px.iter_mut().for_each(|value| *value *= 0.25);
         }
-        px.iter_mut().for_each(|value| *value *= 0.25);
     };
     #[cfg(feature = "rayon")]
-    out.par_iter_mut().enumerate().for_each(|(pixel, dest)| reduce_pixel(pixel, dest));
+    out.par_chunks_mut(dw).enumerate().for_each(|(y, row)| reduce_row(y, row));
     #[cfg(not(feature = "rayon"))]
-    out.iter_mut().enumerate().for_each(|(pixel, dest)| reduce_pixel(pixel, dest));
+    out.chunks_mut(dw).enumerate().for_each(|(y, row)| reduce_row(y, row));
     Some((dw, dh, out))
 }
 
-fn nearest_index(position: usize, source: usize, dest: usize, alignment: NearestAlignment) -> usize {
+fn nearest_index(position: usize, source: usize, dest: usize, alignment: NearestAlignment) -> Option<usize> {
     let (n, d) = match alignment {
-        NearestAlignment::Corner => (position as u128 * source as u128, dest as u128),
-        NearestAlignment::Center => ((2 * position as u128 + 1) * source as u128, 2 * dest as u128),
+        NearestAlignment::Corner => ((position as u128).checked_mul(source as u128)?, dest as u128),
+        NearestAlignment::Center => {
+            let center = (position as u128).checked_mul(2)?.checked_add(1)?;
+            (center.checked_mul(source as u128)?, (dest as u128).checked_mul(2)?)
+        }
     };
-    (n / d).min(source as u128 - 1) as usize
+    Some((n / d).min(source as u128 - 1) as usize)
 }
 
 /// Sample and coefficient type of a [`Polyphase`] resampler.

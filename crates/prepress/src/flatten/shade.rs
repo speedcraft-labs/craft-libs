@@ -306,20 +306,7 @@ pub(super) fn trace_stencil(mask: &[u8], w: usize, h: usize, cap: usize) -> Opti
 
 /// `src` (`sw` × `sh`) resampled bilinearly to `dw` × `dh`.
 pub(super) fn resample(src: &[u8], (sw, sh): (usize, usize), (dw, dh): (usize, usize)) -> Vec<u8> {
-    let at = |x: usize, y: usize| f64::from(src.get(y.min(sh - 1) * sw + x.min(sw - 1)).copied().unwrap_or(0));
-    let mut out = Vec::with_capacity(dw * dh);
-    for y in 0..dh {
-        let fy = ((y as f64 + 0.5) * sh as f64 / dh as f64 - 0.5).max(0.0);
-        let (y0, ty) = (fy.floor() as usize, fy.fract());
-        for x in 0..dw {
-            let fx = ((x as f64 + 0.5) * sw as f64 / dw as f64 - 0.5).max(0.0);
-            let (x0, tx) = (fx.floor() as usize, fx.fract());
-            let top = at(x0, y0) * (1.0 - tx) + at(x0 + 1, y0) * tx;
-            let bottom = at(x0, y0 + 1) * (1.0 - tx) + at(x0 + 1, y0 + 1) * tx;
-            out.push((top * (1.0 - ty) + bottom * ty).round().clamp(0.0, 255.0) as u8);
-        }
-    }
-    out
+    craft_resample::resize_bilinear_u8_coverage(src, [sw, sh], [dw, dh]).unwrap_or_default()
 }
 
 /// A raster of every ink in an [`InkSet`] with alpha (values premultiplied), for content drawn

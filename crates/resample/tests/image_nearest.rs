@@ -1,4 +1,4 @@
-use craft_resample::{NearestAlignment, downsample2_clamped_rgba, reduce_box_f32, resize_nearest};
+use craft_resample::{NearestAlignment, downsample2_clamped_rgba, reduce_box_f32, resize_bilinear_u8_coverage, resize_nearest};
 use proptest::prelude::*;
 
 proptest! {
@@ -58,6 +58,38 @@ proptest! {
 fn box_reducer_rejects_noninteger_ratios_and_enlargements() {
     assert_eq!(reduce_box_f32(&[1.0; 6], [3, 2], [2, 1], 1), None);
     assert_eq!(reduce_box_f32(&[1.0; 4], [2, 2], [4, 2], 1), None);
+}
+
+fn legacy_bilinear_u8(source: &[u8], sw: usize, sh: usize, dw: usize, dh: usize) -> Vec<u8> {
+    let at = |x: usize, y: usize| f64::from(source[y.min(sh - 1) * sw + x.min(sw - 1)]);
+    let mut out = Vec::with_capacity(dw * dh);
+    for y in 0..dh {
+        let fy = ((y as f64 + 0.5) * sh as f64 / dh as f64 - 0.5).max(0.0);
+        let (y0, ty) = (fy.floor() as usize, fy.fract());
+        for x in 0..dw {
+            let fx = ((x as f64 + 0.5) * sw as f64 / dw as f64 - 0.5).max(0.0);
+            let (x0, tx) = (fx.floor() as usize, fx.fract());
+            let top = at(x0, y0) * (1.0 - tx) + at(x0 + 1, y0) * tx;
+            let bottom = at(x0, y0 + 1) * (1.0 - tx) + at(x0 + 1, y0 + 1) * tx;
+            out.push((top * (1.0 - ty) + bottom * ty).round().clamp(0.0, 255.0) as u8);
+        }
+    }
+    out
+}
+
+proptest! {
+    #[test]
+    fn coverage_resize_matches_legacy_coordinate_and_rounding(
+        sw in 1usize..12, sh in 1usize..12, dw in 1usize..12, dh in 1usize..12,
+        source in prop::collection::vec(any::<u8>(), 1..144),
+    ) {
+        prop_assume!(source.len() >= sw * sh);
+        let source = &source[..sw * sh];
+        prop_assert_eq!(
+            resize_bilinear_u8_coverage(source, [sw, sh], [dw, dh]),
+            Some(legacy_bilinear_u8(source, sw, sh, dw, dh)),
+        );
+    }
 }
 
 #[test]
