@@ -9,3 +9,12 @@ licence = "NASJI library terms; personal and commercial use permitted, resale of
 provenance = "https://nasji.com/cad-blocks/floor-plans"
 tags = ["dxf", "architecture", "villa", "10k-entities", "hatch", "blocks", "dimensions"]
 redistributable = false
+
+[[file]]
+path = "restroom.dxf"
+url = "https://nasji.com/cad-blocks/files/restroom.dxf"
+sha256 = "4500dda5fb43f912bb66852733cc2b0974898637b7f33dc18dfe37f3640005a1"
+licence = "NASJI library terms; personal and commercial use permitted, resale of the file prohibited"
+provenance = "https://nasji.com/cad-blocks/floor-plans"
+tags = ["dxf", "architecture", "restroom", "144k-entities", "hatch", "blocks", "raster-images"]
+redistributable = false
