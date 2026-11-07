@@ -3,53 +3,76 @@ use std::error::Error;
 use std::hint::black_box;
 use std::path::{Path, PathBuf};
 
-use craft_bench::{Config, Paired, report::Revs};
+use craft_bench::{report::Revs, Config, Paired};
 use craft_resample::{
-    NearestAlignment, downsample2_clamped_rgba, downsample2_floor_rgba_f32, reduce_box_f32, resize_bilinear_u8_coverage, resize_nearest,
+    downsample2_clamped_rgba, downsample2_floor_rgba_f32, reduce_box_f32, resize_bilinear_u8_coverage, resize_nearest, NearestAlignment,
 };
 use rayon::prelude::*;
 
-const SIDE: usize = 1024;
+const MAX_BATCH: usize = 64;
 
-fn tiled_corpus_image(path: &Path) -> Result<Vec<[f32; 4]>, Box<dyn Error>> {
-    let rgba = image::open(path)?.to_rgba32f();
-    let (width, height) = (rgba.width() as usize, rgba.height() as usize);
-    let pixels = rgba.into_raw().chunks_exact(4).map(|p| [p[0], p[1], p[2], p[3]]).collect::<Vec<_>>();
-    if width == 0 || height == 0 || pixels.is_empty() {
-        return Err("empty corpus image".into());
-    }
-    Ok((0..SIDE * SIDE).map(|i| pixels[(i / SIDE % height) * width + i % SIDE % width]).collect())
+#[derive(Clone)]
+struct Pixels {
+    width: usize,
+    height: usize,
+    rgba: Vec<[f32; 4]>,
+    flat: Vec<f32>,
+    mask: Vec<u8>,
 }
 
-fn old_box(input: &Vec<f32>) -> Vec<f32> {
-    let mut output = vec![0.0; (SIDE / 2) * (SIDE / 2) * 4];
-    output.par_chunks_mut((SIDE / 2) * 4).enumerate().for_each(|(y, row)| {
-        for x in 0..SIDE / 2 {
-            let out = &mut row[x * 4..x * 4 + 4];
+fn corpus_image(path: &Path) -> Result<Pixels, Box<dyn Error>> {
+    let rgba = image::open(path)?.to_rgba32f();
+    let (width, height) = (rgba.width() as usize, rgba.height() as usize);
+    let flat = rgba.into_raw();
+    let pixels = flat.chunks_exact(4).map(|px| [px[0], px[1], px[2], px[3]]).collect::<Vec<_>>();
+    if width < 2 || height < 2 || pixels.is_empty() || !width.is_multiple_of(2) || !height.is_multiple_of(2) {
+        return Err("benchmark corpus image must have even dimensions of at least 2×2".into());
+    }
+    let mask = pixels.iter().map(|px| (px[3] * 255.0 + 0.5) as u8).collect();
+    Ok(Pixels { width, height, rgba: pixels, flat, mask })
+}
+
+fn repeated<T>(batch: usize, mut f: impl FnMut() -> T) -> T {
+    let mut result = f();
+    for _ in 1..batch {
+        result = f();
+    }
+    result
+}
+
+fn old_box(input: &Pixels) -> Vec<f32> {
+    let (dw, dh) = (input.width / 2, input.height / 2);
+    let mut output = vec![0.0; dw * dh * 4];
+    output.par_chunks_mut(dw * 4).enumerate().for_each(|(y, row)| {
+        for x in 0..dw {
+            let dest = &mut row[x * 4..x * 4 + 4];
             for dy in 0..2 {
                 for dx in 0..2 {
-                    let i = ((2 * y + dy) * SIDE + 2 * x + dx) * 4;
+                    let i = ((2 * y + dy) * input.width + 2 * x + dx) * 4;
                     for c in 0..4 {
-                        out[c] += input[i + c];
+                        dest[c] += input.flat[i + c];
                     }
                 }
             }
-            for c in 0..4 {
-                out[c] *= 0.25;
+            for value in dest {
+                *value *= 0.25;
             }
         }
     });
     output
 }
 
-fn old_pyramid(input: &Vec<[f32; 4]>) -> Vec<[f32; 4]> {
-    let mut output = vec![[0.0; 4]; (SIDE / 2) * (SIDE / 2)];
-    output.par_chunks_mut(SIDE / 2).enumerate().for_each(|(y, row)| {
+fn old_pyramid(input: &Pixels) -> Vec<[f32; 4]> {
+    let (dw, dh) = (input.width.div_ceil(2), input.height.div_ceil(2));
+    let mut output = vec![[0.0; 4]; dw * dh];
+    output.par_chunks_mut(dw).enumerate().for_each(|(y, row)| {
         for (x, out) in row.iter_mut().enumerate() {
             for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                let p = input[(2 * y + dy) * SIDE + 2 * x + dx];
+                let sx = (2 * x + dx).min(input.width - 1);
+                let sy = (2 * y + dy).min(input.height - 1);
+                let px = input.rgba[sy * input.width + sx];
                 for c in 0..4 {
-                    out[c] += p[c];
+                    out[c] += px[c];
                 }
             }
             for c in 0..4 {
@@ -60,14 +83,17 @@ fn old_pyramid(input: &Vec<[f32; 4]>) -> Vec<[f32; 4]> {
     output
 }
 
-fn old_pyramid_flat(input: &Vec<f32>) -> Vec<f32> {
-    let mut output = vec![0.0; (SIDE / 2) * (SIDE / 2) * 4];
-    output.par_chunks_mut((SIDE / 2) * 4).enumerate().for_each(|(y, row)| {
-        for x in 0..SIDE / 2 {
+fn old_pyramid_flat(input: &Pixels) -> Vec<f32> {
+    let (dw, dh) = ((input.width / 2).max(1), (input.height / 2).max(1));
+    let mut output = vec![0.0; dw * dh * 4];
+    output.par_chunks_mut(dw * 4).enumerate().for_each(|(y, row)| {
+        for x in 0..dw {
             for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                let i = ((2 * y + dy) * SIDE + 2 * x + dx) * 4;
+                let sx = (2 * x + dx).min(input.width - 1);
+                let sy = (2 * y + dy).min(input.height - 1);
+                let i = (sy * input.width + sx) * 4;
                 for c in 0..4 {
-                    row[x * 4 + c] += input[i + c];
+                    row[x * 4 + c] += input.flat[i + c];
                 }
             }
             for c in 0..4 {
@@ -78,9 +104,9 @@ fn old_pyramid_flat(input: &Vec<f32>) -> Vec<f32> {
     output
 }
 
-fn old_coverage(input: &Vec<u8>) -> Vec<u8> {
-    let (sw, sh, dw, dh) = (SIDE, SIDE, SIDE / 2, SIDE / 2);
-    let at = |x: usize, y: usize| f64::from(input[y.min(sh - 1) * sw + x.min(sw - 1)]);
+fn old_coverage(input: &Pixels) -> Vec<u8> {
+    let (sw, sh, dw, dh) = (input.width, input.height, input.width / 2, input.height / 2);
+    let at = |x: usize, y: usize| f64::from(input.mask[y.min(sh - 1) * sw + x.min(sw - 1)]);
     let mut output = Vec::with_capacity(dw * dh);
     for y in 0..dh {
         let fy = ((y as f64 + 0.5) * sh as f64 / dh as f64 - 0.5).max(0.0);
@@ -96,6 +122,24 @@ fn old_coverage(input: &Vec<u8>) -> Vec<u8> {
     output
 }
 
+fn old_nearest(input: &Pixels) -> Vec<u8> {
+    let (dw, dh) = (input.width / 2, input.height / 2);
+    (0..dh).flat_map(|y| (0..dw).map(move |x| input.mask[(y * input.height / dh) * input.width + (x * input.width / dw)])).collect()
+}
+
+fn old_nearest_center(input: &Pixels) -> Vec<u8> {
+    let (dw, dh) = (input.width / 2, input.height / 2);
+    (0..dh)
+        .flat_map(|y| {
+            (0..dw).map(move |x| {
+                let sx = (((x as f64 + 0.5) * input.width as f64 / dw as f64) as usize).min(input.width - 1);
+                let sy = (((y as f64 + 0.5) * input.height as f64 / dh as f64) as usize).min(input.height - 1);
+                input.mask[sy * input.width + sx]
+            })
+        })
+        .collect()
+}
+
 fn bench<I, O>(name: &str, old: impl Fn(&I) -> O + 'static, new: impl Fn(&I) -> O + 'static, input: I, out: &Path) -> Result<(), Box<dyn Error>>
 where
     I: 'static,
@@ -106,7 +150,11 @@ where
         .new(move |input| black_box(new(input)))
         .inputs([(name.to_owned(), input)])
         .equal()
-        .run(&Config { revs: Revs { old: Some("legacy-inline".into()), new: Some(env!("CARGO_PKG_VERSION").into()) }, ..Config::default() })?;
+        .run(&Config {
+            repetitions: 40,
+            revs: Revs { old: Some("legacy-inline".into()), new: Some(env!("CARGO_PKG_VERSION").into()) },
+            ..Config::default()
+        })?;
     std::fs::write(out, report.to_json())?;
     println!("{}", report.to_markdown());
     if let Err(error) = report.require_publishable() {
@@ -120,44 +168,53 @@ fn main() -> Result<(), Box<dyn Error>> {
     let corpus = PathBuf::from(args.next().ok_or("usage: image_bench <corpus-image> <output-dir>")?);
     let output = PathBuf::from(args.next().ok_or("usage: image_bench <corpus-image> <output-dir>")?);
     std::fs::create_dir_all(&output)?;
-    let pixels = tiled_corpus_image(&corpus)?;
+    let input = corpus_image(&corpus)?;
     let label = corpus.file_stem().and_then(|s| s.to_str()).unwrap_or("corpus");
-    let box_src = pixels.iter().flat_map(|p| p.iter().copied()).collect::<Vec<_>>();
+    let dims = format!("{}×{}", input.width, input.height);
+    let (dw, dh) = (input.width / 2, input.height / 2);
+    let batch = (65_536 / (input.width * input.height)).clamp(1, MAX_BATCH);
+    let batch_label = format!("{label} {dims}→{dw}×{dh} (×{batch})");
+
     bench(
-        &format!("{label} integer box 1024→512"),
-        old_box,
-        |src: &Vec<f32>| reduce_box_f32(src, [SIDE, SIDE], [SIDE / 2, SIDE / 2], 4).unwrap_or_default(),
-        box_src,
+        &format!("{batch_label} integer box"),
+        move |src: &Pixels| repeated(batch, || old_box(src)),
+        move |src| repeated(batch, || reduce_box_f32(&src.flat, [src.width, src.height], [dw, dh], 4).unwrap_or_default()),
+        input.clone(),
         &output.join("box.json"),
     )?;
     bench(
-        &format!("{label} floor pyramid 1024→512"),
-        old_pyramid_flat,
-        |src| downsample2_floor_rgba_f32(src, SIDE, SIDE).map(|(_, _, pixels)| pixels).unwrap_or_default(),
-        pixels.iter().flat_map(|p| p.iter().copied()).collect::<Vec<_>>(),
+        &format!("{batch_label} clamped pyramid"),
+        move |src: &Pixels| repeated(batch, || old_pyramid(src)),
+        move |src| repeated(batch, || downsample2_clamped_rgba(&src.rgba, src.width, src.height).map(|(_, _, px)| px).unwrap_or_default()),
+        input.clone(),
+        &output.join("pyramid.json"),
+    )?;
+    bench(
+        &format!("{batch_label} floor pyramid"),
+        move |src: &Pixels| repeated(batch, || old_pyramid_flat(src)),
+        move |src| repeated(batch, || downsample2_floor_rgba_f32(&src.flat, src.width, src.height).map(|(_, _, px)| px).unwrap_or_default()),
+        input.clone(),
         &output.join("pyramid-floor.json"),
     )?;
     bench(
-        &format!("{label} clamped pyramid 1024→512"),
-        old_pyramid,
-        |src| downsample2_clamped_rgba(src, SIDE, SIDE).map(|(_, _, pixels)| pixels).unwrap_or_default(),
-        pixels.clone(),
-        &output.join("pyramid.json"),
-    )?;
-    let mask = pixels.iter().map(|p| (p[3] * 255.0 + 0.5) as u8).collect::<Vec<_>>();
-    bench(
-        &format!("{label} corner mask 1024→512"),
-        |src: &Vec<u8>| (0..SIDE / 2).flat_map(|y| (0..SIDE / 2).map(move |x| src[2 * y * SIDE + 2 * x])).collect::<Vec<_>>(),
-        |src| resize_nearest(src, [SIDE, SIDE], [SIDE / 2, SIDE / 2], 1, NearestAlignment::Corner).unwrap_or_default(),
-        mask,
+        &format!("{batch_label} corner mask"),
+        move |src: &Pixels| repeated(batch, || old_nearest(src)),
+        move |src| repeated(batch, || resize_nearest(&src.mask, [src.width, src.height], [dw, dh], 1, NearestAlignment::Corner).unwrap_or_default()),
+        input.clone(),
         &output.join("mask.json"),
     )?;
-    let coverage = pixels.iter().map(|p| (p[3] * 255.0 + 0.5) as u8).collect::<Vec<_>>();
     bench(
-        &format!("{label} bilinear coverage mask 1024→512"),
-        old_coverage,
-        |src| resize_bilinear_u8_coverage(src, [SIDE, SIDE], [SIDE / 2, SIDE / 2]).unwrap_or_default(),
-        coverage,
+        &format!("{batch_label} center mask"),
+        move |src: &Pixels| repeated(batch, || old_nearest_center(src)),
+        move |src| repeated(batch, || resize_nearest(&src.mask, [src.width, src.height], [dw, dh], 1, NearestAlignment::Center).unwrap_or_default()),
+        input.clone(),
+        &output.join("mask-center.json"),
+    )?;
+    bench(
+        &format!("{batch_label} bilinear coverage"),
+        move |src: &Pixels| repeated(batch, || old_coverage(src)),
+        move |src| repeated(batch, || resize_bilinear_u8_coverage(&src.mask, [src.width, src.height], [dw, dh]).unwrap_or_default()),
+        input,
         &output.join("coverage.json"),
     )?;
     Ok(())

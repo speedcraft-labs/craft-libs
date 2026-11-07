@@ -98,21 +98,40 @@ pub fn resize_bilinear_u8_coverage(source: &[u8], source_size: [usize; 2], dest_
     if source.len() < source_len {
         return None;
     }
+    let xs = coverage_axis(sw, dw)?;
+    let ys = coverage_axis(sh, dh)?;
     let mut out = Vec::new();
     out.try_reserve_exact(dest_len).ok()?;
-    for y in 0..dh {
-        let fy = ((y as f64 + 0.5) * sh as f64 / dh as f64 - 0.5).max(0.0);
-        let (y0, ty) = (fy.floor() as usize, fy.fract());
-        for x in 0..dw {
-            let fx = ((x as f64 + 0.5) * sw as f64 / dw as f64 - 0.5).max(0.0);
-            let (x0, tx) = (fx.floor() as usize, fx.fract());
-            let at = |sx: usize, sy: usize| f64::from(source[sy.min(sh - 1) * sw + sx.min(sw - 1)]);
-            let top = at(x0, y0) * (1.0 - tx) + at(x0.saturating_add(1), y0) * tx;
-            let bottom = at(x0, y0.saturating_add(1)) * (1.0 - tx) + at(x0.saturating_add(1), y0.saturating_add(1)) * tx;
+    for y in &ys {
+        let top_row = y.lo * sw;
+        let bottom_row = y.hi * sw;
+        for x in &xs {
+            let tx = x.weight;
+            let ty = y.weight;
+            let top = f64::from(source[top_row + x.lo]) * (1.0 - tx) + f64::from(source[top_row + x.hi]) * tx;
+            let bottom = f64::from(source[bottom_row + x.lo]) * (1.0 - tx) + f64::from(source[bottom_row + x.hi]) * tx;
             out.push((top * (1.0 - ty) + bottom * ty).round().clamp(0.0, 255.0) as u8);
         }
     }
     Some(out)
+}
+
+#[derive(Clone, Copy)]
+struct CoverageTap {
+    lo: usize,
+    hi: usize,
+    weight: f64,
+}
+
+fn coverage_axis(source: usize, dest: usize) -> Option<Vec<CoverageTap>> {
+    let mut taps = Vec::new();
+    taps.try_reserve_exact(dest).ok()?;
+    for position in 0..dest {
+        let sample = ((position as f64 + 0.5) * source as f64 / dest as f64 - 0.5).max(0.0);
+        let lo = (sample.floor() as usize).min(source - 1);
+        taps.push(CoverageTap { lo, hi: lo.saturating_add(1).min(source - 1), weight: sample.fract() });
+    }
+    Some(taps)
 }
 
 /// Box-reduce an `f32` image by exact integer ratios.

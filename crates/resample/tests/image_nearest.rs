@@ -1,6 +1,6 @@
 use craft_resample::{
-    NearestAlignment, downsample2_clamped_rgba, downsample2_floor_rgba, downsample2_floor_rgba_f32, reduce_box_f32, resize_bilinear_u8_coverage,
-    resize_nearest,
+    downsample2_clamped_rgba, downsample2_floor_rgba, downsample2_floor_rgba_f32, reduce_box_f32, resize_bilinear_u8_coverage, resize_nearest,
+    NearestAlignment,
 };
 use proptest::prelude::*;
 
@@ -78,6 +78,35 @@ proptest! {
         let output = reduce_box_f32(&source, [dw * fx, dh * fy], [dw, dh], channels)
             .expect("exact integer shrink");
         prop_assert!(output.iter().all(|v| (*v - value).abs() < 0.001));
+    }
+}
+
+proptest! {
+    #[test]
+    fn two_to_one_box_reduction_averages_phase_shifted_checkerboards_and_stripes(
+        width in 1usize..12, height in 1usize..12,
+        phase_x in 0usize..2, phase_y in 0usize..2,
+    ) {
+        let checker = (0..height * 2).flat_map(|y| {
+            (0..width * 2).map(move |x| ((x + phase_x + y + phase_y) % 2) as f32)
+        }).collect::<Vec<_>>();
+        let output = reduce_box_f32(&checker, [width * 2, height * 2], [width, height], 1)
+            .expect("exact 2:1 checkerboard reduction");
+        prop_assert!(output.iter().all(|value| *value == 0.5));
+
+        let horizontal = (0..height * 2).flat_map(|_| {
+            (0..width * 2).map(move |x| ((x + phase_x) % 2) as f32)
+        }).collect::<Vec<_>>();
+        let output = reduce_box_f32(&horizontal, [width * 2, height * 2], [width, height], 1)
+            .expect("exact 2:1 horizontal stripe reduction");
+        prop_assert!(output.iter().all(|value| *value == 0.5));
+
+        let vertical = (0..height * 2).flat_map(|y| {
+            (0..width * 2).map(move |_| ((y + phase_y) % 2) as f32)
+        }).collect::<Vec<_>>();
+        let output = reduce_box_f32(&vertical, [width * 2, height * 2], [width, height], 1)
+            .expect("exact 2:1 vertical stripe reduction");
+        prop_assert!(output.iter().all(|value| *value == 0.5));
     }
 }
 
