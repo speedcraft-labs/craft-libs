@@ -89,11 +89,6 @@ fn hostile_zip_inputs() -> Inputs {
     static C: std::sync::OnceLock<Inputs> = std::sync::OnceLock::new();
     C.get_or_init(|| hostile::zip_cases(&hostile::base_zip(), true)).clone()
 }
-fn hostile_cfb_inputs() -> Inputs {
-    static C: std::sync::OnceLock<Inputs> = std::sync::OnceLock::new();
-    C.get_or_init(hostile::cfb_cases).clone()
-}
-
 fn run_hostile(suite: &mut Suite) {
     // Cases are generated once per scenario (cheap, and the bombs are not held in memory between runs).
     zip_scenarios(suite, ".hostile", hostile_zip_inputs);
@@ -106,7 +101,7 @@ fn run_hostile(suite: &mut Suite) {
         docside::new::run,
         docside::judge,
     );
-    cfb_scenarios(suite, ".hostile", hostile_cfb_inputs);
+    cfb_scenarios(suite, ".hostile", hostile::cfb_cases);
 }
 
 fn finish_with_known_agentbox_timeouts(suite: &Suite, what: &str) {

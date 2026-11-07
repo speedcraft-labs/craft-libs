@@ -363,58 +363,75 @@ fn get32(b: &[u8], at: usize) -> u32 {
     b.get(at..at + 4).map(|d| u32::from_le_bytes(d.try_into().unwrap())).unwrap_or(0)
 }
 
+type LazyCase = Box<dyn FnOnce() -> Case>;
+
+fn add_mutated_case(
+    cases: &mut Vec<LazyCase>,
+    name: String,
+    base: std::sync::Arc<Vec<u8>>,
+    edit: impl FnOnce(&mut Vec<u8>) + 'static,
+) {
+    cases.push(Box::new(move || {
+        let mut bytes = (*base).clone();
+        edit(&mut bytes);
+        (name, bytes)
+    }));
+}
+
 pub fn cfb_bases() -> Vec<(String, Vec<u8>)> {
     vec![("v3".into(), sample(cfb_ref::Version::V3, 6000)), ("v4".into(), sample(cfb_ref::Version::V4, 9000)), ("v3big".into(), big_sample())]
 }
 
 /// Hostile and damaged compound files: named structural attacks, truncations and field sweeps.
-pub fn cfb_cases() -> Vec<Case> {
-    let mut v: Vec<Case> = Vec::new();
-    let mut add = |n: &str, b: Vec<u8>| v.push((n.to_string(), b));
-    let bases = cfb_bases();
-    add("cfb/zero-bytes", vec![]);
-    add("cfb/signature-only", crate::cfbside::MAGIC.to_vec());
-    add("cfb/not-cfb", b"definitely not a compound file".repeat(40));
-    add("cfb/zip-bytes", base_zip());
+pub fn cfb_cases() -> impl Iterator<Item = Case> {
+    use std::sync::Arc;
+
+    let mut v: Vec<LazyCase> = Vec::new();
+    let add = |v: &mut Vec<LazyCase>, n: &str, b: Vec<u8>| {
+        let n = n.to_string();
+        v.push(Box::new(move || (n, b)));
+    };
+    macro_rules! add_mutated {
+        ($name:expr, $base:expr, $edit:expr) => {{
+            add_mutated_case(&mut v, $name.to_string(), Arc::clone($base), $edit);
+        }};
+    }
+    let bases: Vec<_> = cfb_bases().into_iter().map(|(name, bytes)| (name, Arc::new(bytes))).collect();
+    add(&mut v, "cfb/zero-bytes", vec![]);
+    add(&mut v, "cfb/signature-only", crate::cfbside::MAGIC.to_vec());
+    add(&mut v, "cfb/not-cfb", b"definitely not a compound file".repeat(40));
+    add(&mut v, "cfb/zip-bytes", base_zip());
     for (tag, base) in &bases {
-        add(&format!("cfb/{tag}/valid"), base.clone());
         let n = base.len();
+        add_mutated!(format!("cfb/{tag}/valid"), base, |_| {});
         for cut in [1usize, 7, 8, 100, 511, 512, 513, 1024, 1536, n / 2, n - 513, n - 512, n - 100, n - 1] {
             if cut < n {
-                add(&format!("cfb/{tag}/truncated-{cut}"), base[..cut].to_vec());
+                add_mutated!(format!("cfb/{tag}/truncated-{cut}"), base, move |b: &mut Vec<u8>| b.truncate(cut));
             }
         }
         // Short tail: the last sector cut (unpadded writers) at several depths.
         for cut in [1usize, 2, 17, 64, 100, 300, 511] {
             if n > 1024 + cut {
-                add(&format!("cfb/{tag}/short-tail-{cut}"), base[..n - cut].to_vec());
+                add_mutated!(format!("cfb/{tag}/short-tail-{cut}"), base, move |b: &mut Vec<u8>| b.truncate(n - cut));
             }
         }
         // Header fields (ABSOLUTE offsets of [MS-CFB] 2.2) set to extremes.
         for at in (0..512usize).step_by(2).filter(|a| *a + 4 <= 512) {
             for (t, val) in [("zero", 0u32), ("one", 1), ("two", 2), ("max", u32::MAX), ("eoc", 0xFFFF_FFFE), ("fat", 0xFFFF_FFFD), ("regmax", 0xFFFF_FFFA), ("big", 0x0100_0000)] {
-                let mut b = base.clone();
-                put32(&mut b, at, val);
-                add(&format!("cfb/{tag}/header-{at:03}-{t}"), b);
+                add_mutated!(format!("cfb/{tag}/header-{at:03}-{t}"), base, move |b: &mut Vec<u8>| put32(b, at, val));
             }
         }
         // Sector shifts and version lies.
         for sh in [0u16, 1, 7, 8, 10, 11, 12, 13, 16, 31, 0xFFFF] {
-            let mut b = base.clone();
-            put16(&mut b, 30, sh);
-            add(&format!("cfb/{tag}/sector-shift-{sh}"), b);
+            add_mutated!(format!("cfb/{tag}/sector-shift-{sh}"), base, move |b: &mut Vec<u8>| put16(b, 30, sh));
         }
         for ver in [0u16, 1, 2, 3, 4, 5, 0xFFFF] {
-            let mut b = base.clone();
-            put16(&mut b, 26, ver);
-            add(&format!("cfb/{tag}/major-version-{ver}"), b);
+            add_mutated!(format!("cfb/{tag}/major-version-{ver}"), base, move |b: &mut Vec<u8>| put16(b, 26, ver));
         }
         // Per-byte flips across the header sector and the first 4 KiB of everything else.
         for at in (0..n.min(512 + 4096)).step_by(1) {
             if at % 3 == 0 || at < 128 {
-                let mut b = base.clone();
-                b[at] ^= 0xFF;
-                add(&format!("cfb/{tag}/flip-{at:05}"), b);
+                add_mutated!(format!("cfb/{tag}/flip-{at:05}"), base, move |b: &mut Vec<u8>| b[at] ^= 0xFF);
             }
         }
         // Directory sector: find the first directory sector and corrupt its entries.
@@ -443,13 +460,13 @@ pub fn cfb_cases() -> Vec<Case> {
                 ("kind-0", 66, 0),
                 ("kind-7", 66, 7),
             ] {
-                let mut b = base.clone();
-                if off == 64 || off == 66 {
-                    put16(&mut b, e + off, val as u16);
-                } else {
-                    put32(&mut b, e + off, val);
-                }
-                add(&format!("cfb/{tag}/dir{entry}-{t}"), b);
+                add_mutated!(format!("cfb/{tag}/dir{entry}-{t}"), base, move |b: &mut Vec<u8>| {
+                    if off == 64 || off == 66 {
+                        put16(b, e + off, val as u16);
+                    } else {
+                        put32(b, e + off, val);
+                    }
+                });
             }
         }
         // FAT: chain cycles and bad links (FAT sector id read from the header DIFAT slot 0).
@@ -460,14 +477,12 @@ pub fn cfb_cases() -> Vec<Case> {
                 continue;
             }
             for (t, val) in [("self", slot as u32), ("zero", 0), ("far", 0x00FF_FFFF), ("free", 0xFFFF_FFFF), ("difsect", 0xFFFF_FFFC), ("eoc", 0xFFFF_FFFE)] {
-                let mut b = base.clone();
-                put32(&mut b, at, val);
-                add(&format!("cfb/{tag}/fat{slot:02}-{t}"), b);
+                add_mutated!(format!("cfb/{tag}/fat{slot:02}-{t}"), base, move |b: &mut Vec<u8>| put32(b, at, val));
             }
         }
     }
     // Named multi-sector attacks.
-    let base = &bases[0].1;
+    let base = &*bases[0].1;
     // DIFAT chain that loops on itself: header says 1 DIFAT sector which points to itself.
     {
         let mut b = base.clone();
@@ -477,7 +492,7 @@ pub fn cfb_cases() -> Vec<Case> {
         put32(&mut b, at, extra as u32);
         put32(&mut b, 68, extra as u32);
         put32(&mut b, 72, 1);
-        add("cfb/difat-self-loop", b);
+        add(&mut v, "cfb/difat-self-loop", b);
     }
     // The wordcraft #3642 shape: a DIFAT chain of 2048 sectors listing one FAT sector over and over.
     {
@@ -498,7 +513,7 @@ pub fn cfb_cases() -> Vec<Case> {
             let next = if d == CHAIN { 0xFFFF_FFFE } else { d + 1 };
             put32(&mut f, (d as usize + 2) * S - 4, next);
         }
-        add("cfb/difat-repeating-fat-sector", f);
+        add(&mut v, "cfb/difat-repeating-fat-sector", f);
     }
     // FAT sector listed twice in the header DIFAT.
     {
@@ -506,26 +521,26 @@ pub fn cfb_cases() -> Vec<Case> {
         let first = get32(&b, 76);
         put32(&mut b, 80, first);
         put32(&mut b, 44, 2);
-        add("cfb/fat-sector-listed-twice", b);
+        add(&mut v, "cfb/fat-sector-listed-twice", b);
     }
     // Number of FAT sectors claimed far above the file.
     {
         let mut b = base.clone();
         put32(&mut b, 44, 100_000);
-        add("cfb/fat-count-huge", b);
+        add(&mut v, "cfb/fat-count-huge", b);
     }
     // Mini stream container shorter than the mini FAT says; mini stream cutoff 0.
     {
         let mut b = base.clone();
         let dir = (get32(&b, 48) as usize + 1) * 512;
         put32(&mut b, dir + 116, 0xFFFF_FFFE); // root has no mini stream container
-        add("cfb/mini-container-missing", b);
+        add(&mut v, "cfb/mini-container-missing", b);
         let mut b = base.clone();
         put32(&mut b, 56, 0);
-        add("cfb/mini-cutoff-zero", b);
+        add(&mut v, "cfb/mini-cutoff-zero", b);
         let mut b = base.clone();
         put32(&mut b, 56, u32::MAX);
-        add("cfb/mini-cutoff-max", b);
+        add(&mut v, "cfb/mini-cutoff-max", b);
     }
-    v
+    v.into_iter().map(|make| make())
 }
