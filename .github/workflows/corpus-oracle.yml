@@ -24,7 +24,6 @@ jobs:
     runs-on: [self-hosted, agentbox]
     env:
       CARGO_HOME: /home/ghrunner/.cargo
-      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target/${{ github.run_id }}
       ARTCRAFT_CORPUS: /jobs/work/speedcraft-labs/hyper/corpus
       CRAFT_AV1_HOSTILE_TIMEOUT_SECS: '3600'
       LEAN_ZIP_INFLATE: ${{ github.workspace }}/tools/inflate-oracle/lean/.lake/build/bin/lzinflate
@@ -38,6 +37,7 @@ jobs:
         run: |
           echo /home/ghrunner/.cargo/bin >> "$GITHUB_PATH"
           echo /home/ghrunner/.elan/bin >> "$GITHUB_PATH"
+          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/cargo-target/$GITHUB_RUN_ID" >> "$GITHUB_ENV"
       - name: Checkout pinned lean-zip dependency
         uses: actions/checkout@v4
         with:
