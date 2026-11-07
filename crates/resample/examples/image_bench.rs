@@ -62,15 +62,15 @@ fn old_box(input: &Pixels) -> Vec<f32> {
     output
 }
 
-fn old_pyramid(input: &Pixels) -> Vec<[f32; 4]> {
-    let (dw, dh) = (input.width.div_ceil(2), input.height.div_ceil(2));
+fn old_pyramid_level(input: &[[f32; 4]], width: usize, height: usize) -> (usize, usize, Vec<[f32; 4]>) {
+    let (dw, dh) = (width.div_ceil(2), height.div_ceil(2));
     let mut output = vec![[0.0; 4]; dw * dh];
     output.par_chunks_mut(dw).enumerate().for_each(|(y, row)| {
         for (x, out) in row.iter_mut().enumerate() {
             for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                let sx = (2 * x + dx).min(input.width - 1);
-                let sy = (2 * y + dy).min(input.height - 1);
-                let px = input.rgba[sy * input.width + sx];
+                let sx = (2 * x + dx).min(width - 1);
+                let sy = (2 * y + dy).min(height - 1);
+                let px = input[sy * width + sx];
                 for (acc, value) in out.iter_mut().zip(px) {
                     *acc += value;
                 }
@@ -80,20 +80,46 @@ fn old_pyramid(input: &Pixels) -> Vec<[f32; 4]> {
             }
         }
     });
-    output
+    (dw, dh, output)
 }
 
-fn old_pyramid_flat(input: &Pixels) -> Vec<f32> {
-    let (dw, dh) = ((input.width / 2).max(1), (input.height / 2).max(1));
+fn new_clamped_pyramid(input: &Pixels) -> Vec<Vec<[f32; 4]>> {
+    let mut levels = Vec::new();
+    let mut current = input.rgba.as_slice();
+    let (mut width, mut height) = (input.width, input.height);
+    while width > 1 || height > 1 {
+        let Some((next_width, next_height, next)) = downsample2_clamped_rgba(current, width, height) else { break };
+        levels.push(next);
+        (width, height) = (next_width, next_height);
+        current = levels.last().map(Vec::as_slice).unwrap_or_default();
+    }
+    levels
+}
+
+fn old_clamped_pyramid(input: &Pixels) -> Vec<Vec<[f32; 4]>> {
+    let mut levels = Vec::new();
+    let mut current = input.rgba.as_slice();
+    let (mut width, mut height) = (input.width, input.height);
+    while width > 1 || height > 1 {
+        let (next_width, next_height, next) = old_pyramid_level(current, width, height);
+        levels.push(next);
+        (width, height) = (next_width, next_height);
+        current = levels.last().map(Vec::as_slice).unwrap_or_default();
+    }
+    levels
+}
+
+fn old_pyramid_flat_level(input: &[f32], width: usize, height: usize) -> (usize, usize, Vec<f32>) {
+    let (dw, dh) = ((width / 2).max(1), (height / 2).max(1));
     let mut output = vec![0.0; dw * dh * 4];
     output.par_chunks_mut(dw * 4).enumerate().for_each(|(y, row)| {
         for x in 0..dw {
             for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                let sx = (2 * x + dx).min(input.width - 1);
-                let sy = (2 * y + dy).min(input.height - 1);
-                let i = (sy * input.width + sx) * 4;
+                let sx = (2 * x + dx).min(width - 1);
+                let sy = (2 * y + dy).min(height - 1);
+                let i = (sy * width + sx) * 4;
                 for c in 0..4 {
-                    row[x * 4 + c] += input.flat[i + c];
+                    row[x * 4 + c] += input[i + c];
                 }
             }
             for c in 0..4 {
@@ -101,7 +127,33 @@ fn old_pyramid_flat(input: &Pixels) -> Vec<f32> {
             }
         }
     });
-    output
+    (dw, dh, output)
+}
+
+fn old_floor_pyramid(input: &Pixels) -> Vec<Vec<f32>> {
+    let mut levels = Vec::new();
+    let mut current = input.flat.as_slice();
+    let (mut width, mut height) = (input.width, input.height);
+    while width > 1 || height > 1 {
+        let (next_width, next_height, next) = old_pyramid_flat_level(current, width, height);
+        levels.push(next);
+        (width, height) = (next_width, next_height);
+        current = levels.last().map(Vec::as_slice).unwrap_or_default();
+    }
+    levels
+}
+
+fn new_floor_pyramid(input: &Pixels) -> Vec<Vec<f32>> {
+    let mut levels = Vec::new();
+    let mut current = input.flat.as_slice();
+    let (mut width, mut height) = (input.width, input.height);
+    while width > 1 || height > 1 {
+        let Some((next_width, next_height, next)) = downsample2_floor_rgba_f32(current, width, height) else { break };
+        levels.push(next);
+        (width, height) = (next_width, next_height);
+        current = levels.last().map(Vec::as_slice).unwrap_or_default();
+    }
+    levels
 }
 
 fn old_coverage(input: &Pixels) -> Vec<u8> {
@@ -183,16 +235,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         &output.join("box.json"),
     )?;
     bench(
-        &format!("{batch_label} clamped pyramid"),
-        move |src: &Pixels| repeated(batch, || old_pyramid(src)),
-        move |src| repeated(batch, || downsample2_clamped_rgba(&src.rgba, src.width, src.height).map(|(_, _, px)| px).unwrap_or_default()),
+        &format!("{batch_label} clamped mip pyramid"),
+        move |src: &Pixels| repeated(batch, || old_clamped_pyramid(src)),
+        move |src| repeated(batch, || new_clamped_pyramid(src)),
         input.clone(),
         &output.join("pyramid.json"),
     )?;
     bench(
-        &format!("{batch_label} floor pyramid"),
-        move |src: &Pixels| repeated(batch, || old_pyramid_flat(src)),
-        move |src| repeated(batch, || downsample2_floor_rgba_f32(&src.flat, src.width, src.height).map(|(_, _, px)| px).unwrap_or_default()),
+        &format!("{batch_label} floor mip pyramid"),
+        move |src: &Pixels| repeated(batch, || old_floor_pyramid(src)),
+        move |src| repeated(batch, || new_floor_pyramid(src)),
         input.clone(),
         &output.join("pyramid-floor.json"),
     )?;
