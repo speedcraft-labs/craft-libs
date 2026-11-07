@@ -1,0 +1,25 @@
+[package]
+name = "craft-pdf-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+craft-pdf = { path = "..", features = ["read"] }
+
+# craft-pdf's reader depends on SpeedCraft's bounded hayro-syntax fork.
+[patch.crates-io]
+hayro-syntax = { path = "../../../vendor/hayro-syntax" }
+
+[[bin]]
+name = "open"
+path = "fuzz_targets/open.rs"
+test = false
+doc = false
+bench = false
