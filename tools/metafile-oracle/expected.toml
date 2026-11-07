@@ -5,6 +5,19 @@
 # each entry: docs/verification/metafile-oracle.md.
 
 [[expected]]
+id = "deckcraft-xor-mask-gradient"
+metric = "deckcraft/xor-mask-gradient"
+reason = "FIXED: 3 LibreOffice metafiles now turn identical R2_XORPEN polygon passes around one R2_COPYPEN mask into a gradient clipped to the mask. The previous shared reader dropped both XOR passes and kept only the solid mask."
+evidence = "crates/metafile/src/tests.rs libreoffice_xor_mask_gradients_become_masked_bitmaps; LibreOffice render of WPC_MulticolorGradient.docx; docs/verification/metafile-oracle.md section 'R2_XORPEN'"
+
+[[expected]]
+id = "deckcraft-xor-mask-wmf"
+glob = "deckcraft/5fd296fc7f2ccf69da8d11b597d1d5e4b1a8bc8753c7f5c77a9920f272ec15e7.wmf"
+metric = "records"
+reason = "FIXED: the tdf110440 WMF contains the same repeated XOR-mask idiom. craft-metafile replaces its solid triangular mask with the clipped output of the XOR pass."
+evidence = "crates/metafile/src/tests.rs libreoffice_xor_mask_gradients_become_masked_bitmaps; #205"
+
+[[expected]]
 id = "deckcraft-extent-scaling"
 metric = "deckcraft/extent-scaling"
 reason = "1 file (office-poi spreadsheet/60460.xls, Workbook stream) scales its viewport with EMR_SCALEVIEWPORTEXTEX (700/3456, 250/844) after setting the window extent. The shared reader honours records 31/32 (added from VectorCraft, #92); the pre-swap DeckCraft reader ignored them and placed every later text run 4.9x too far right (x = 1691 pt in a 490 pt wide picture). The device bounds the writer stored in EMR_EXTTEXTOUTW (387..396 px for logical x = 290) fit the scaled mapping (290 x 4/3 = 387)."
@@ -25,8 +38,15 @@ evidence = "crates/metafile/COVERAGE.md (WordCraft column: `-` for 0x0521, 0x0A3
 [[expected]]
 id = "wordcraft-xorpen-mix"
 metric = "gap-records+rop2"
-reason = "KNOWN LIMITATION, not an improvement. Files written by LibreOffice draw a gradient in R2_XORPEN, then a shape in R2_COPYPEN, then the same gradient again in R2_XORPEN, so the gradient shows through the shape only. The shared reader (DeckCraft's rule: an XOR pair cancels) skips every XOR-mixed shape and so draws only the middle shape (a black arrow); the pre-swap WordCraft reader drew the XOR shapes as copies (gradient also outside the shape). Neither is the GDI result, which needs per-pixel XOR. 3 files; the DeckCraft reader already behaved this way."
-evidence = "docs/verification/metafile-oracle.md section 'R2_XORPEN'; follow-up: per-pixel raster ops or an XOR-mask idiom in craft-metafile"
+reason = "FIXED: on 3 LibreOffice metafiles, the pre-swap WordCraft reader drew the XOR polygons as copies (leaking the gradient outside the mask), while the initial shared reader drew only the solid mask. craft-metafile now recognizes identical XOR polygon passes around the copy mask and emits the clipped gradient."
+evidence = "crates/metafile/src/tests.rs libreoffice_xor_mask_gradients_become_masked_bitmaps; LibreOffice render of WPC_MulticolorGradient.docx; docs/verification/metafile-oracle.md section 'R2_XORPEN'"
+
+[[expected]]
+id = "wordcraft-expanded-corpus-hatch-fill"
+glob = "wordcraft/dcc7c96d65d4983efd83343096928aa8accdd1bc9512ccf7b5282587ff305688.emf"
+metric = "records"
+reason = "Existing difference found in the expanded corpus: the shared reader fills a hatched chart area whose pre-swap WordCraft output kept only its outline. This metafile has no EMR_SETROP2 record, so it does not exercise the XOR change."
+evidence = "docs/verification/metafile-oracle.md section 'Expanded corpus finding'; source office-openxml-sdk O14ISOStrict/Excel/Photo Formats - CGM-O12-XL-Pictures.xlsx, xl/media/image1.emf"
 
 [[expected]]
 id = "wordcraft-text-opaque-cell"
