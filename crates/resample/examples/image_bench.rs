@@ -3,9 +3,9 @@ use std::error::Error;
 use std::hint::black_box;
 use std::path::{Path, PathBuf};
 
-use craft_bench::{report::Revs, Config, Paired};
+use craft_bench::{Config, Paired, report::Revs};
 use craft_resample::{
-    downsample2_clamped_rgba, downsample2_floor_rgba_f32, reduce_box_f32, resize_bilinear_u8_coverage, resize_nearest, NearestAlignment,
+    NearestAlignment, downsample2_clamped_rgba, downsample2_floor_rgba_f32, reduce_box_f32, resize_bilinear_u8_coverage, resize_nearest,
 };
 use rayon::prelude::*;
 

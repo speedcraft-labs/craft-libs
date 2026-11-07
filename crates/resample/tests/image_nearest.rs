@@ -1,6 +1,6 @@
 use craft_resample::{
-    downsample2_clamped_rgba, downsample2_floor_rgba, downsample2_floor_rgba_f32, reduce_box_f32, resize_bilinear_u8_coverage, resize_nearest,
-    NearestAlignment,
+    NearestAlignment, downsample2_clamped_rgba, downsample2_floor_rgba, downsample2_floor_rgba_f32, reduce_box_f32, resize_bilinear_u8_coverage,
+    resize_nearest,
 };
 use proptest::prelude::*;
 
