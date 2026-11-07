@@ -418,7 +418,11 @@ fn mask_set(bytes: &[u8], emf_set: &[u32], wmf_set: &[u32]) -> Vec<u8> {
 /// DeckCraft differences are few, so one mask each: with the named records replaced by no-ops in the
 /// input of both sides, do old and new agree?
 fn attribute_deckcraft(bytes: &[u8]) -> Option<Attr> {
-    let tries: [(&str, &[u32], &[u32]); 2] = [("extent-scaling", &[31, 32], &[]), ("select-clip-region", &[], &[0x012C])];
+    let tries: [(&str, &[u32], &[u32]); 3] = [
+        ("extent-scaling", &[31, 32], &[]),
+        ("select-clip-region", &[], &[0x012C]),
+        ("xor-mask-gradient", &[20], &[0x0104]),
+    ];
     for (name, emf, wmf) in tries {
         let masked = mask_set(bytes, emf, wmf);
         if let (Ok(x), Ok(y)) = (dc::old(&masked), dc::new_raw(&masked))

@@ -3,6 +3,7 @@
 //! transform, pen and brush selection through an object table, the DC save stack and path brackets.
 //! Output is device-space items; `lib.rs` maps them into the picture frame.
 
+use kurbo::{BezPath, Point, Shape};
 use std::sync::{Arc, OnceLock};
 
 use crate::clip::{self, MAX_CLIP_RECTS};
@@ -10,7 +11,7 @@ use crate::dib::Rgba;
 use crate::geom::{Op, P};
 use crate::limits::Budget;
 use crate::text::{ETO_CLIPPED, ETO_OPAQUE, Font, TA_UPDATECP, Text, align};
-use crate::{MAX_OBJECTS, MAX_PATH_OPS, MAX_STACK};
+use crate::{MAX_ITEMS, MAX_OBJECTS, MAX_PATH_OPS, MAX_STACK};
 
 pub(crate) const MM_TEXT: u32 = 1;
 const MM_ISOTROPIC: u32 = 7;
@@ -329,6 +330,11 @@ pub(crate) struct Canvas {
     rop2: u32,
     /// The colour of the last fill drawn with R2_XORPEN, for the see-through shadow idiom.
     xor_color: Option<[u8; 4]>,
+    /// The LibreOffice XOR-mask idiom draws the same coloured polygons before and after a
+    /// copy-mode mask. Keep the first pass until the second one confirms the pattern.
+    xor_pass: Vec<XorPolygon>,
+    xor_first: Option<Vec<XorPolygon>>,
+    xor_middle: Option<usize>,
     text: TextState,
     /// Device units per pattern-brush pixel: brushes are laid out in 96-dpi pixels.
     pub pattern_px: f64,
@@ -342,6 +348,31 @@ pub(crate) struct Canvas {
     surface: Option<[f64; 4]>,
     /// EMF+ convex device clip polygon: drawing is cut to it geometrically.
     plus_clip: Option<Vec<P>>,
+}
+
+#[derive(Clone, PartialEq)]
+struct XorPolygon {
+    ops: Vec<Op>,
+    color: [u8; 4],
+    even_odd: bool,
+}
+
+fn bez_path(ops: &[Op]) -> BezPath {
+    let mut path = BezPath::new();
+    for op in ops {
+        match *op {
+            Op::M((x, y)) => path.move_to((x, y)),
+            Op::L((x, y)) => path.line_to((x, y)),
+            Op::C((x1, y1), (x2, y2), (x, y)) => path.curve_to((x1, y1), (x2, y2), (x, y)),
+            Op::Z => path.close_path(),
+        }
+    }
+    path
+}
+
+fn path_contains(path: &BezPath, point: Point, even_odd: bool) -> bool {
+    let winding = path.winding(point);
+    if even_odd { winding % 2 != 0 } else { winding != 0 }
 }
 
 impl Canvas {
@@ -369,6 +400,9 @@ impl Canvas {
             even_odd: true,
             rop2: R2_COPYPEN,
             xor_color: None,
+            xor_pass: Vec::new(),
+            xor_first: None,
+            xor_middle: None,
             text: TextState { color: [0, 0, 0, 255], bk_color: [255, 255, 255, 255], bk_opaque: true, align: 0, font: None },
             pattern_px: 1.0,
             pos: (0.0, 0.0),
@@ -487,6 +521,9 @@ impl Canvas {
     /// SETROP2. R2_NOP draws nothing; R2_XORPEN and R2_MASKPEN are read as the see-through shadow
     /// idiom (see [`Canvas::fill_paint`]); the other mix modes draw as copy.
     pub fn set_rop2(&mut self, mode: u32) {
+        if self.rop2 == R2_XORPEN && mode != R2_XORPEN {
+            self.finish_xor_pass();
+        }
         self.rop2 = mode;
     }
 
@@ -637,7 +674,7 @@ impl Canvas {
         self.pen = s.pen;
         self.brush = s.brush;
         self.even_odd = s.even_odd;
-        self.rop2 = s.rop2;
+        self.set_rop2(s.rop2);
         self.text = s.text;
         self.clip = s.clip;
     }
@@ -856,9 +893,9 @@ impl Canvas {
         }
     }
 
-    /// Whether the mix mode suppresses drawing: R2_NOP draws nothing, and R2_XORPEN shapes only
-    /// remember their fill colour (an XOR pair cancels; the see-through shadow idiom draws its
-    /// pattern in that colour).
+    /// Whether the mix mode suppresses drawing: R2_NOP draws nothing. R2_XORPEN callers retain
+    /// their fill colour for the see-through shadow idiom; solid polygon fills are also captured
+    /// separately to recognize the LibreOffice XOR-mask gradient sequence.
     fn mix_skips(&mut self, fill: bool) -> bool {
         match self.rop2 {
             R2_NOP => true,
@@ -870,6 +907,95 @@ impl Canvas {
             }
             _ => false,
         }
+    }
+
+    fn capture_xor(&mut self, ops: Vec<Op>) {
+        if self.brush.style == BS_SOLID {
+            self.xor_color = Some(self.brush.color);
+        }
+        if self.brush.style == BS_SOLID && ops.len() >= 3 {
+            let Some(bytes) = ops.len().checked_mul(std::mem::size_of::<Op>()).and_then(|n| n.checked_add(std::mem::size_of::<XorPolygon>())) else {
+                self.budget.fail();
+                return;
+            };
+            if self.xor_pass.len() >= MAX_ITEMS || !self.budget.bytes(bytes) {
+                self.budget.fail();
+                self.xor_pass.clear();
+                return;
+            }
+            self.xor_pass.push(XorPolygon { ops, color: self.brush.color, even_odd: self.even_odd });
+        }
+    }
+
+    fn finish_xor_pass(&mut self) {
+        let pass = std::mem::take(&mut self.xor_pass);
+        if pass.is_empty() {
+            return;
+        }
+        if let Some(first) = self.xor_first.take() {
+            if first == pass
+                && let Some(start) = self.xor_middle.take()
+                && self.items.len() == start + 1
+                && let Raw::Path { ops: mask, fill: Some(_), stroke, even_odd, region } = &self.items[start]
+            {
+                let mask = mask.clone();
+                let stroke = *stroke;
+                let even_odd = *even_odd;
+                let region = region.clone();
+                if let Some(bitmap) = self.xor_mask_bitmap(&first, &mask, even_odd, region.clone()) {
+                    self.items.truncate(start);
+                    self.push(bitmap);
+                    if let Some(stroke) = stroke {
+                        self.push(Raw::Path { ops: mask, fill: None, stroke: Some(stroke), even_odd, region });
+                    }
+                }
+            }
+        } else {
+            self.xor_first = Some(pass);
+            self.xor_middle = Some(self.items.len());
+        }
+    }
+
+    fn xor_mask_bitmap(&self, polygons: &[XorPolygon], mask: &[Op], mask_even_odd: bool, region: Option<Vec<[f64; 4]>>) -> Option<Raw> {
+        let mask_path = bez_path(mask);
+        let bounds = mask_path.bounding_box();
+        if !bounds.is_finite() || bounds.is_zero_area() {
+            return None;
+        }
+        // Two samples per device unit keep the polygon mask edges from looking jagged while
+        // keeping the temporary bitmap bounded by the parser's normal bitmap budget.
+        const SCALE: f64 = 2.0;
+        let width = (bounds.width() * SCALE).ceil() as usize;
+        let height = (bounds.height() * SCALE).ceil() as usize;
+        if width == 0 || height == 0 || !self.budget.bitmap(width, height) {
+            return None;
+        }
+        let mut rgba = vec![0; width.checked_mul(height)?.checked_mul(4)?];
+        for polygon in polygons {
+            let path = bez_path(&polygon.ops);
+            let polygon_bounds = path.bounding_box().intersect(bounds);
+            if polygon_bounds.is_zero_area() {
+                continue;
+            }
+            let x0 = (((polygon_bounds.x0 - bounds.x0) * SCALE).floor() as usize).min(width);
+            let y0 = (((polygon_bounds.y0 - bounds.y0) * SCALE).floor() as usize).min(height);
+            let x1 = (((polygon_bounds.x1 - bounds.x0) * SCALE).ceil() as usize).min(width);
+            let y1 = (((polygon_bounds.y1 - bounds.y0) * SCALE).ceil() as usize).min(height);
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    let point = Point::new(bounds.x0 + (x as f64 + 0.5) / SCALE, bounds.y0 + (y as f64 + 0.5) / SCALE);
+                    if path_contains(&mask_path, point, mask_even_odd) && path_contains(&path, point, polygon.even_odd) {
+                        let i = (y * width + x) * 4;
+                        rgba[i..i + 4].copy_from_slice(&polygon.color);
+                    }
+                }
+            }
+        }
+        Some(Raw::Bitmap {
+            rect: [bounds.x0, bounds.y0, bounds.width(), bounds.height()],
+            img: Rgba { w: width, h: height, bottom_up: false, px: rgba },
+            region,
+        })
     }
 
     fn stroke_pen(&self) -> Option<([u8; 4], f64)> {
@@ -896,6 +1022,12 @@ impl Canvas {
         let dev: Vec<Op> = ops.iter().map(|o| self.map_op(*o)).collect();
         if self.in_path {
             return self.push_path_ops(dev);
+        }
+        if self.rop2 == R2_XORPEN {
+            if fill {
+                self.capture_xor(dev);
+            }
+            return;
         }
         if self.mix_skips(fill) || dev.len() < 2 {
             return;
@@ -998,6 +1130,12 @@ impl Canvas {
     /// FILLPATH, STROKEPATH and STROKEANDFILLPATH: paints the bracketed path and empties it.
     pub fn paint_path(&mut self, fill: bool, stroke: bool) {
         let ops = std::mem::take(&mut self.path);
+        if self.rop2 == R2_XORPEN {
+            if fill {
+                self.capture_xor(ops);
+            }
+            return;
+        }
         if self.mix_skips(fill) || ops.len() < 2 {
             return;
         }
@@ -1008,6 +1146,11 @@ impl Canvas {
 
     /// Fills a logical rectangle `[l, t, r, b]` with the current brush (PATBLT, PATCOPY blits).
     pub fn fill_brush_rect(&mut self, [l, t, r, b]: [f64; 4]) {
+        if self.rop2 == R2_XORPEN {
+            let ops = crate::geom::rect(l, t, r, b).iter().map(|o| self.map_op(*o)).collect();
+            self.capture_xor(ops);
+            return;
+        }
         if self.mix_skips(true) {
             return;
         }

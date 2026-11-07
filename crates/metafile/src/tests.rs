@@ -1009,6 +1009,43 @@ fn rop2_nop_draws_nothing_until_the_mode_changes() {
 }
 
 #[test]
+fn libreoffice_xor_mask_gradients_become_masked_bitmaps() {
+    // Pixel hashes are golden snapshots of the masked output; WPC was also checked against
+    // LibreOffice rendering the source document to PDF.
+    for (name, bytes, expected_size, expected_opaque, expected_colors, expected_hash) in [
+        ("tdf136841.emf", include_bytes!("../tests/fixtures/tdf136841.emf").as_slice(), (152, 152), 11_544, 58, 0x4b6e_625b_8f7b_4aa9),
+        (
+            "WPC_MulticolorGradient.emf",
+            include_bytes!("../tests/fixtures/WPC_MulticolorGradient.emf").as_slice(),
+            (633, 166),
+            84_413,
+            221,
+            0x1aa0_1b0f_8a4b_a16c,
+        ),
+        ("tdf110440.wmf", include_bytes!("../tests/fixtures/tdf110440.wmf").as_slice(), (30, 30), 465, 1, 0xe9aa_856b_9352_b02c),
+    ] {
+        let picture = parse(bytes).unwrap_or_else(|e| panic!("{name}: {e:?}"));
+        let bitmaps: Vec<_> = picture
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                Item::Bitmap { width, height, rgba, .. } if rgba.as_chunks::<4>().0.iter().any(|p| p[3] != 0) => Some((*width, *height, rgba)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(bitmaps.len(), 1, "{name}: expected one masked XOR pass");
+        let (width, height, rgba) = bitmaps[0];
+        assert_eq!((width, height), expected_size, "{name}: changed golden dimensions");
+        let pixels = rgba.as_chunks::<4>().0;
+        assert_eq!(pixels.iter().filter(|p| p[3] != 0).count(), expected_opaque, "{name}: changed golden mask coverage");
+        let colors = pixels.iter().filter(|p| p[3] != 0).map(|p| (p[0], p[1], p[2])).collect::<std::collections::HashSet<_>>();
+        assert_eq!(colors.len(), expected_colors, "{name}: changed golden gradient colors");
+        let hash = rgba.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x0000_0100_0000_01b3));
+        assert_eq!(hash, expected_hash, "{name}: changed golden pixels");
+    }
+}
+
+#[test]
 fn plain_wmf_target_comes_from_a_window_that_was_read() {
     // A window record too short to read, then the real one: the target is the real window, not the
     // 1 x 1 default the short record left in place. A viewport origin set before it is kept.
