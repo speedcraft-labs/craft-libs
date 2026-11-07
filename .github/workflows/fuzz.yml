@@ -106,7 +106,9 @@ jobs:
           while IFS= read -r -d '' crash; do
             nice -n 19 cargo +nightly fuzz tmin "${{ matrix.target }}" "$crash" -- -max_total_time=60 -artifact_prefix="${{ steps.paths.outputs.artifacts }}/minimized/"
           done < <(find "${{ steps.paths.outputs.artifacts }}" -type f -name 'crash-*' -print0)
-          nice -n 19 cargo +nightly fuzz cmin "${{ matrix.target }}" "${{ steps.paths.outputs.corpus }}" -- -max_total_time=60
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            nice -n 19 cargo +nightly fuzz cmin "${{ matrix.target }}" "${{ steps.paths.outputs.corpus }}" -- -max_total_time=60
+          fi
       - name: Upload crash reproducers
         if: always()
         uses: actions/upload-artifact@v4
