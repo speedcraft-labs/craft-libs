@@ -70,10 +70,12 @@ pub fn resize_nearest<T: Copy>(
         out.extend_from_slice(&source[..source_len]);
         return Some(out);
     }
+    let xs = nearest_indices(sw, dw, alignment)?;
+    let ys = nearest_indices(sh, dh, alignment)?;
     for y in 0..dh {
-        let sy = nearest_index(y, sh, dh, alignment)?;
+        let sy = ys[y];
         for x in 0..dw {
-            let sx = nearest_index(x, sw, dw, alignment)?;
+            let sx = xs[x];
             let start = (sy * sw + sx) * channels;
             out.extend_from_slice(&source[start..start + channels]);
         }
@@ -243,6 +245,15 @@ fn nearest_index(position: usize, source: usize, dest: usize, alignment: Nearest
         }
     };
     Some((n / d).min(source as u128 - 1) as usize)
+}
+
+fn nearest_indices(source: usize, dest: usize, alignment: NearestAlignment) -> Option<Vec<usize>> {
+    let mut indices = Vec::new();
+    indices.try_reserve_exact(dest).ok()?;
+    for position in 0..dest {
+        indices.push(nearest_index(position, source, dest, alignment)?);
+    }
+    Some(indices)
 }
 
 /// Sample and coefficient type of a [`Polyphase`] resampler.

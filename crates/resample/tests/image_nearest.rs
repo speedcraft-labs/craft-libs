@@ -38,6 +38,30 @@ fn both_alignments_preserve_identity_grid() {
     }
 }
 
+proptest! {
+    #[test]
+    fn nearest_alignments_match_legacy_coordinates(
+        sw in 1usize..18, sh in 1usize..18, dw in 1usize..18, dh in 1usize..18,
+    ) {
+        let source = (0..sw * sh).collect::<Vec<_>>();
+        for alignment in [NearestAlignment::Corner, NearestAlignment::Center] {
+            let source = &source;
+            let expected = (0..dh).flat_map(|y| (0..dw).map(move |x| {
+                let sx = match alignment {
+                    NearestAlignment::Corner => x * sw / dw,
+                    NearestAlignment::Center => (((x as f64 + 0.5) * sw as f64 / dw as f64) as usize).min(sw - 1),
+                };
+                let sy = match alignment {
+                    NearestAlignment::Corner => y * sh / dh,
+                    NearestAlignment::Center => (((y as f64 + 0.5) * sh as f64 / dh as f64) as usize).min(sh - 1),
+                };
+                source[sy * sw + sx]
+            })).collect::<Vec<_>>();
+            prop_assert_eq!(resize_nearest(&source, [sw, sh], [dw, dh], 1, alignment), Some(expected));
+        }
+    }
+}
+
 #[test]
 fn rejects_invalid_sizes_and_short_input() {
     assert_eq!(resize_nearest(&[1u8], [0, 1], [1, 1], 1, NearestAlignment::Corner), None);
