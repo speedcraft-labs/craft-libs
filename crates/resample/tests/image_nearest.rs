@@ -1,4 +1,4 @@
-use craft_resample::{NearestAlignment, reduce_box_f32, resize_nearest};
+use craft_resample::{NearestAlignment, downsample2_clamped_rgba, reduce_box_f32, resize_nearest};
 use proptest::prelude::*;
 
 proptest! {
@@ -58,4 +58,25 @@ proptest! {
 fn box_reducer_rejects_noninteger_ratios_and_enlargements() {
     assert_eq!(reduce_box_f32(&[1.0; 6], [3, 2], [2, 1], 1), None);
     assert_eq!(reduce_box_f32(&[1.0; 4], [2, 2], [4, 2], 1), None);
+}
+
+#[test]
+fn odd_pyramid_levels_clamp_the_edge_and_round_up() {
+    let input = [[0.0; 4]; 3];
+    let (w, h, output) = downsample2_clamped_rgba(&input, 3, 1).expect("non-empty image");
+    assert_eq!((w, h), (2, 1));
+    assert_eq!(output, vec![[0.0; 4]; 2]);
+}
+
+proptest! {
+    #[test]
+    fn rgba_pyramid_preserves_constant_odd_or_even(
+        width in 1usize..20, height in 1usize..20,
+        pixel in prop::array::uniform4(-100.0f32..100.0f32),
+    ) {
+        let input = vec![pixel; width * height];
+        let (_, _, output) = downsample2_clamped_rgba(&input, width, height)
+            .expect("small non-empty image");
+        prop_assert!(output.iter().flatten().zip(pixel).all(|(actual, expected)| (*actual - expected).abs() < 0.001));
+    }
 }

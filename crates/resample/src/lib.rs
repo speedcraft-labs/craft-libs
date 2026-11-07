@@ -114,6 +114,38 @@ pub fn reduce_box_f32(source: &[f32], source_size: [usize; 2], dest_size: [usize
     Some(out)
 }
 
+/// Build one RGBA pyramid level with a clamped 2×2 box footprint.
+///
+/// Odd source dimensions round up; the final footprint repeats the last row or column, matching
+/// the common compositor minification pyramid convention.
+pub fn downsample2_clamped_rgba(source: &[[f32; 4]], width: usize, height: usize) -> Option<(usize, usize, Vec<[f32; 4]>)> {
+    if width == 0 || height == 0 || source.len() < width.checked_mul(height)? {
+        return None;
+    }
+    let (dw, dh) = (width.div_ceil(2), height.div_ceil(2));
+    let mut out = Vec::new();
+    out.try_reserve_exact(dw.checked_mul(dh)?).ok()?;
+    for y in 0..dh {
+        for x in 0..dw {
+            let (sx, sy) = (2 * x, 2 * y);
+            let indices = [
+                sy * width + sx,
+                sy * width + (sx + 1).min(width - 1),
+                (sy + 1).min(height - 1) * width + sx,
+                (sy + 1).min(height - 1) * width + (sx + 1).min(width - 1),
+            ];
+            let mut px = [0.0; 4];
+            for index in indices {
+                for (channel, value) in px.iter_mut().enumerate() {
+                    *value += source[index][channel];
+                }
+            }
+            out.push(px.map(|value| value * 0.25));
+        }
+    }
+    Some((dw, dh, out))
+}
+
 fn nearest_index(position: usize, source: usize, dest: usize, alignment: NearestAlignment) -> usize {
     let (n, d) = match alignment {
         NearestAlignment::Corner => (position as u128 * source as u128, dest as u128),
