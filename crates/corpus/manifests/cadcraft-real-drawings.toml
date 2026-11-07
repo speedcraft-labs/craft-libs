@@ -1,5 +1,5 @@
 name = "cadcraft-real-drawings"
-description = "Real architectural DXF drawings for CADCraft entity-edit journeys."
+description = "Real architectural and engineering CAD drawings for CADCraft entity-edit journeys."
 
 [[file]]
 path = "villa-details.dxf"
