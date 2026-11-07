@@ -22,7 +22,7 @@ permissions:
 jobs:
   fuzz:
     name: ${{ matrix.crate }} / ${{ matrix.target }}
-    runs-on: [self-hosted, agentbox]
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || fromJSON('["self-hosted", "agentbox"]') }}
     concurrency:
       group: fuzz-${{ github.workflow }}-${{ github.ref }}-${{ matrix.crate }}-${{ matrix.target }}
       cancel-in-progress: true
@@ -49,9 +49,9 @@ jobs:
             target: open
     env:
       CARGO_BUILD_JOBS: 4
-      CARGO_TARGET_DIR: /jobs/work/speedcraft-labs/targets/fuzzers-200-craft-libs/${{ matrix.crate }}
+      CARGO_TARGET_DIR: ${{ github.event_name == 'pull_request' && format('{0}/.fuzz-targets/{1}', github.workspace, matrix.crate) || format('/jobs/work/speedcraft-labs/targets/fuzzers-200-craft-libs/{0}', matrix.crate) }}
       CARGO_TERM_COLOR: always
-      FUZZ_CORPUS_ROOT: /jobs/work/speedcraft-labs/fuzz-corpus/craft-libs
+      FUZZ_CORPUS_ROOT: ${{ github.event_name == 'pull_request' && format('{0}/.fuzz-corpus', github.workspace) || '/jobs/work/speedcraft-labs/fuzz-corpus/craft-libs' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
@@ -106,7 +106,9 @@ jobs:
           while IFS= read -r -d '' crash; do
             nice -n 19 cargo +nightly fuzz tmin "${{ matrix.target }}" "$crash" -- -max_total_time=60 -artifact_prefix="${{ steps.paths.outputs.artifacts }}/minimized/"
           done < <(find "${{ steps.paths.outputs.artifacts }}" -type f -name 'crash-*' -print0)
-          nice -n 19 cargo +nightly fuzz cmin "${{ matrix.target }}" "${{ steps.paths.outputs.corpus }}" -- -max_total_time=60
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            nice -n 19 cargo +nightly fuzz cmin "${{ matrix.target }}" "${{ steps.paths.outputs.corpus }}" -- -max_total_time=60
+          fi
       - name: Upload crash reproducers
         if: always()
         uses: actions/upload-artifact@v4
