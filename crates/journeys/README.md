@@ -52,6 +52,7 @@ target root so prepared builds can be reused.
 | `cadcraft.open-dxf.us-main` | CADCraft | Open the pinned US-main DXF |
 | `wordcraft.open-office-docx` | WordCraft | Open the pinned synthetic 1,096-page DOCX and measure from file open through the first painted page |
 | `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
+| `deckcraft.drag-shape.heavy-slide` | DeckCraft | Drag a picture shape across the pinned, picture-rich 24th slide of the Apache-2.0 licensed HowWeRefactor deck through the editor canvas texture path; records every CPU frame |
 | `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
 | `pdfcraft.edit-100k-pages` | PdfCraft | Add text to a generated 100,000-page document |
 | `pdfcraft.edit-acroform-3129` | PdfCraft | Edit one field in a generated 3,129-field AcroForm |
@@ -90,7 +91,7 @@ craft-libs revisions. Each app build and run gets a target directory keyed by bo
 and revision worktrees plus Cargo patch files keep stable paths under the selected target root,
 so paired runs reuse their warmed binaries instead of rebuilding one side over the other.
 The PhotoCraft layer journeys run the prepared `perf_scenarios` executable by its `{target_dir}`
-path, so a locked measurement never invokes Cargo. Adapter builds use `nice -n 19` and eight Cargo
+path, so a locked measurement never invokes Cargo. Adapter builds use `nice -n 19` and six Cargo
 jobs.
 Run `prepare` before acquiring the shared benchmark lock, then use `--no-build` with `run` or
 `compare` while the lock is held. Both commands return exit code 1 for a non-publishable report;

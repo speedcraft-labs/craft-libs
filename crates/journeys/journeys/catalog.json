@@ -49,6 +49,14 @@
       "inputs": [{ "name": "2D-Area-O12-PPT-Charts", "path": "office-openxml-sdk/test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/O14ISOStrict/Graphics/2D Area-O12-PPT-Charts.pptx" }]
     },
     {
+      "name": "deckcraft.drag-shape.heavy-slide",
+      "app": "deckcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/deckcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "deckcraft-cli"] },
+      "run": { "program": "{target_dir}/release/deckcraft-cli", "args": ["bench-drag", "{input}", "--slide", "23", "--shape", "22", "--frames", "30"], "output": "deckcraft-drag" },
+      "inputs": [{ "name": "HowWeRefactor-slide-24", "path": "office-poi/slideshow/ca.ubc.cs.people_~emhill_presentations_HowWeRefactor.pptx" }]
+    },
+    {
       "name": "lightcraft.slider-exposure-latency",
       "app": "lightcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/lightcraft",
