@@ -19,14 +19,13 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: fuzz-${{ github.workflow }}-${{ github.ref }}-${{ matrix.crate }}-${{ matrix.target }}
-  cancel-in-progress: true
-
 jobs:
   fuzz:
     name: ${{ matrix.crate }} / ${{ matrix.target }}
     runs-on: [self-hosted, agentbox]
+    concurrency:
+      group: fuzz-${{ github.workflow }}-${{ github.ref }}-${{ matrix.crate }}-${{ matrix.target }}
+      cancel-in-progress: true
     timeout-minutes: 60
     strategy:
       fail-fast: false
