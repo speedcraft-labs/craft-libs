@@ -11,6 +11,8 @@ description = "Text processing below the Craft composer: hyphenation with a bund
 workspace = true
 
 [dependencies]
+aho-corasick = { version = "1", optional = true }
+regex = { version = "1", optional = true }
 hypher = { version = "0.1.8", default-features = false, features = ["alloc"], optional = true }
 miniz_oxide = { version = "0.8", optional = true }
 unicode-general-category = { version = "1.1", optional = true }
@@ -22,6 +24,7 @@ unicode-bidi-mirroring = { version = "0.4.0", optional = true }
 
 [dev-dependencies]
 unicode-segmentation = "1.13"
+proptest.workspace = true
 
 [[example]]
 name = "hyphgen"
@@ -29,6 +32,7 @@ required-features = ["generator"]
 
 [features]
 default = ["hyphen", "bidi", "segment", "linebreak"]
+matching = ["dep:aho-corasick", "dep:regex"]
 # Hyphenation points; English (bundled dictionary and patterns) needs no further feature.
 hyphen = ["dep:hypher", "dep:miniz_oxide", "dep:unicode-general-category"]
 # Bidirectional text: embedding levels, line reordering and mirroring (UAX #9).
