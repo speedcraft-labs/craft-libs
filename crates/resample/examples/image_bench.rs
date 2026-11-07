@@ -24,7 +24,7 @@ fn corpus_image(path: &Path) -> Result<Pixels, Box<dyn Error>> {
     let rgba = image::open(path)?.to_rgba32f();
     let (width, height) = (rgba.width() as usize, rgba.height() as usize);
     let flat = rgba.into_raw();
-    let pixels = flat.chunks_exact(4).map(|px| [px[0], px[1], px[2], px[3]]).collect::<Vec<_>>();
+    let pixels = flat.as_chunks::<4>().0.to_vec();
     if width < 2 || height < 2 || pixels.is_empty() || !width.is_multiple_of(2) || !height.is_multiple_of(2) {
         return Err("benchmark corpus image must have even dimensions of at least 2×2".into());
     }
@@ -49,8 +49,8 @@ fn old_box(input: &Pixels) -> Vec<f32> {
             for dy in 0..2 {
                 for dx in 0..2 {
                     let i = ((2 * y + dy) * input.width + 2 * x + dx) * 4;
-                    for c in 0..4 {
-                        dest[c] += input.flat[i + c];
+                    for (c, value) in dest.iter_mut().enumerate() {
+                        *value += input.flat[i + c];
                     }
                 }
             }
@@ -71,12 +71,12 @@ fn old_pyramid(input: &Pixels) -> Vec<[f32; 4]> {
                 let sx = (2 * x + dx).min(input.width - 1);
                 let sy = (2 * y + dy).min(input.height - 1);
                 let px = input.rgba[sy * input.width + sx];
-                for c in 0..4 {
-                    out[c] += px[c];
+                for (acc, value) in out.iter_mut().zip(px) {
+                    *acc += value;
                 }
             }
-            for c in 0..4 {
-                out[c] *= 0.25;
+            for value in out.iter_mut() {
+                *value *= 0.25;
             }
         }
     });

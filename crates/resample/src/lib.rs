@@ -72,10 +72,8 @@ pub fn resize_nearest<T: Copy>(
     }
     let xs = nearest_indices(sw, dw, alignment)?;
     let ys = nearest_indices(sh, dh, alignment)?;
-    for y in 0..dh {
-        let sy = ys[y];
-        for x in 0..dw {
-            let sx = xs[x];
+    for &sy in &ys {
+        for &sx in &xs {
             let start = (sy * sw + sx) * channels;
             out.extend_from_slice(&source[start..start + channels]);
         }
@@ -150,14 +148,27 @@ pub fn reduce_box_f32(source: &[f32], source_size: [usize; 2], dest_size: [usize
     }
     let (fx, fy) = (sw / dw, sh / dh);
     let inv = 1.0 / (fx * fy) as f32;
+    let reduction = BoxReduction { sw, dw, dh, channels, fx, fy, inv };
     match channels {
-        1 => reduce_box_f32_const::<1>(source, sw, dw, dh, fx, fy, inv),
-        4 => reduce_box_f32_const::<4>(source, sw, dw, dh, fx, fy, inv),
-        _ => reduce_box_f32_dynamic(source, sw, dw, dh, channels, fx, fy, inv),
+        1 => reduce_box_f32_const::<1>(source, reduction),
+        4 => reduce_box_f32_const::<4>(source, reduction),
+        _ => reduce_box_f32_dynamic(source, reduction),
     }
 }
 
-fn reduce_box_f32_const<const CHANNELS: usize>(source: &[f32], sw: usize, dw: usize, dh: usize, fx: usize, fy: usize, inv: f32) -> Option<Vec<f32>> {
+#[derive(Clone, Copy)]
+struct BoxReduction {
+    sw: usize,
+    dw: usize,
+    dh: usize,
+    channels: usize,
+    fx: usize,
+    fy: usize,
+    inv: f32,
+}
+
+fn reduce_box_f32_const<const CHANNELS: usize>(source: &[f32], reduction: BoxReduction) -> Option<Vec<f32>> {
+    let BoxReduction { sw, dw, dh, fx, fy, inv, .. } = reduction;
     let dest_len = dw.checked_mul(dh)?.checked_mul(CHANNELS)?;
     let mut out = Vec::new();
     out.try_reserve_exact(dest_len).ok()?;
@@ -185,7 +196,8 @@ fn reduce_box_f32_const<const CHANNELS: usize>(source: &[f32], sw: usize, dw: us
     Some(out)
 }
 
-fn reduce_box_f32_dynamic(source: &[f32], sw: usize, dw: usize, dh: usize, channels: usize, fx: usize, fy: usize, inv: f32) -> Option<Vec<f32>> {
+fn reduce_box_f32_dynamic(source: &[f32], reduction: BoxReduction) -> Option<Vec<f32>> {
+    let BoxReduction { sw, dw, dh, channels, fx, fy, inv } = reduction;
     let dest_len = dw.checked_mul(dh)?.checked_mul(channels)?;
     let mut out = Vec::new();
     out.try_reserve_exact(dest_len).ok()?;

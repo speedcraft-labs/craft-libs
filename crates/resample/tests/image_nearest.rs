@@ -80,7 +80,7 @@ proptest! {
                 };
                 source[sy * sw + sx]
             })).collect::<Vec<_>>();
-            prop_assert_eq!(resize_nearest(&source, [sw, sh], [dw, dh], 1, alignment), Some(expected));
+            prop_assert_eq!(resize_nearest(source, [sw, sh], [dw, dh], 1, alignment), Some(expected));
         }
     }
 }
@@ -160,7 +160,7 @@ proptest! {
             source.extend_from_slice(&[r, g, b, alpha]);
         }
         let output = reduce_box_f32(&source, [dw * fx, dh * fy], [dw, dh], 4).expect("integer shrink");
-        for px in output.chunks_exact(4) {
+        for px in output.as_chunks::<4>().0 {
             prop_assert!(px[0] <= px[3] + 0.00001 && px[1] <= px[3] + 0.00001 && px[2] <= px[3] + 0.00001);
             prop_assert!(px[0] >= 0.0 && px[1] >= 0.0 && px[2] >= 0.0);
         }
