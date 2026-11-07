@@ -41,14 +41,28 @@ pub fn find_literals_overlapping(matcher: &AhoCorasick, haystack: &str) -> Vec<L
 
 /// Finds every overlapping binary hit, ordered by pattern then start offset.
 pub fn find_bytes_overlapping(matcher: &AhoCorasick, haystack: &[u8]) -> Vec<LiteralMatch> {
-    let mut hits: Vec<_> =
-        matcher.find_overlapping_iter(haystack).map(|m| LiteralMatch { pattern: m.pattern().as_usize(), start: m.start(), end: m.end() }).collect();
+    find_bytes_overlapping_limited(matcher, haystack, usize::MAX)
+}
+
+/// Like [`find_bytes_overlapping`], with at most `per_pattern_limit` hits retained per pattern.
+/// The full scan still runs, but result memory is bounded by patterns × limit.
+pub fn find_bytes_overlapping_limited(matcher: &AhoCorasick, haystack: &[u8], per_pattern_limit: usize) -> Vec<LiteralMatch> {
+    let mut counts = vec![0usize; matcher.patterns_len()];
+    let mut hits = Vec::new();
+    for m in matcher.find_overlapping_iter(haystack) {
+        let pattern = m.pattern().as_usize();
+        let Some(count) = counts.get_mut(pattern) else { continue };
+        if *count < per_pattern_limit {
+            hits.push(LiteralMatch { pattern, start: m.start(), end: m.end() });
+            *count += 1;
+        }
+    }
     hits.sort_unstable_by_key(|hit| (hit.pattern, hit.start, hit.end));
     hits
 }
 
-const CACHE_CAPACITY: usize = 128;
-const MAX_CACHED_PATTERN: usize = 4096;
+const CACHE_CAPACITY: usize = 32;
+const MAX_CACHED_PATTERN: usize = 1024;
 thread_local! {
     static REGEX_CACHE: RefCell<VecDeque<(String, bool, usize, usize, u32, Regex)>> = const { RefCell::new(VecDeque::new()) };
 }
@@ -56,7 +70,7 @@ thread_local! {
 /// Returns a cached regex clone, compiling each key at most once while it remains in the
 /// per-thread bounded FIFO cache. Oversized patterns are compiled but never retained.
 pub fn cached_regex(pattern: &str, insensitive: bool) -> Result<Regex, regex::Error> {
-    cached_regex_with_limits(pattern, insensitive, 10 * 1024 * 1024, 2 * 1024 * 1024, 250)
+    cached_regex_with_limits(pattern, insensitive, 1 << 20, 1 << 20, 250)
 }
 
 /// Same as [`cached_regex`], with explicit regex-automata and parser limits included in the key.
@@ -93,7 +107,7 @@ pub fn cached_regex_with_limits(
             {
                 cache.remove(index);
             }
-            if cache.len() == CACHE_CAPACITY {
+            while cache.len() >= CACHE_CAPACITY {
                 cache.pop_front();
             }
             cache.push_back((pattern.to_owned(), insensitive, size_limit, dfa_size_limit, nest_limit, regex.clone()));
@@ -184,6 +198,13 @@ mod tests {
         fn cached_regex_matches_fresh_compile(pattern in "[a-z]{1,8}", text in "[a-z]{0,80}", insensitive in any::<bool>()) {
             let got = cached_regex(&pattern, insensitive).unwrap();
             let expected = RegexBuilder::new(&pattern).case_insensitive(insensitive).build().unwrap();
+            prop_assert_eq!(got.is_match(&text), expected.is_match(&text));
+        }
+
+        #[test]
+        fn cached_limited_regex_matches_fresh_compile(pattern in "[a-z]{1,8}", text in "[a-z]{0,80}", insensitive in any::<bool>()) {
+            let got = cached_regex_with_limits(&pattern, insensitive, 1 << 22, 1 << 22, 100).unwrap();
+            let expected = RegexBuilder::new(&pattern).case_insensitive(insensitive).size_limit(1 << 22).dfa_size_limit(1 << 22).nest_limit(100).build().unwrap();
             prop_assert_eq!(got.is_match(&text), expected.is_match(&text));
         }
     }
