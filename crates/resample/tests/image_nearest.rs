@@ -81,6 +81,27 @@ proptest! {
     }
 }
 
+proptest! {
+    #[test]
+    fn positive_box_weights_preserve_premultiplied_alpha(
+        dw in 1usize..10, dh in 1usize..10, fx in 1usize..5, fy in 1usize..5,
+        alpha in 0.0f32..1.0f32,
+    ) {
+        let mut source = Vec::new();
+        for i in 0..dw * fx * dh * fy {
+            let r = ((i * 17 % 100) as f32 / 100.0) * alpha;
+            let g = ((i * 29 % 100) as f32 / 100.0) * alpha;
+            let b = ((i * 43 % 100) as f32 / 100.0) * alpha;
+            source.extend_from_slice(&[r, g, b, alpha]);
+        }
+        let output = reduce_box_f32(&source, [dw * fx, dh * fy], [dw, dh], 4).expect("integer shrink");
+        for px in output.chunks_exact(4) {
+            prop_assert!(px[0] <= px[3] + 0.00001 && px[1] <= px[3] + 0.00001 && px[2] <= px[3] + 0.00001);
+            prop_assert!(px[0] >= 0.0 && px[1] >= 0.0 && px[2] >= 0.0);
+        }
+    }
+}
+
 #[test]
 fn box_reducer_rejects_noninteger_ratios_and_enlargements() {
     assert_eq!(reduce_box_f32(&[1.0; 6], [3, 2], [2, 1], 1), None);
@@ -105,6 +126,20 @@ fn legacy_bilinear_u8(source: &[u8], sw: usize, sh: usize, dw: usize, dh: usize)
 }
 
 proptest! {
+    #[test]
+    fn coverage_mask_preserves_constants_and_stays_between_source_extrema(
+        sw in 1usize..18, sh in 1usize..18, dw in 1usize..18, dh in 1usize..18,
+        value in any::<u8>(),
+    ) {
+        let constant = vec![value; sw * sh];
+        prop_assert_eq!(resize_bilinear_u8_coverage(&constant, [sw, sh], [dw, dh]), Some(vec![value; dw * dh]));
+        let varying = (0..sw * sh).map(|i| ((i * 47 + 9) % 256) as u8).collect::<Vec<_>>();
+        let lo = *varying.iter().min().unwrap_or(&0);
+        let hi = *varying.iter().max().unwrap_or(&255);
+        let output = resize_bilinear_u8_coverage(&varying, [sw, sh], [dw, dh]).expect("valid mask");
+        prop_assert!(output.iter().all(|v| lo <= *v && *v <= hi));
+    }
+
     #[test]
     fn coverage_resize_matches_legacy_coordinate_and_rounding(
         sw in 1usize..12, sh in 1usize..12, dw in 1usize..12, dh in 1usize..12,
