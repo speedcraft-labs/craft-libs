@@ -17,6 +17,7 @@ struct Pixels {
     height: usize,
     rgba: Vec<[f32; 4]>,
     flat: Vec<f32>,
+    gray: Vec<f32>,
     mask: Vec<u8>,
 }
 
@@ -25,11 +26,12 @@ fn corpus_image(path: &Path) -> Result<Pixels, Box<dyn Error>> {
     let (width, height) = (rgba.width() as usize, rgba.height() as usize);
     let flat = rgba.into_raw();
     let pixels = flat.as_chunks::<4>().0.to_vec();
+    let gray = pixels.iter().map(|px| px[0]).collect();
     if width < 2 || height < 2 || pixels.is_empty() || !width.is_multiple_of(2) || !height.is_multiple_of(2) {
         return Err("benchmark corpus image must have even dimensions of at least 2×2".into());
     }
     let mask = pixels.iter().map(|px| (px[3] * 255.0 + 0.5) as u8).collect();
-    Ok(Pixels { width, height, rgba: pixels, flat, mask })
+    Ok(Pixels { width, height, rgba: pixels, flat, gray, mask })
 }
 
 fn repeated<T>(batch: usize, mut f: impl FnMut() -> T) -> T {
@@ -40,17 +42,18 @@ fn repeated<T>(batch: usize, mut f: impl FnMut() -> T) -> T {
     result
 }
 
-fn old_box(input: &Pixels) -> Vec<f32> {
+fn old_box(input: &Pixels, channels: usize) -> Vec<f32> {
     let (dw, dh) = (input.width / 2, input.height / 2);
-    let mut output = vec![0.0; dw * dh * 4];
-    output.par_chunks_mut(dw * 4).enumerate().for_each(|(y, row)| {
+    let source = if channels == 1 { &input.gray } else { &input.flat };
+    let mut output = vec![0.0; dw * dh * channels];
+    output.par_chunks_mut(dw * channels).enumerate().for_each(|(y, row)| {
         for x in 0..dw {
-            let dest = &mut row[x * 4..x * 4 + 4];
+            let dest = &mut row[x * channels..x * channels + channels];
             for dy in 0..2 {
                 for dx in 0..2 {
-                    let i = ((2 * y + dy) * input.width + 2 * x + dx) * 4;
+                    let i = ((2 * y + dy) * input.width + 2 * x + dx) * channels;
                     for (c, value) in dest.iter_mut().enumerate() {
-                        *value += input.flat[i + c];
+                        *value += source[i + c];
                     }
                 }
             }
@@ -229,10 +232,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     bench(
         &format!("{batch_label} integer box"),
-        move |src: &Pixels| repeated(batch, || old_box(src)),
+        move |src: &Pixels| repeated(batch, || old_box(src, 4)),
         move |src| repeated(batch, || reduce_box_f32(&src.flat, [src.width, src.height], [dw, dh], 4).unwrap_or_default()),
         input.clone(),
         &output.join("box.json"),
+    )?;
+    bench(
+        &format!("{batch_label} grayscale integer box"),
+        move |src: &Pixels| repeated(batch, || old_box(src, 1)),
+        move |src| repeated(batch, || reduce_box_f32(&src.gray, [src.width, src.height], [dw, dh], 1).unwrap_or_default()),
+        input.clone(),
+        &output.join("box-gray.json"),
     )?;
     bench(
         &format!("{batch_label} clamped mip pyramid"),
