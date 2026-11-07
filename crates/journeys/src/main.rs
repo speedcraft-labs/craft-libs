@@ -234,9 +234,9 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
                 return Err("deckcraft drag frame time must be finite and non-negative".into());
             }
             let identity = value
-                .get("pixel_hash_fnv64")
+                .get("pixel_hash_sha256")
                 .and_then(serde_json::Value::as_str)
-                .ok_or_else(|| "deckcraft drag JSON is missing pixel_hash_fnv64".to_string())?;
+                .ok_or_else(|| "deckcraft drag JSON is missing pixel_hash_sha256".to_string())?;
             let shape = value
                 .get("shapes_on_slide")
                 .and_then(serde_json::Value::as_u64)
