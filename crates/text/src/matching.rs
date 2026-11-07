@@ -33,10 +33,13 @@ pub fn find_literals(matcher: &AhoCorasick, haystack: &str) -> Vec<LiteralMatch>
 
 /// Finds all overlapping literal hits, ordered by pattern then start offset.
 pub fn find_literals_overlapping(matcher: &AhoCorasick, haystack: &str) -> Vec<LiteralMatch> {
-    let mut hits: Vec<_> =
-        matcher.find_overlapping_iter(haystack).map(|m| LiteralMatch { pattern: m.pattern().as_usize(), start: m.start(), end: m.end() }).collect();
-    hits.sort_unstable_by_key(|hit| (hit.pattern, hit.start, hit.end));
-    hits
+    let mut by_pattern = vec![Vec::new(); matcher.patterns_len()];
+    for m in matcher.find_overlapping_iter(haystack) {
+        if let Some(hits) = by_pattern.get_mut(m.pattern().as_usize()) {
+            hits.push(LiteralMatch { pattern: m.pattern().as_usize(), start: m.start(), end: m.end() });
+        }
+    }
+    by_pattern.into_iter().flatten().collect()
 }
 
 /// Finds every overlapping binary hit, ordered by pattern then start offset.
@@ -47,18 +50,16 @@ pub fn find_bytes_overlapping(matcher: &AhoCorasick, haystack: &[u8]) -> Vec<Lit
 /// Like [`find_bytes_overlapping`], with at most `per_pattern_limit` hits retained per pattern.
 /// The full scan still runs, but result memory is bounded by patterns × limit.
 pub fn find_bytes_overlapping_limited(matcher: &AhoCorasick, haystack: &[u8], per_pattern_limit: usize) -> Vec<LiteralMatch> {
-    let mut counts = vec![0usize; matcher.patterns_len()];
-    let mut hits = Vec::new();
+    let mut by_pattern = vec![Vec::new(); matcher.patterns_len()];
     for m in matcher.find_overlapping_iter(haystack) {
         let pattern = m.pattern().as_usize();
-        let Some(count) = counts.get_mut(pattern) else { continue };
-        if *count < per_pattern_limit {
-            hits.push(LiteralMatch { pattern, start: m.start(), end: m.end() });
-            *count += 1;
+        if let Some(hits) = by_pattern.get_mut(pattern) {
+            if hits.len() < per_pattern_limit {
+                hits.push(LiteralMatch { pattern, start: m.start(), end: m.end() });
+            }
         }
     }
-    hits.sort_unstable_by_key(|hit| (hit.pattern, hit.start, hit.end));
-    hits
+    by_pattern.into_iter().flatten().collect()
 }
 
 const CACHE_CAPACITY: usize = 32;
