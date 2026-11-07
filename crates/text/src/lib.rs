@@ -21,5 +21,7 @@ pub mod bidi;
 pub mod hyphen;
 #[cfg(feature = "linebreak")]
 pub mod linebreak;
+#[cfg(feature = "matching")]
+pub mod matching;
 #[cfg(feature = "segment")]
 pub mod segment;
