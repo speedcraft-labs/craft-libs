@@ -27,6 +27,101 @@
 use std::f64::consts::PI;
 use std::ops::{Add, Mul};
 
+/// Pixel-grid convention for nearest-neighbour resizing.
+///
+/// Both conventions are used by image formats and model pipelines. Naming the convention makes
+/// compatibility explicit while sharing the checked indexing and allocation logic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NearestAlignment {
+    /// Map destination pixel `(x, y)` to `floor(x * source_width / dest_width)` (top-left aligned).
+    Corner,
+    /// Map destination pixel centers to the closest source pixel center.
+    Center,
+}
+
+/// Nearest-neighbour resize of a packed row-major image or mask.
+///
+/// Returns `None` for zero dimensions, an undersized input, or an unrepresentable allocation.
+/// The output contains only values copied from the source, so this is suitable for categorical
+/// labels as well as exact legacy mask resampling. `channels` may be one for masks or larger for
+/// packed pixel data.
+pub fn resize_nearest<T: Copy>(
+    source: &[T],
+    source_size: [usize; 2],
+    dest_size: [usize; 2],
+    channels: usize,
+    alignment: NearestAlignment,
+) -> Option<Vec<T>> {
+    let [sw, sh] = source_size;
+    let [dw, dh] = dest_size;
+    if sw == 0 || sh == 0 || dw == 0 || dh == 0 || channels == 0 {
+        return None;
+    }
+    let source_len = sw.checked_mul(sh)?.checked_mul(channels)?;
+    let dest_len = dw.checked_mul(dh)?.checked_mul(channels)?;
+    if source.len() < source_len {
+        return None;
+    }
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    for y in 0..dh {
+        let sy = nearest_index(y, sh, dh, alignment);
+        for x in 0..dw {
+            let sx = nearest_index(x, sw, dw, alignment);
+            let start = (sy * sw + sx) * channels;
+            out.extend_from_slice(&source[start..start + channels]);
+        }
+    }
+    Some(out)
+}
+
+/// Box-reduce an `f32` image by exact integer ratios.
+///
+/// This reproduces the common integer-footprint average used by material and texture pipelines.
+/// Non-integer ratios are rejected so callers can retain their established fallback filter.
+pub fn reduce_box_f32(source: &[f32], source_size: [usize; 2], dest_size: [usize; 2], channels: usize) -> Option<Vec<f32>> {
+    let [sw, sh] = source_size;
+    let [dw, dh] = dest_size;
+    if sw == 0 || sh == 0 || dw == 0 || dh == 0 || channels == 0 || dw > sw || dh > sh || !sw.is_multiple_of(dw) || !sh.is_multiple_of(dh) {
+        return None;
+    }
+    let source_len = sw.checked_mul(sh)?.checked_mul(channels)?;
+    let dest_len = dw.checked_mul(dh)?.checked_mul(channels)?;
+    if source.len() < source_len {
+        return None;
+    }
+    let (fx, fy) = (sw / dw, sh / dh);
+    let inv = 1.0 / (fx * fy) as f32;
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    out.resize(dest_len, 0.0);
+    for y in 0..dh {
+        for x in 0..dw {
+            let oi = (y * dw + x) * channels;
+            for j in 0..fy {
+                for i in 0..fx {
+                    let si = ((y * fy + j) * sw + x * fx + i) * channels;
+                    for c in 0..channels {
+                        out[oi + c] += source[si + c];
+                    }
+                }
+            }
+            for c in 0..channels {
+                out[oi + c] *= inv;
+            }
+        }
+    }
+    Some(out)
+}
+
+fn nearest_index(position: usize, source: usize, dest: usize, alignment: NearestAlignment) -> usize {
+    let (n, d) = match alignment {
+        NearestAlignment::Corner => (position as u128 * source as u128, dest as u128),
+        NearestAlignment::Center => ((2 * position as u128 + 1) * source as u128, 2 * dest as u128),
+    };
+    (n / d).min(source as u128 - 1) as usize
+}
+
 /// Sample and coefficient type of a [`Polyphase`] resampler.
 pub trait Sample: Copy + Default + Add<Output = Self> + Mul<Output = Self> {}
 impl Sample for f32 {}
