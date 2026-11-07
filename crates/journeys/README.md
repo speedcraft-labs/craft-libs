@@ -52,6 +52,7 @@ target root so prepared builds can be reused.
 | `cadcraft.open-dxf.us-main` | CADCraft | Open the pinned US-main DXF |
 | `wordcraft.open-office-docx` | WordCraft | Open the pinned synthetic 1,096-page DOCX and measure from file open through the first painted page |
 | `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
+| `deckcraft.drag-shape.heavy-slide` | DeckCraft | Drag a text shape across the pinned, picture-rich 24th slide of the Apache-2.0 licensed HowWeRefactor deck; records every CPU render frame |
 | `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
 | `pdfcraft.edit-100k-pages` | PdfCraft | Add text to a generated 100,000-page document |
 | `pdfcraft.edit-acroform-3129` | PdfCraft | Edit one field in a generated 3,129-field AcroForm |

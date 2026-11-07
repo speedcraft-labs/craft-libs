@@ -63,6 +63,7 @@ enum OutputProtocol {
     CadcraftEdit,
     WordcraftProbe,
     DeckcraftBench,
+    DeckcraftDrag,
     LightcraftDrag,
     PdfcraftExport,
     VectorcraftExport,
@@ -222,6 +223,25 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
                 return Err("app time must be finite and non-negative".into());
             }
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
+        }
+        OutputProtocol::DeckcraftDrag => {
+            let value: serde_json::Value = serde_json::from_str(stdout.trim()).map_err(|e| format!("invalid deckcraft drag JSON: {e}"))?;
+            let millis = value
+                .get("p50_frame_ms")
+                .and_then(serde_json::Value::as_f64)
+                .ok_or_else(|| "deckcraft drag JSON is missing p50_frame_ms".to_string())?;
+            if !millis.is_finite() || millis < 0.0 {
+                return Err("deckcraft drag frame time must be finite and non-negative".into());
+            }
+            let identity = value
+                .get("pixel_hash_fnv64")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| "deckcraft drag JSON is missing pixel_hash_fnv64".to_string())?;
+            let shape = value
+                .get("shapes_on_slide")
+                .and_then(serde_json::Value::as_u64)
+                .ok_or_else(|| "deckcraft drag JSON is missing shapes_on_slide".to_string())?;
+            ((millis * 1_000_000.0) as u64, format!("{shape}|{identity}"))
         }
         OutputProtocol::LightcraftDrag => {
             let line = stdout
