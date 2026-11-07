@@ -185,14 +185,14 @@
       "app": "effectcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft-cli"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--measure", "open", "--layers", "5000", "--json"], "output": "effectcraft-ops", "measure": "open" }
+      "run": { "program": "{target_dir}/release/effectcraft-cli", "args": ["bench", "--ops", "--measure", "open", "--layers", "5000", "--json"], "output": "effectcraft-ops", "measure": "open" }
     },
     {
       "name": "effectcraft.first-frame-heavy-comp",
       "app": "effectcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft-cli"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--measure", "firstFrame", "--layers", "5000", "--comps", "32", "--realistic", "--scale", "1.0", "--json"], "output": "effectcraft-ops", "measure": "firstFrame" }
+      "run": { "program": "{target_dir}/release/effectcraft-cli", "args": ["bench", "--ops", "--measure", "firstFrame", "--layers", "5000", "--comps", "32", "--realistic", "--scale", "1.0", "--json"], "output": "effectcraft-ops", "measure": "firstFrame" }
     },
     {
       "name": "photocraft.synthetic-image-open",
