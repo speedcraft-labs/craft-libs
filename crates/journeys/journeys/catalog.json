@@ -53,7 +53,7 @@
       "app": "deckcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/deckcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "deckcraft-cli"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "deckcraft-cli", "--", "bench-drag", "{input}", "--slide", "23", "--shape", "2", "--frames", "30"], "output": "deckcraft-drag" },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "deckcraft-cli", "--", "bench-drag", "{input}", "--slide", "23", "--shape", "22", "--frames", "30"], "output": "deckcraft-drag" },
       "inputs": [{ "name": "HowWeRefactor-slide-24", "path": "office-poi/slideshow/ca.ubc.cs.people_~emhill_presentations_HowWeRefactor.pptx" }]
     },
     {
