@@ -19,6 +19,9 @@ on:
     - cron: '0 5 * * 1'
 permissions:
   contents: read
+concurrency:
+  group: corpus-oracle-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   oracle:
     runs-on: [self-hosted, agentbox]
@@ -27,6 +30,7 @@ jobs:
       ARTCRAFT_CORPUS: /jobs/work/speedcraft-labs/hyper/corpus
       CRAFT_AV1_HOSTILE_TIMEOUT_SECS: '3600'
       LEAN_ZIP_INFLATE: ${{ github.workspace }}/tools/inflate-oracle/lean/.lake/build/bin/lzinflate
+      CARGO_PROFILE_TEST_OPT_LEVEL: '1'
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
