@@ -39,6 +39,10 @@ pub struct PicState {
     pub mb_h: usize,
     pub poc: i32,
     pub decoded_mbs: usize,
+    /// Macroblock currently being reconstructed (`None` between completed macroblocks).
+    pub in_progress: Option<usize>,
+    /// Macroblocks left unfinished by a slice error before a later slice starts.
+    failed_mbs: Vec<usize>,
     pub frame: FrameRef,
     /// Decoded macroblocks per MB row.
     row_count: Vec<u16>,
@@ -65,6 +69,8 @@ impl PicState {
             mb_h,
             poc: frame.poc,
             decoded_mbs: 0,
+            in_progress: None,
+            failed_mbs: Vec::new(),
             frame,
             row_count: vec![0; mb_h],
             rows_recon: 0,
@@ -85,6 +91,8 @@ impl PicState {
         self.slices.clear();
         self.poc = frame.poc;
         self.decoded_mbs = 0;
+        self.in_progress = None;
+        self.failed_mbs.clear();
         self.frame = frame;
         self.row_count.fill(0);
         self.rows_recon = 0;
@@ -97,6 +105,10 @@ impl PicState {
     /// picture was cancelled.
     #[inline]
     pub fn mb_done(&mut self, addr: usize) -> Result<()> {
+        self.in_progress = None;
+        if !self.failed_mbs.is_empty() {
+            self.failed_mbs.retain(|&failed| failed != addr);
+        }
         self.decoded_mbs += 1;
         let r = addr / self.mb_w;
         self.row_count[r] += 1;
@@ -104,6 +116,50 @@ impl PicState {
             return self.rows_done();
         }
         Ok(())
+    }
+
+    /// Replace every macroblock that did not finish reconstruction with neutral samples. The
+    /// picture pool deliberately keeps valid-frame buffers warm, so damaged pictures must not
+    /// expose stale samples from whichever prior picture happened to reuse this buffer.
+    pub fn conceal_incomplete(&mut self) {
+        let width = self.planes.width;
+        let cwidth = self.planes.cwidth;
+        let mut incomplete: Vec<usize> = self.mbs.iter().enumerate().filter_map(|(addr, mb)| (mb.slice_num == u32::MAX).then_some(addr)).collect();
+        if let Some(addr) = self.in_progress
+            && !incomplete.contains(&addr)
+        {
+            incomplete.push(addr);
+        }
+        for &addr in &self.failed_mbs {
+            if !incomplete.contains(&addr) {
+                incomplete.push(addr);
+            }
+        }
+        for addr in incomplete {
+            let (x, y) = (addr % self.mb_w, addr / self.mb_w);
+            for row in y * 16..y * 16 + 16 {
+                self.planes.y[row * width + x * 16..row * width + (x + 1) * 16].fill(128);
+            }
+            for row in y * 8..y * 8 + 8 {
+                self.planes.cb[row * cwidth + x * 8..row * cwidth + (x + 1) * 8].fill(128);
+                self.planes.cr[row * cwidth + x * 8..row * cwidth + (x + 1) * 8].fill(128);
+            }
+            self.mbs[addr] = MbState::default();
+        }
+        self.in_progress = None;
+        self.failed_mbs.clear();
+    }
+
+    pub fn has_incomplete_mbs(&self) -> bool {
+        self.decoded_mbs != self.mbs.len() || self.in_progress.is_some() || !self.failed_mbs.is_empty()
+    }
+
+    pub fn fail_in_progress(&mut self) {
+        if let Some(addr) = self.in_progress.take()
+            && !self.failed_mbs.contains(&addr)
+        {
+            self.failed_mbs.push(addr);
+        }
     }
 
     #[inline(never)]
@@ -393,6 +449,7 @@ impl<'a> SliceDecoder<'a> {
         ];
         self.mv_done = 0;
         self.pic.mbs[addr] = MbState { slice_num: sn, ..MbState::default() };
+        self.pic.in_progress = Some(addr);
     }
 
     #[inline]

@@ -62,7 +62,8 @@ pub struct DecodeStats {
 
 #[derive(Default)]
 struct Shared {
-    error: Mutex<Option<Error>>,
+    /// Worker errors are ordered by picture id, never by whichever worker wins the mutex race.
+    error: Mutex<Option<(u32, Error)>>,
     stats: Mutex<DecodeStats>,
 }
 
@@ -210,7 +211,8 @@ impl Decoder {
     /// Decode one access unit (all NAL units of one picture, Annex-B or length-prefixed per
     /// configuration; a byte stream with several complete access units is accepted too). Returns
     /// pictures that became ready for output, in output order; `pts` travels with the picture of this
-    /// access unit through reordering.
+    /// access unit through reordering. Errors raised by a picture worker are deferred to
+    /// [`Decoder::take_error`] so scheduling cannot change which call reports them.
     pub fn decode(&mut self, data: &[u8], pts: i64) -> Result<Vec<Picture>> {
         let nals = match self.nal_length_size {
             Some(n) => length_prefixed_nals(data, n)?,
@@ -224,9 +226,6 @@ impl Decoder {
             }
         }
         self.submit_pending();
-        if let Some(e) = self.take_error() {
-            result = result.and(Err(e));
-        }
         result?;
         let max_queue = self.max_in_flight * 2;
         let mut pics = Vec::new();
@@ -266,8 +265,6 @@ impl Decoder {
         }
     }
 
-    /// First error reported by a decoding job since the last call (also returned by
-    /// [`Decoder::decode`]); useful after [`Decoder::flush`].
     /// Draft mode for reduced-resolution playback (off by default): sub-layer non-reference
     /// pictures of the highest temporal sub-layer (pictures nothing predicts from) skip
     /// deblocking and SAO and come out flagged [`Picture::draft`]; every other picture is
@@ -276,8 +273,15 @@ impl Decoder {
         self.draft = on;
     }
 
+    /// Earliest picture-decoding error since the last call. Waits for submitted pictures so the
+    /// selected error does not depend on worker completion order. Parse errors come from `decode`.
     pub fn take_error(&mut self) -> Option<Error> {
-        self.shared.error.lock().ok().and_then(|mut e| e.take())
+        // A later picture can fail before an earlier picture finishes. Wait for the submitted
+        // pictures before selecting the earliest error, so callers never observe scheduler order.
+        for frame in &self.in_flight {
+            frame.wait_complete();
+        }
+        self.shared.error.lock().ok().and_then(|mut e| e.take().map(|(_, error)| error))
     }
 
     fn handle_nal(&mut self, nal: &[u8], pts: i64) -> Result<()> {
@@ -586,17 +590,20 @@ fn run_job_as<S: Sample>(job: PicJob, shared: &Shared) {
                 first_err.get_or_insert(e);
             }
         }
+        if let Some(e) = &first_err {
+            record_error(shared, frame.id, e.clone());
+        }
         crate::filter::finish(&mut pic);
         first_err
     }));
-    let err = match result {
-        Ok(e) => e,
+    match result {
+        Ok(_) => {}
         Err(_) => {
+            record_error(shared, frame.id, Error::Invalid("internal error while decoding a picture".into()));
             // make sure readers never block on this frame
             frame.publish_gray();
-            Some(Error::Invalid("internal error while decoding a picture".into()))
         }
-    };
+    }
     if let Ok(mut s) = shared.stats.lock() {
         s.pictures += 1;
         let [intra, skip, inter] = block_counts(&pic.blk);
@@ -604,8 +611,13 @@ fn run_job_as<S: Sample>(job: PicJob, shared: &Shared) {
         s.skip_4x4_blocks += skip;
         s.inter_4x4_blocks += inter;
     }
-    if let (Some(e), Ok(mut slot)) = (err, shared.error.lock()) {
-        slot.get_or_insert(e);
+}
+
+fn record_error(shared: &Shared, frame_id: u32, error: Error) {
+    if let Ok(mut slot) = shared.error.lock()
+        && slot.as_ref().is_none_or(|(id, _)| frame_id < *id)
+    {
+        *slot = Some((frame_id, error));
     }
 }
 

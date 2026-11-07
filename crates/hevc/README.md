@@ -85,6 +85,10 @@ if let Some(err) = dec.take_error() { /* error reported by a decoding thread */ 
 // dec.set_draft(true): draft mode (playback at reduced resolution only)
 ```
 
+Picture-worker errors are reported by `take_error()` after submitted pictures finish, so the error
+and returned picture hashes do not depend on which worker finishes first. Header and access-unit
+parse errors are returned directly from `decode()`.
+
 `decode` expects whole access units (a buffer with several complete access units — e.g. an entire
 Annex-B file — also works). RASL pictures following a CRA that starts the stream are skipped, as
 ffmpeg does. `Decoder::stats()` returns counters of what was decoded (slice types, IDR/CRA, tiles,
