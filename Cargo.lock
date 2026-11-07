@@ -840,6 +840,7 @@ version = "0.1.0"
 name = "craft-blur"
 version = "0.1.0"
 dependencies = [
+ "craft-bench",
  "proptest",
 ]
 
