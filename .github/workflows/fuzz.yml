@@ -77,8 +77,8 @@ jobs:
                   python3 -c 'from pathlib import Path; import sys; Path(sys.argv[2]).write_bytes(bytes.fromhex(Path(sys.argv[1]).read_text()))' \
                     "$seed" "$corpus/$(basename "${seed%.hex}")"
                 done ;;
-              pdf) find corpus -type f -iname '*.pdf' -size -4M | head -n 12 | while IFS= read -r seed; do cp -n "$seed" "$corpus/"; done || true ;;
-              archive) find corpus -type f \( -iname '*.zip' -o -iname '*.xlsx' -o -iname '*.docx' -o -iname '*.pptx' \) -size -8M | head -n 32 | while IFS= read -r seed; do cp -n "$seed" "$corpus/"; done || true ;;
+              pdf) find /jobs/work/speedcraft-labs/hyper/corpus -type f -iname '*.pdf' -size -4M | head -n 12 | while IFS= read -r seed; do cp -n "$seed" "$corpus/"; done || true ;;
+              archive) find /jobs/work/speedcraft-labs/hyper/corpus -type f \( -iname '*.zip' -o -iname '*.xlsx' -o -iname '*.docx' -o -iname '*.pptx' \) -size -8M | head -n 32 | while IFS= read -r seed; do cp -n "$seed" "$corpus/"; done || true ;;
               *) ;;
             esac
           fi
