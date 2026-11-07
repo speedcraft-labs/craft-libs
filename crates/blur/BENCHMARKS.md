@@ -1,5 +1,45 @@
 # 24 MP Gaussian timings
 
+## Issue #176: three boxes vs RecursiveRaw
+
+Measured 2026-11-07 on the Agentbox host (AMD Ryzen 9 5900XT, Linux
+x86_64), using the release profile and one 2048 × 2048 single-channel plane.
+The old side uses `Quality::BoxApprox { passes: 3 }`; the new side uses the
+deployed `Quality::RecursiveRaw` selection (calibrated sampled Gaussian below
+sigma 2.5, YvV recurrence from 2.5 onward). Each timed call clones the input,
+constructs the filter and scratch, and applies it. `craft-bench` ran two
+warmups, ten paired runs per side, and 2,000 bootstrap resamples. The output
+check verified equal lengths and finite values; independent accuracy and shape
+properties compare the impulse response against the calibrated sampled Gaussian.
+The load guard reported 10.81 before and 10.42 after (limit 11), and marked the
+run publishable.
+
+| Sigma | Three boxes | RecursiveRaw | New / old (95% CI) |
+|---:|---:|---:|---:|
+| 1 | 75.160 ms | 13.611 ms | 0.181 [0.175, 0.185] |
+| 4 | 76.866 ms | 37.939 ms | 0.494 [0.488, 0.513] |
+| 8 | 75.512 ms | 37.924 ms | 0.502 [0.483, 0.517] |
+| 16 | 77.097 ms | 38.338 ms | 0.497 [0.484, 0.519] |
+| 32 | 79.089 ms | 38.314 ms | 0.484 [0.461, 0.524] |
+| 64 | 77.844 ms | 37.986 ms | 0.488 [0.469, 0.508] |
+| **Geometric mean** | | | **0.417 [0.411, 0.426]** |
+
+Process CPU-time geometric mean is also 0.417 [0.412, 0.426]. The output
+difference is intentional: the old integer-width cascade has quantized
+variance, while the new path matches the requested second moment. The raw
+`craft-bench` report is
+[`recursive-gaussian-agentbox-2026-11-07.json`](BENCHMARKS-data/recursive-gaussian-agentbox-2026-11-07.json).
+
+Reproduce after building the ignored test without running it, and only when
+the host load is under the `craft-bench` guard:
+
+```sh
+CARGO_BUILD_JOBS=4 CARGO_TARGET_DIR=/jobs/work/speedcraft-labs/targets/recursive-gaussian/craft-libs \
+  CRAFT_BLUR_BENCH_JSON="$PWD/crates/blur/BENCHMARKS-data/recursive-gaussian-agentbox-2026-11-07.json" \
+  nice -n 19 cargo test -p craft-blur --release --test recursive_gaussian_bench \
+  -- --ignored --nocapture --test-threads=1
+```
+
 ## Wrap and sparse regions
 
 November 3, 2026, same rustup release toolchain and host as below. The opt-in

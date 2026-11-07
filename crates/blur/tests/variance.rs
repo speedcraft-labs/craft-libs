@@ -6,6 +6,7 @@
 //! along each axis separately (the separable response has marginals of `sigma_eff^2` on both).
 
 use craft_blur::{Cancel, Edge, Error, Gaussian, Quality, Scratch, Separable, Shape, box_widths};
+use proptest::prelude::*;
 
 struct Row {
     kernel: String,
@@ -165,6 +166,26 @@ fn recursive_quality_uses_yvv_from_sigma_eight() -> Result<(), Box<dyn std::erro
         assert!((measured / row.var - 1.0).abs() <= tolerance("yvv"), "sigma={}", row.sigma);
     }
     Ok(())
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(48))]
+    #[test]
+    fn raw_recursive_impulse_tracks_exact_gaussian(sigma in 2.5f32..64.0) {
+        let half = (32.0 * sigma).ceil().max(64.0) as usize;
+        let shape = Shape::new(2 * half + 1, 1, 1)?;
+        let mut exact = vec![0.0; shape.samples()];
+        let mut recursive = exact.clone();
+        exact[half] = 1.0;
+        recursive[half] = 1.0;
+        Gaussian::new(sigma, Quality::Exact)?.filter_rows(&mut exact, shape, Edge::Clamp, &mut Scratch::default(), Cancel::Never)?;
+        Gaussian::new(sigma, Quality::RecursiveRaw)?.filter_rows(&mut recursive, shape, Edge::Clamp, &mut Scratch::default(), Cancel::Never)?;
+
+        let shape_error = exact.iter().zip(&recursive).map(|(a, b)| (a - b).abs()).fold(0.0f32, f32::max);
+        let documented_bound = if sigma < 8.0 { 0.03 } else { 0.01 };
+        prop_assert!(shape_error <= documented_bound, "sigma={sigma}, shape error={shape_error}, bound={documented_bound}");
+        prop_assert!((variance(&recursive).0 / f64::from(sigma).powi(2) - 1.0).abs() < 0.005, "sigma={sigma}");
+    }
 }
 
 #[test]
