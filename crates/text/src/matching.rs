@@ -16,9 +16,35 @@ pub fn literal_matcher(patterns: &[&str], insensitive: bool) -> Result<AhoCorasi
     AhoCorasickBuilder::new().match_kind(MatchKind::LeftmostLongest).ascii_case_insensitive(insensitive).build(patterns)
 }
 
+/// Compiles a matcher that can report overlapping hits from every literal pattern.
+pub fn overlapping_literal_matcher(patterns: &[&str], insensitive: bool) -> Result<AhoCorasick, aho_corasick::BuildError> {
+    AhoCorasickBuilder::new().match_kind(MatchKind::Standard).ascii_case_insensitive(insensitive).build(patterns)
+}
+
+/// Compiles a byte matcher for arbitrary binary patterns.
+pub fn overlapping_byte_matcher(patterns: &[&[u8]]) -> Result<AhoCorasick, aho_corasick::BuildError> {
+    AhoCorasickBuilder::new().match_kind(MatchKind::Standard).build(patterns)
+}
+
 /// Finds non-overlapping matches using leftmost-longest selection.
 pub fn find_literals(matcher: &AhoCorasick, haystack: &str) -> Vec<LiteralMatch> {
     matcher.find_iter(haystack).map(|m| LiteralMatch { pattern: m.pattern().as_usize(), start: m.start(), end: m.end() }).collect()
+}
+
+/// Finds all overlapping literal hits, ordered by pattern then start offset.
+pub fn find_literals_overlapping(matcher: &AhoCorasick, haystack: &str) -> Vec<LiteralMatch> {
+    let mut hits: Vec<_> =
+        matcher.find_overlapping_iter(haystack).map(|m| LiteralMatch { pattern: m.pattern().as_usize(), start: m.start(), end: m.end() }).collect();
+    hits.sort_unstable_by_key(|hit| (hit.pattern, hit.start, hit.end));
+    hits
+}
+
+/// Finds every overlapping binary hit, ordered by pattern then start offset.
+pub fn find_bytes_overlapping(matcher: &AhoCorasick, haystack: &[u8]) -> Vec<LiteralMatch> {
+    let mut hits: Vec<_> =
+        matcher.find_overlapping_iter(haystack).map(|m| LiteralMatch { pattern: m.pattern().as_usize(), start: m.start(), end: m.end() }).collect();
+    hits.sort_unstable_by_key(|hit| (hit.pattern, hit.start, hit.end));
+    hits
 }
 
 const CACHE_CAPACITY: usize = 128;
@@ -98,6 +124,52 @@ mod tests {
             }
         }
         out
+    }
+
+    #[test]
+    fn overlapping_matches_equal_per_pattern_naive_search() {
+        let text = "ababa";
+        let patterns = ["aba", "ba"];
+        let matcher = overlapping_literal_matcher(&patterns, false).unwrap();
+        let expected: Vec<_> = patterns
+            .iter()
+            .enumerate()
+            .flat_map(|(pattern, needle)| {
+                text.as_bytes().windows(needle.len()).enumerate().filter_map(move |(start, window)| {
+                    (window == needle.as_bytes()).then_some(LiteralMatch { pattern, start, end: start + needle.len() })
+                })
+            })
+            .collect();
+        assert_eq!(find_literals_overlapping(&matcher, text), expected);
+    }
+
+    #[test]
+    fn regex_cache_stays_bounded_and_skips_oversized_keys() {
+        for i in 0..(CACHE_CAPACITY + 5) {
+            cached_regex(&format!("a{{{i}}}"), false).unwrap();
+        }
+        REGEX_CACHE.with(|cache| assert_eq!(cache.borrow().len(), CACHE_CAPACITY));
+        cached_regex(&"a".repeat(MAX_CACHED_PATTERN + 1), false).unwrap();
+        REGEX_CACHE.with(|cache| assert_eq!(cache.borrow().len(), CACHE_CAPACITY));
+    }
+
+    proptest! {
+        #[test]
+        fn overlapping_byte_matches_equal_naive_search(haystack in prop::collection::vec(any::<u8>(), 0..100), patterns in prop::collection::vec(prop::collection::vec(any::<u8>(), 1..10), 1..8)) {
+            let refs: Vec<_> = patterns.iter().map(Vec::as_slice).collect();
+            let matcher = overlapping_byte_matcher(&refs).unwrap();
+            let mut expected = Vec::new();
+            for (pattern, needle) in patterns.iter().enumerate() {
+                if needle.len() <= haystack.len() {
+                    for start in 0..=haystack.len() - needle.len() {
+                        if haystack.get(start..start + needle.len()) == Some(needle.as_slice()) {
+                            expected.push(LiteralMatch { pattern, start, end: start + needle.len() });
+                        }
+                    }
+                }
+            }
+            prop_assert_eq!(find_bytes_overlapping(&matcher, &haystack), expected);
+        }
     }
 
     proptest! {
