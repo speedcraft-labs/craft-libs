@@ -145,12 +145,48 @@ pub fn reduce_box_f32(source: &[f32], source_size: [usize; 2], dest_size: [usize
         return None;
     }
     let source_len = sw.checked_mul(sh)?.checked_mul(channels)?;
-    let dest_len = dw.checked_mul(dh)?.checked_mul(channels)?;
     if source.len() < source_len {
         return None;
     }
     let (fx, fy) = (sw / dw, sh / dh);
     let inv = 1.0 / (fx * fy) as f32;
+    match channels {
+        1 => reduce_box_f32_const::<1>(source, sw, dw, dh, fx, fy, inv),
+        4 => reduce_box_f32_const::<4>(source, sw, dw, dh, fx, fy, inv),
+        _ => reduce_box_f32_dynamic(source, sw, dw, dh, channels, fx, fy, inv),
+    }
+}
+
+fn reduce_box_f32_const<const CHANNELS: usize>(source: &[f32], sw: usize, dw: usize, dh: usize, fx: usize, fy: usize, inv: f32) -> Option<Vec<f32>> {
+    let dest_len = dw.checked_mul(dh)?.checked_mul(CHANNELS)?;
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    out.resize(dest_len, 0.0);
+    let reduce_row = |y: usize, row: &mut [f32]| {
+        for x in 0..dw {
+            let dest = &mut row[x * CHANNELS..(x + 1) * CHANNELS];
+            for j in 0..fy {
+                for i in 0..fx {
+                    let si = ((y * fy + j) * sw + x * fx + i) * CHANNELS;
+                    for c in 0..CHANNELS {
+                        dest[c] += source[si + c];
+                    }
+                }
+            }
+            for value in dest {
+                *value *= inv;
+            }
+        }
+    };
+    #[cfg(feature = "rayon")]
+    out.par_chunks_mut(dw * CHANNELS).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    #[cfg(not(feature = "rayon"))]
+    out.chunks_mut(dw * CHANNELS).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    Some(out)
+}
+
+fn reduce_box_f32_dynamic(source: &[f32], sw: usize, dw: usize, dh: usize, channels: usize, fx: usize, fy: usize, inv: f32) -> Option<Vec<f32>> {
+    let dest_len = dw.checked_mul(dh)?.checked_mul(channels)?;
     let mut out = Vec::new();
     out.try_reserve_exact(dest_len).ok()?;
     out.resize(dest_len, 0.0);

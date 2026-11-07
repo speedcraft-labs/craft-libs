@@ -4,6 +4,29 @@ use craft_resample::{
 };
 use proptest::prelude::*;
 
+fn legacy_box(source: &[f32], sw: usize, sh: usize, dw: usize, dh: usize, channels: usize) -> Vec<f32> {
+    let (fx, fy) = (sw / dw, sh / dh);
+    let inv = 1.0 / (fx * fy) as f32;
+    let mut output = vec![0.0; dw * dh * channels];
+    for y in 0..dh {
+        for x in 0..dw {
+            let dest = &mut output[(y * dw + x) * channels..(y * dw + x + 1) * channels];
+            for j in 0..fy {
+                for i in 0..fx {
+                    let at = ((y * fy + j) * sw + x * fx + i) * channels;
+                    for c in 0..channels {
+                        dest[c] += source[at + c];
+                    }
+                }
+            }
+            for value in dest {
+                *value *= inv;
+            }
+        }
+    }
+    output
+}
+
 proptest! {
     #[test]
     fn constant_images_stay_constant(
@@ -78,6 +101,19 @@ proptest! {
         let output = reduce_box_f32(&source, [dw * fx, dh * fy], [dw, dh], channels)
             .expect("exact integer shrink");
         prop_assert!(output.iter().all(|v| (*v - value).abs() < 0.001));
+    }
+}
+
+proptest! {
+    #[test]
+    fn box_reduction_matches_legacy_for_gray_rgba_and_packed_channels(
+        dw in 1usize..8, dh in 1usize..8, fx in 1usize..5, fy in 1usize..5,
+        channels in 1usize..6,
+    ) {
+        let (sw, sh) = (dw * fx, dh * fy);
+        let source = (0..sw * sh * channels).map(|i| ((i * 37 % 127) as f32 - 63.0) / 17.0).collect::<Vec<_>>();
+        let expected = legacy_box(&source, sw, sh, dw, dh, channels);
+        prop_assert_eq!(reduce_box_f32(&source, [sw, sh], [dw, dh], channels), Some(expected));
     }
 }
 

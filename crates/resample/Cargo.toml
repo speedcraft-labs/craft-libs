@@ -10,6 +10,10 @@ description = "Rational-ratio polyphase FIR resampler, verified against the dire
 [features]
 rayon = ["dep:rayon"]
 
+[[example]]
+name = "image_bench"
+required-features = ["rayon"]
+
 [dependencies]
 rayon = { workspace = true, optional = true }
 
