@@ -91,7 +91,7 @@ craft-libs revisions. Each app build and run gets a target directory keyed by bo
 and revision worktrees plus Cargo patch files keep stable paths under the selected target root,
 so paired runs reuse their warmed binaries instead of rebuilding one side over the other.
 The PhotoCraft layer journeys run the prepared `perf_scenarios` executable by its `{target_dir}`
-path, so a locked measurement never invokes Cargo. Adapter builds use `nice -n 19` and eight Cargo
+path, so a locked measurement never invokes Cargo. Adapter builds use `nice -n 19` and six Cargo
 jobs.
 Run `prepare` before acquiring the shared benchmark lock, then use `--no-build` with `run` or
 `compare` while the lock is held. Both commands return exit code 1 for a non-publishable report;
