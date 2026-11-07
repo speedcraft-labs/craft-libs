@@ -53,10 +53,10 @@ pub fn find_bytes_overlapping_limited(matcher: &AhoCorasick, haystack: &[u8], pe
     let mut by_pattern = vec![Vec::new(); matcher.patterns_len()];
     for m in matcher.find_overlapping_iter(haystack) {
         let pattern = m.pattern().as_usize();
-        if let Some(hits) = by_pattern.get_mut(pattern) {
-            if hits.len() < per_pattern_limit {
-                hits.push(LiteralMatch { pattern, start: m.start(), end: m.end() });
-            }
+        if let Some(hits) = by_pattern.get_mut(pattern)
+            && hits.len() < per_pattern_limit
+        {
+            hits.push(LiteralMatch { pattern, start: m.start(), end: m.end() });
         }
     }
     by_pattern.into_iter().flatten().collect()
@@ -64,8 +64,16 @@ pub fn find_bytes_overlapping_limited(matcher: &AhoCorasick, haystack: &[u8], pe
 
 const CACHE_CAPACITY: usize = 32;
 const MAX_CACHED_PATTERN: usize = 1024;
+struct CachedRegex {
+    pattern: String,
+    insensitive: bool,
+    size_limit: usize,
+    dfa_size_limit: usize,
+    nest_limit: u32,
+    regex: Regex,
+}
 thread_local! {
-    static REGEX_CACHE: RefCell<VecDeque<(String, bool, usize, usize, u32, Regex)>> = const { RefCell::new(VecDeque::new()) };
+    static REGEX_CACHE: RefCell<VecDeque<CachedRegex>> = const { RefCell::new(VecDeque::new()) };
 }
 
 /// Returns a cached regex clone, compiling each key at most once while it remains in the
@@ -82,16 +90,22 @@ pub fn cached_regex_with_limits(
     dfa_size_limit: usize,
     nest_limit: u32,
 ) -> Result<Regex, regex::Error> {
-    if pattern.len() <= MAX_CACHED_PATTERN {
-        if let Some(hit) = REGEX_CACHE.with(|cache| {
+    if pattern.len() <= MAX_CACHED_PATTERN
+        && let Some(hit) = REGEX_CACHE.with(|cache| {
             let cache = cache.borrow();
             cache
                 .iter()
-                .find(|(p, i, s, d, n, _)| p == pattern && *i == insensitive && *s == size_limit && *d == dfa_size_limit && *n == nest_limit)
-                .map(|(_, _, _, _, _, regex)| regex.clone())
-        }) {
-            return Ok(hit);
-        }
+                .find(|entry| {
+                    entry.pattern == pattern
+                        && entry.insensitive == insensitive
+                        && entry.size_limit == size_limit
+                        && entry.dfa_size_limit == dfa_size_limit
+                        && entry.nest_limit == nest_limit
+                })
+                .map(|entry| entry.regex.clone())
+        })
+    {
+        return Ok(hit);
     }
     let regex = RegexBuilder::new(pattern)
         .case_insensitive(insensitive)
@@ -102,22 +116,26 @@ pub fn cached_regex_with_limits(
     if pattern.len() <= MAX_CACHED_PATTERN {
         REGEX_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
-            if let Some(index) = cache
-                .iter()
-                .position(|(p, i, s, d, n, _)| p == pattern && *i == insensitive && *s == size_limit && *d == dfa_size_limit && *n == nest_limit)
-            {
+            if let Some(index) = cache.iter().position(|entry| {
+                entry.pattern == pattern
+                    && entry.insensitive == insensitive
+                    && entry.size_limit == size_limit
+                    && entry.dfa_size_limit == dfa_size_limit
+                    && entry.nest_limit == nest_limit
+            }) {
                 cache.remove(index);
             }
             while cache.len() >= CACHE_CAPACITY {
                 cache.pop_front();
             }
-            cache.push_back((pattern.to_owned(), insensitive, size_limit, dfa_size_limit, nest_limit, regex.clone()));
+            cache.push_back(CachedRegex { pattern: pattern.to_owned(), insensitive, size_limit, dfa_size_limit, nest_limit, regex: regex.clone() });
         });
     }
     Ok(regex)
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
