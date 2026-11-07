@@ -5,6 +5,91 @@ use crate::common;
 use craft_bitstream::annexb_nals;
 use craft_hevc::Decoder;
 
+fn damaged_fixture(name: &str) -> Vec<u8> {
+    let f = common::fixture(name);
+    let Some((path, _)) = common::ensure(f) else { panic!("ffmpeg fixture unavailable: {name}") };
+    let mut data = std::fs::read(path).unwrap();
+    let mut starts = Vec::new();
+    let mut i = 0;
+    while i + 3 <= data.len() {
+        if i + 4 <= data.len() && data[i..i + 4] == [0, 0, 0, 1] {
+            starts.push(i + 4);
+            i += 4;
+        } else if data[i..i + 3] == [0, 0, 1] {
+            starts.push(i + 3);
+            i += 3;
+        } else {
+            i += 1;
+        }
+    }
+    let mut vcl = 0;
+    for (n, &start) in starts.iter().enumerate() {
+        if start + 2 >= data.len() || (data[start] >> 1) & 0x3f > 31 {
+            continue;
+        }
+        if vcl == 8 {
+            let end = starts.get(n + 1).copied().unwrap_or(data.len());
+            let at = start + 3 + (end.saturating_sub(start + 4)) / 2;
+            data[at] ^= 0x20;
+            return data;
+        }
+        vcl += 1;
+    }
+    panic!("no suitable VCL NAL in {name}");
+}
+
+fn decode_hash(data: &[u8], threads: usize) -> (u64, bool) {
+    let mut dec = Decoder::with_threads(threads);
+    let mut hash = 0xcbf29ce484222325u64;
+    let mut add = |bytes: &[u8]| {
+        for &byte in bytes {
+            hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
+        }
+    };
+    for (i, au) in common::split_access_units(data).into_iter().enumerate() {
+        match dec.decode(au, i as i64) {
+            Ok(pics) => {
+                for p in pics {
+                    add(&p.width.to_le_bytes());
+                    add(&p.height.to_le_bytes());
+                    add(&p.pts.to_le_bytes());
+                    add(&p.y.to_le_bytes());
+                    add(&p.u.to_le_bytes());
+                    add(&p.v.to_le_bytes());
+                }
+            }
+            Err(error) => add(error.to_string().as_bytes()),
+        }
+    }
+    for p in dec.flush() {
+        add(&p.width.to_le_bytes());
+        add(&p.height.to_le_bytes());
+        add(&p.pts.to_le_bytes());
+        add(&p.y.to_le_bytes());
+        add(&p.u.to_le_bytes());
+        add(&p.v.to_le_bytes());
+    }
+    let worker_error = dec.take_error().is_some();
+    drop(add);
+    (hash, worker_error)
+}
+
+#[test]
+fn damaged_stream_hash_is_stable_across_thread_counts() {
+    let data = damaged_fixture("bframes");
+    assert!(decode_hash(&data, 1).1, "mutation must trigger a worker decode error");
+    for threads in [1, 2, 4] {
+        let expected = decode_hash(&data, threads);
+        for _ in 0..3 {
+            assert_eq!(decode_hash(&data, threads), expected, "threads={threads}");
+        }
+    }
+    let expected = decode_hash(&data, 1);
+    for threads in [2, 4] {
+        assert_eq!(decode_hash(&data, threads), expected, "thread count {threads}");
+    }
+}
+
 /// Build an hvcC record and length-prefixed samples from an Annex-B stream.
 fn to_hvcc(data: &[u8]) -> (Vec<u8>, Vec<Vec<u8>>) {
     let mut sets: [Vec<Vec<u8>>; 3] = [Vec::new(), Vec::new(), Vec::new()];

@@ -73,7 +73,8 @@ pub struct DecodeStats {
 /// State shared with decoding jobs.
 #[derive(Default)]
 struct Shared {
-    error: Mutex<Option<Error>>,
+    /// Worker errors are ordered by picture id, never by whichever worker wins the mutex race.
+    error: Mutex<Option<(u32, Error)>>,
     stats: Mutex<DecodeStats>,
     /// Recycled picture buffers.
     pool: Mutex<Vec<PicState>>,
@@ -275,7 +276,8 @@ impl Decoder {
     /// Decode one access unit (all NAL units of one picture, Annex-B or length-prefixed per
     /// configuration; a byte stream with several complete access units is accepted too). Returns
     /// pictures that became ready for output, in output order; `pts` travels with the picture of
-    /// this access unit through reordering.
+    /// this access unit through reordering. Errors raised by a picture worker are deferred to
+    /// [`Decoder::take_error`] so scheduling cannot change which call reports them.
     pub fn decode(&mut self, data: &[u8], pts: i64) -> Result<Vec<Picture>> {
         let nals = match self.nal_length_size {
             Some(n) => length_prefixed_nals(data, n)?,
@@ -290,9 +292,6 @@ impl Decoder {
         }
         // The access unit is complete: hand its picture to a decoding job.
         self.submit_pending()?;
-        if let Some(e) = self.take_error() {
-            result = result.and(Err(e));
-        }
         result?;
         // Return finished pictures without blocking on frames still being decoded (bounded latency).
         let max_queue = self.max_in_flight * 2;
@@ -331,10 +330,15 @@ impl Decoder {
         }
     }
 
-    /// First error reported by a decoding job since the last call (also returned by
-    /// [`Decoder::decode`]); useful after [`Decoder::flush`].
+    /// Earliest picture-decoding error since the last call. Worker errors are reported here after
+    /// the submitted pictures finish; parse errors are returned directly by [`Decoder::decode`].
     pub fn take_error(&mut self) -> Option<Error> {
-        self.shared.error.lock().ok().and_then(|mut e| e.take())
+        // A later picture can fail before an earlier picture finishes. Wait for the submitted
+        // pictures before selecting the earliest error, so callers never observe scheduler order.
+        for frame in &self.in_flight {
+            frame.wait_complete();
+        }
+        self.shared.error.lock().ok().and_then(|mut e| e.take().map(|(_, error)| error))
     }
 
     fn handle_nal(&mut self, nal: &[u8], pts: i64) -> Result<()> {
@@ -606,12 +610,16 @@ fn run_job(frame: FrameRef, slices: Vec<SliceJob>, shared: &Shared, draft: bool)
             // Nothing will show this picture: publish the remaining rows as they are.
             pic.skip_deblock = true;
         }
+        if let Some(e) = &first_err {
+            record_error(shared, frame.id, e.clone());
+        }
         pic.flush_rows(true);
         first_err
     }));
-    let err = match result {
-        Ok(e) => e,
+    match result {
+        Ok(_) => {}
         Err(_) => {
+            record_error(shared, frame.id, Error::Invalid("internal error while decoding a picture".into()));
             // Make sure readers never block on this frame.
             let fallback = Planes::gray(frame.width, frame.height);
             let blank = vec![MbState::default(); frame.mb_w * frame.mb_h()];
@@ -621,9 +629,8 @@ fn run_job(frame: FrameRef, slices: Vec<SliceJob>, shared: &Shared, draft: bool)
                 }
             }
             pic = PicState::new(frame.clone());
-            Some(Error::Invalid("internal error while decoding a picture".into()))
         }
-    };
+    }
     if let Ok(mut s) = shared.stats.lock() {
         s.pictures += 1;
         s.draft_pictures += draft as u64;
@@ -644,13 +651,18 @@ fn run_job(frame: FrameRef, slices: Vec<SliceJob>, shared: &Shared, draft: bool)
             }
         }
     }
-    if let (Some(e), Ok(mut slot)) = (err, shared.error.lock()) {
-        slot.get_or_insert(e);
-    }
     if let Ok(mut p) = shared.pool.lock()
         && p.len() < 4
     {
         p.push(pic);
+    }
+}
+
+fn record_error(shared: &Shared, frame_id: u32, error: Error) {
+    if let Ok(mut slot) = shared.error.lock()
+        && slot.as_ref().is_none_or(|(id, _)| frame_id < *id)
+    {
+        *slot = Some((frame_id, error));
     }
 }
 
