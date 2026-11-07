@@ -169,7 +169,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.trim().as_bytes())))
         }
         OutputProtocol::CadcraftEdit => {
-            if !stdout.lines().any(|line| line.contains("identical=true")) {
+            if !stdout.lines().any(|line| line.contains("identical=true") || line.contains("outputs identical")) {
                 return Err("cadcraft edit output did not confirm identical display lists".into());
             }
             let duration_ns = stdout

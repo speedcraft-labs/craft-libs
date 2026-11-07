@@ -1,0 +1,11 @@
+name = "cadcraft-real-drawings"
+description = "Real architectural DXF drawings for CADCraft entity-edit journeys."
+
+[[file]]
+path = "villa-details.dxf"
+url = "https://nasji.com/cad-blocks/files/villa-details.dxf"
+sha256 = "ac8ff046783f3717624b441d0335b8edb7672f422e5c824687af1462d4f26774"
+licence = "NASJI library terms; personal and commercial use permitted, resale of the file prohibited"
+provenance = "https://nasji.com/cad-blocks/floor-plans"
+tags = ["dxf", "architecture", "villa", "10k-entities", "hatch", "blocks", "dimensions"]
+redistributable = false
