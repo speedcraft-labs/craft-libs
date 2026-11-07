@@ -39,8 +39,6 @@ pub struct PicState {
     pub mb_h: usize,
     pub poc: i32,
     pub decoded_mbs: usize,
-    /// Unique macroblocks that started reconstruction; a damaged slice can end cleanly before the picture is complete.
-    pub started_mbs: usize,
     /// Macroblock currently being reconstructed (`None` between completed macroblocks).
     pub in_progress: Option<usize>,
     /// Macroblocks left unfinished by a slice error before a later slice starts.
@@ -71,7 +69,6 @@ impl PicState {
             mb_h,
             poc: frame.poc,
             decoded_mbs: 0,
-            started_mbs: 0,
             in_progress: None,
             failed_mbs: Vec::new(),
             frame,
@@ -94,7 +91,6 @@ impl PicState {
         self.slices.clear();
         self.poc = frame.poc;
         self.decoded_mbs = 0;
-        self.started_mbs = 0;
         self.in_progress = None;
         self.failed_mbs.clear();
         self.frame = frame;
@@ -109,9 +105,7 @@ impl PicState {
     /// picture was cancelled.
     #[inline]
     pub fn mb_done(&mut self, addr: usize) -> Result<()> {
-        if self.in_progress == Some(addr) {
-            self.in_progress = None;
-        }
+        self.in_progress = None;
         if !self.failed_mbs.is_empty() {
             self.failed_mbs.retain(|&failed| failed != addr);
         }
@@ -157,7 +151,7 @@ impl PicState {
     }
 
     pub fn has_incomplete_mbs(&self) -> bool {
-        self.started_mbs < self.mbs.len() || self.in_progress.is_some() || !self.failed_mbs.is_empty()
+        self.decoded_mbs != self.mbs.len() || self.in_progress.is_some() || !self.failed_mbs.is_empty()
     }
 
     pub fn fail_in_progress(&mut self) {
@@ -454,9 +448,6 @@ impl<'a> SliceDecoder<'a> {
             if y > 0 && x > 0 { ok(addr - w - 1) } else { None },
         ];
         self.mv_done = 0;
-        if self.pic.mbs[addr].slice_num == u32::MAX {
-            self.pic.started_mbs += 1;
-        }
         self.pic.mbs[addr] = MbState { slice_num: sn, ..MbState::default() };
         self.pic.in_progress = Some(addr);
     }
