@@ -5,10 +5,9 @@ use crate::common;
 use craft_bitstream::annexb_nals;
 use craft_h264::Decoder;
 
-fn damaged_fixture(name: &str) -> Vec<u8> {
-    let f = common::fixture(name);
-    let Some((path, _)) = common::ensure(f) else { panic!("ffmpeg fixture unavailable: {name}") };
-    let mut data = std::fs::read(path).unwrap();
+fn damaged_fixture() -> Vec<u8> {
+    // Keep this regression test independent of ffmpeg and libx264 availability in CI.
+    let mut data = include_bytes!("../data/determinism-main-cabac-b.h264").to_vec();
     let mut starts = Vec::new();
     let mut i = 0;
     while i + 3 <= data.len() {
@@ -35,7 +34,7 @@ fn damaged_fixture(name: &str) -> Vec<u8> {
         }
         vcl += 1;
     }
-    panic!("no suitable VCL NAL in {name}");
+    panic!("no suitable VCL NAL in deterministic H.264 fixture");
 }
 
 fn decode_hash(data: &[u8], threads: usize) -> (u64, Option<String>) {
@@ -79,7 +78,7 @@ fn decode_hash(data: &[u8], threads: usize) -> (u64, Option<String>) {
 
 #[test]
 fn damaged_stream_hash_is_stable_across_thread_counts() {
-    let data = damaged_fixture("main_cabac_b");
+    let data = damaged_fixture();
     assert!(decode_hash(&data, 1).1.is_some(), "mutation must trigger a worker decode error");
     for threads in [1, 2, 4] {
         let expected = decode_hash(&data, threads);
