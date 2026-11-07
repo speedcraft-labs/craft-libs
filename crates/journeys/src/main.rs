@@ -331,12 +331,14 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
             if !millis.is_finite() || millis < 0.0 {
                 return Err("effectcraft open time must be finite and non-negative".into());
             }
-            let spec = value
+            let _spec = value
                 .get("spec")
                 .and_then(serde_json::Value::as_str)
                 .ok_or_else(|| "effectcraft bench JSON is missing its generated project spec".to_string())?;
             let note = measure.get("note").and_then(serde_json::Value::as_str).unwrap_or("");
-            let identity = format!("{spec}|{measure_name}|{note}");
+            // The project hash in the note identifies the generated workload. Keep the adapter
+            // stable when the CLI adds a default-valued field to its human-readable spec.
+            let identity = format!("{measure_name}|{note}");
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
         OutputProtocol::PhotocraftLargeImage => {
