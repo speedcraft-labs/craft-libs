@@ -239,6 +239,8 @@ impl<'a, I, O> PairedBench<'a, I, O> {
             name: self.name.clone(),
             revs: cfg.revs.clone(),
             fingerprint: Fingerprint::collect(logical_cores),
+            gpu_adapters: Vec::new(),
+            prefix_cache: None,
             config,
             contended: guard.contended,
             guard,
