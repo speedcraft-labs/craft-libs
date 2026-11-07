@@ -603,12 +603,16 @@ fn run_job(frame: FrameRef, slices: Vec<SliceJob>, shared: &Shared, draft: bool)
                 break;
             }
             if let Err(e) = decode_slice(s, &mut pic) {
+                pic.fail_in_progress();
                 first_err.get_or_insert(e);
             }
         }
         if pic.cancelled() {
             // Nothing will show this picture: publish the remaining rows as they are.
             pic.skip_deblock = true;
+        }
+        if first_err.is_some() || pic.has_incomplete_mbs() {
+            pic.conceal_incomplete();
         }
         if let Some(e) = &first_err {
             record_error(shared, frame.id, e.clone());

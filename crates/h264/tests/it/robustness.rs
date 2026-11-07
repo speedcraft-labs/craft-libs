@@ -38,7 +38,7 @@ fn damaged_fixture(name: &str) -> Vec<u8> {
     panic!("no suitable VCL NAL in {name}");
 }
 
-fn decode_hash(data: &[u8], threads: usize) -> (u64, bool) {
+fn decode_hash(data: &[u8], threads: usize) -> (u64, Option<String>) {
     let mut dec = Decoder::with_threads(threads);
     let mut hash = 0xcbf29ce484222325u64;
     let mut add = |bytes: &[u8]| {
@@ -69,7 +69,10 @@ fn decode_hash(data: &[u8], threads: usize) -> (u64, bool) {
         add(&p.u);
         add(&p.v);
     }
-    let worker_error = dec.take_error().is_some();
+    let worker_error = dec.take_error().map(|error| error.to_string());
+    if let Some(error) = &worker_error {
+        add(error.as_bytes());
+    }
     drop(add);
     (hash, worker_error)
 }
@@ -77,7 +80,7 @@ fn decode_hash(data: &[u8], threads: usize) -> (u64, bool) {
 #[test]
 fn damaged_stream_hash_is_stable_across_thread_counts() {
     let data = damaged_fixture("main_cabac_b");
-    assert!(decode_hash(&data, 1).1, "mutation must trigger a worker decode error");
+    assert!(decode_hash(&data, 1).1.is_some(), "mutation must trigger a worker decode error");
     for threads in [1, 2, 4] {
         let expected = decode_hash(&data, threads);
         for _ in 0..3 {
