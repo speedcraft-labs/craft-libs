@@ -11,6 +11,15 @@ tags = ["dxf", "architecture", "villa", "10k-entities", "hatch", "blocks", "dime
 redistributable = false
 
 [[file]]
+path = "wall-brick.dxf"
+url = "https://nasji.com/cad-blocks/files/wall-brick.dxf"
+sha256 = "690f1e6ba9cab9062087db31509f3e031f77d287da125d653d572e2d31ab88b1"
+licence = "NASJI library terms; personal and commercial use permitted, resale of the file prohibited"
+provenance = "https://nasji.com/cad-blocks/walls"
+tags = ["dxf", "engineering", "wall-section", "17k-entities", "380-hatches", "blocks"]
+redistributable = false
+
+[[file]]
 path = "restroom.dxf"
 url = "https://nasji.com/cad-blocks/files/restroom.dxf"
 sha256 = "4500dda5fb43f912bb66852733cc2b0974898637b7f33dc18dfe37f3640005a1"
