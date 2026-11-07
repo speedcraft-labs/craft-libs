@@ -26,7 +26,7 @@ concurrency:
 jobs:
   fuzz:
     name: ${{ matrix.crate }} / ${{ matrix.target }}
-    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || fromJSON('["self-hosted", "agentbox"]') }}
+    runs-on: [self-hosted, agentbox]
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -50,9 +50,9 @@ jobs:
             target: open
     env:
       CARGO_BUILD_JOBS: 4
-      CARGO_TARGET_DIR: ${{ github.event_name == 'pull_request' && runner.temp || '/jobs/work/speedcraft-labs/targets/fuzzers-200-craft-libs' }}
+      CARGO_TARGET_DIR: /jobs/work/speedcraft-labs/targets/fuzzers-200-craft-libs
       CARGO_TERM_COLOR: always
-      FUZZ_CORPUS_ROOT: ${{ github.event_name == 'pull_request' && runner.temp || '/jobs/work/speedcraft-labs/fuzz-corpus/craft-libs' }}
+      FUZZ_CORPUS_ROOT: /jobs/work/speedcraft-labs/fuzz-corpus/craft-libs
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
