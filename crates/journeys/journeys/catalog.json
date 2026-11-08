@@ -4,9 +4,9 @@
       "name": "cadcraft.edit-real-villa-dxf.10k",
       "app": "cadcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
-      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
-      "run": { "program": "{target_dir}/release/cadcraft-cli", "args": ["perf", "{input}"], "env": { "CADCRAFT_PERF_EDIT_MODE": "full" }, "output": "cadcraft-edit" },
-      "run_head": { "program": "{target_dir}/release/cadcraft-cli", "args": ["perf", "{input}"], "env": { "CADCRAFT_PERF_EDIT_MODE": "incremental" }, "output": "cadcraft-edit" },
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-ui-egui", "--example", "cadcraft-edit-frame"] },
+      "run": { "program": "{target_dir}/release/examples/cadcraft-edit-frame", "args": ["{input}"], "env": { "CADCRAFT_PERF_EDIT_MODE": "full", "RAYON_NUM_THREADS": "6" }, "output": "cadcraft-edit" },
+      "run_head": { "program": "{target_dir}/release/examples/cadcraft-edit-frame", "args": ["{input}"], "env": { "CADCRAFT_PERF_EDIT_MODE": "incremental", "RAYON_NUM_THREADS": "6" }, "output": "cadcraft-edit" },
       "inputs": [{ "name": "Villa-Details-10k", "path": "cadcraft-real-drawings/villa-details.dxf" }]
     },
     {
