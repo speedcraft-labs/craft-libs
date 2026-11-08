@@ -12,11 +12,16 @@ craft-distortion = { git = "https://github.com/storytold/craft-libs", rev = "<co
 
 `AGENTS.md` forbids `unsafe` (`unsafe_code = "forbid"` in the workspace lints)
 and does not keep a separate crate allow-list. `wide` 1.7.1
-(`MIT OR Apache-2.0 OR Zlib`, `default-features = false`) is a safe 128-bit
-facade: NEON on AArch64, SSE2 on x86-64, wasm SIMD128 only when the target has
-`+simd128`, and a scalar fallback otherwise. Calling `core::arch` here would
-require `unsafe` in this crate, which the workspace lint rejects. SIMD inside
-`wide` stays in that dependency, as it does for `rustfft` and `sha2`.
+(`MIT OR Apache-2.0 OR Zlib`, `default-features = false`) supplies the safe
+128-bit kernels: NEON on AArch64, SSE2 on x86-64, wasm SIMD128 only when the
+target has `+simd128`, and a scalar fallback otherwise. Wide SAD blocks also
+use `pulp` 0.22.3 (`MIT OR Apache-2.0`) for safe runtime dispatch: AVX2 on
+supported x86-64 and a scalar fallback otherwise. Narrow SAD blocks stay on
+the existing 128-bit implementation. The NEON path remains the `wide` AArch64
+implementation; a separate NEON dispatch candidate did not establish a win.
+Calling `core::arch` here would require `unsafe` in this crate, which the
+workspace lint rejects. SIMD inside `wide` and `pulp` stays in those
+dependencies, as it does for `rustfft` and `sha2`.
 
 The `simd128` cargo feature documents the wasm build. On `wasm32-unknown-unknown`
 it must be paired with `RUSTFLAGS="-C target-feature=+simd128"`; the crate

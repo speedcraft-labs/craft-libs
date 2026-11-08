@@ -31,15 +31,9 @@ pub struct RealProbe;
 
 impl SystemProbe for RealProbe {
     fn load1(&self) -> Option<f64> {
+        #[cfg(target_os = "linux")]
         if isolated_mode() {
-            #[cfg(target_os = "linux")]
-            {
-                return isolated_cpu_load();
-            }
-            #[cfg(not(target_os = "linux"))]
-            {
-                return None;
-            }
+            return isolated_cpu_load();
         }
         if let Ok(s) = std::fs::read_to_string("/proc/loadavg") {
             return parse_proc_loadavg(&s);
@@ -59,8 +53,14 @@ impl SystemProbe for RealProbe {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn isolated_mode() -> bool {
     std::env::var("CRAFT_BENCH_ISOLATED").is_ok_and(|v| v == "1")
+}
+
+#[cfg(not(target_os = "linux"))]
+fn isolated_mode() -> bool {
+    false
 }
 
 #[cfg(target_os = "linux")]
@@ -96,11 +96,13 @@ fn isolated_cpu_load() -> Option<f64> {
     Some(load)
 }
 
+#[cfg(any(target_os = "linux", test))]
 #[derive(Debug, PartialEq)]
 struct ProcStat {
     cpus: std::collections::BTreeMap<usize, (u64, u64)>,
 }
 
+#[cfg(any(target_os = "linux", test))]
 fn parse_proc_stat(s: &str) -> Option<ProcStat> {
     let mut cpus = std::collections::BTreeMap::new();
     for line in s.lines() {
@@ -120,6 +122,7 @@ fn parse_proc_stat(s: &str) -> Option<ProcStat> {
     (!cpus.is_empty()).then_some(ProcStat { cpus })
 }
 
+#[cfg(any(target_os = "linux", test))]
 fn parse_allowed_cpu_list(s: &str) -> Option<Vec<usize>> {
     let mut cpus = Vec::new();
     for item in s.trim().split(',') {
@@ -137,6 +140,7 @@ fn parse_allowed_cpu_list(s: &str) -> Option<Vec<usize>> {
     (!cpus.is_empty()).then_some(cpus)
 }
 
+#[cfg(target_os = "linux")]
 fn parse_proc_self_ticks(s: &str) -> Option<u64> {
     let rest = s.rsplit_once(") ")?.1;
     let fields: Vec<&str> = rest.split_whitespace().collect();
@@ -264,7 +268,10 @@ impl Fingerprint {
         let date = chrono::DateTime::from_timestamp(i64::try_from(secs).unwrap_or(0), 0).map(|d| d.to_rfc3339()).unwrap_or_default();
         Self {
             os: std::env::consts::OS.to_string(),
-            arch: std::env::consts::ARCH.to_string(),
+            arch: match std::env::consts::ARCH {
+                "aarch64" => "arm64".to_string(),
+                architecture => architecture.to_string(),
+            },
             kernel: cmd("uname", &["-sr"]),
             cpu_model,
             logical_cores,
@@ -401,5 +408,6 @@ mod tests {
         let f = Fingerprint::collect(4);
         assert!(!f.os.is_empty() && !f.rustc.is_empty() && !f.date.is_empty());
         assert_eq!(f.logical_cores, 4);
+        assert_eq!(f.arch, if cfg!(target_arch = "aarch64") { "arm64" } else { std::env::consts::ARCH });
     }
 }
