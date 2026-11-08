@@ -54,6 +54,7 @@ target root so prepared builds can be reused.
 | `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
 | `deckcraft.drag-shape.heavy-slide` | DeckCraft | Drag a picture shape across the pinned, picture-rich 24th slide of the Apache-2.0 licensed HowWeRefactor deck through the editor canvas texture path; records every CPU frame |
 | `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
+| `texturecraft.fill-stack.first-frame.4k` | TextureCraft | Recompose the first eight 4K tiles of a corpus-seeded fill stack |
 | `pdfcraft.edit-100k-pages` | PdfCraft | Add text to a generated 100,000-page document |
 | `pdfcraft.edit-acroform-3129` | PdfCraft | Edit one field in a generated 3,129-field AcroForm |
 | `pdfcraft.export-pdf.form-fixture` | PdfCraft | Export the pinned one-page form PDF to PNG |

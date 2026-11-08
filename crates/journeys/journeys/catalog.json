@@ -66,6 +66,25 @@
       "inputs": [{ "name": "ibasn6a16", "path": "pngsuite/ibasn6a16.png" }]
     },
     {
+      "name": "texturecraft.fill-stack.first-frame.4k",
+      "app": "texturecraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/texturecraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "texturecraft-ui-egui", "--example", "issue237_texturecraft_composite_probe"] },
+      "run": {
+        "program": "{target_dir}/release/examples/issue237_texturecraft_composite_probe",
+        "args": ["{input}"],
+        "env": { "TEXTURECRAFT_GPU": "0" },
+        "output": "markers"
+      },
+      "run_head": {
+        "program": "{target_dir}/release/examples/issue237_texturecraft_composite_probe",
+        "args": ["{input}"],
+        "env": { "TEXTURECRAFT_GPU": "1", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" },
+        "output": "markers"
+      },
+      "inputs": [{ "name": "ibasn6a16", "path": "pngsuite/ibasn6a16.png" }]
+    },
+    {
       "name": "pdfcraft.edit-100k-pages",
       "app": "pdfcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft",
