@@ -1,6 +1,6 @@
 //! rust-gpu box-blur pilot. The pure arithmetic helper is shared with the shader crate.
 
-pub use craft_gpu_blur_shader::box_blur_pixel;
+pub use craft_gpu_blur_shader::{Vec4, box_blur_pixel};
 
 /// CPU oracle for the tiled prefix-scan box kernel, with clamp edge handling.
 pub fn box_blur_cpu(src: &[f32], width: usize, height: usize, channels: usize, radius: usize) -> Vec<f32> {
@@ -14,13 +14,12 @@ pub fn box_blur_cpu(src: &[f32], width: usize, height: usize, channels: usize, r
         let row = y * width * channels;
         for group in 0..width.div_ceil(256) {
             let start = (group * 256) as isize - radius as isize;
-            let mut scan = vec![0.0f32; tile_size * channels];
+            let mut scan = vec![Vec4::ZERO; tile_size];
             let mut sums = [0.0f32; 3];
             for item in 0..tile_size {
                 let x = (start + item as isize).clamp(0, width as isize - 1) as usize;
+                scan[item] = Vec4::new(sums[0], sums[1], sums[2], 0.0);
                 for channel in 0..channels {
-                    let at = item * channels + channel;
-                    scan[at] = sums[channel];
                     sums[channel] += src[row + x * channels + channel];
                 }
             }
@@ -29,14 +28,28 @@ pub fn box_blur_cpu(src: &[f32], width: usize, height: usize, channels: usize, r
                 if x >= width {
                     continue;
                 }
-                let lo = lane * channels;
-                let hi = (lane + 2 * radius) * channels;
+                let lo = scan[lane];
+                let hi = scan[lane + 2 * radius];
                 let endpoint_x = (start + lane as isize + 2 * radius as isize).clamp(0, width as isize - 1) as usize;
-                for channel in 0..channels {
-                    let prefix_lo = scan[lo + channel];
-                    let prefix_hi = scan[hi + channel];
-                    let endpoint = src[row + endpoint_x * channels + channel];
-                    dst[row + x * channels + channel] = box_blur_pixel(prefix_lo, prefix_hi, endpoint, window);
+                let endpoint_at = row + endpoint_x * channels;
+                let mut endpoint = Vec4::ZERO;
+                if channels > 0 {
+                    endpoint.x = src[endpoint_at];
+                }
+                if channels > 1 {
+                    endpoint.y = src[endpoint_at + 1];
+                }
+                if channels > 2 {
+                    endpoint.z = src[endpoint_at + 2];
+                }
+                let output = box_blur_pixel(lo, hi, endpoint, window);
+                let out_at = row + x * channels;
+                dst[out_at] = output.x;
+                if channels > 1 {
+                    dst[out_at + 1] = output.y;
+                }
+                if channels > 2 {
+                    dst[out_at + 2] = output.z;
                 }
             }
         }

@@ -1,12 +1,10 @@
 #![no_std]
-use spirv_std::{
-    glam::{UVec3, Vec4},
-    spirv,
-};
+pub use spirv_std::glam::Vec4;
+use spirv_std::{glam::UVec3, spirv};
 
 /// Per-pixel kernel shared by the GPU entry point and the CPU execution path.
 #[inline]
-pub fn box_blur_pixel(prefix_lo: f32, prefix_hi: f32, endpoint: f32, width: u32) -> f32 {
+pub fn box_blur_pixel(prefix_lo: Vec4, prefix_hi: Vec4, endpoint: Vec4, width: u32) -> Vec4 {
     (prefix_hi + endpoint - prefix_lo) / width as f32
 }
 
@@ -101,12 +99,13 @@ pub fn box_h_scan(
         let blue = if nc > 2 { src[(endpoint_pixel + 2) as usize] } else { 0.0 };
         let endpoint = Vec4::new(red, green, blue, 0.0);
         let window = 2 * r + 1;
-        dst[out_pixel as usize] = box_blur_pixel(prefix_lo.x, prefix_hi.x, endpoint.x, window);
+        let output = box_blur_pixel(prefix_lo, prefix_hi, endpoint, window);
+        dst[out_pixel as usize] = output.x;
         if nc > 1 {
-            dst[(out_pixel + 1) as usize] = box_blur_pixel(prefix_lo.y, prefix_hi.y, endpoint.y, window);
+            dst[(out_pixel + 1) as usize] = output.y;
         }
         if nc > 2 {
-            dst[(out_pixel + 2) as usize] = box_blur_pixel(prefix_lo.z, prefix_hi.z, endpoint.z, window);
+            dst[(out_pixel + 2) as usize] = output.z;
         }
     }
 }
