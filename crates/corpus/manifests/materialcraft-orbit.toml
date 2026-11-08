@@ -1,0 +1,29 @@
+name = "materialcraft-orbit"
+description = "MaterialCraft orbit-preview journey using Poly Haven CC0 model and HDRI assets."
+
+[[file]]
+path = "Camera_01_1k.gltf"
+url = "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/Camera_01/Camera_01_1k.gltf"
+sha256 = "9c5ca3104579c84ffcebdee5c6e5e09821fe8d4a5cd9ce95ed32d81507450ee3"
+licence = "CC0-1.0"
+provenance = "Poly Haven Camera_01 model: https://polyhaven.com/a/camera_01 (https://polyhaven.com/license)"
+tags = ["materialcraft", "model", "cc0"]
+redistributable = true
+
+[[file]]
+path = "Camera_01.bin"
+url = "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/Camera_01/Camera_01.bin"
+sha256 = "d3d2c78458a4823bc9821c2ba3994c95d15b044c7a1444ba089b163f74c3fcf2"
+licence = "CC0-1.0"
+provenance = "Poly Haven Camera_01 model buffer: https://polyhaven.com/a/camera_01 (https://polyhaven.com/license)"
+tags = ["materialcraft", "model", "cc0"]
+redistributable = true
+
+[[file]]
+path = "brown_photostudio_02_1k.hdr"
+url = "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/brown_photostudio_02_1k.hdr"
+sha256 = "469abc5e6035b6c450bae8adbb448f8d1fa7c51d9e384e501516c28352c91b58"
+licence = "CC0-1.0"
+provenance = "Poly Haven Brown Photostudio 02 HDRI: https://polyhaven.com/a/brown_photostudio_02 (https://polyhaven.com/license)"
+tags = ["materialcraft", "hdri", "cc0"]
+redistributable = true
