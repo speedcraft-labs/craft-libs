@@ -229,6 +229,12 @@ impl JobSystem {
         Self { shared, workers, sequence: AtomicU64::new(0) }
     }
 
+    /// Whether at least one worker could be started. Callers can use a synchronous fallback
+    /// when the operating system refuses worker creation.
+    pub fn is_available(&self) -> bool {
+        !self.workers.is_empty()
+    }
+
     /// Submits a job. The closure runs on a worker; its result is delivered to the handle.
     pub fn submit<T, F>(&self, priority: Priority, work: F) -> JobHandle<T>
     where
@@ -253,6 +259,13 @@ impl JobSystem {
         F: FnOnce(&JobContext) -> Result<T, JobError> + Send + 'static,
     {
         let token = CancellationToken(Arc::new(AtomicBool::new(false)));
+        if self.workers.is_empty() {
+            let (progress_tx, progress) = mpsc::channel();
+            drop(progress_tx);
+            let (result, result_rx) = mpsc::channel();
+            let _ = result.send(Err(JobError::Failed("no worker thread could be started".into())));
+            return JobHandle { token, progress, result: result_rx, cancel_on_drop: false };
+        }
         if let Some(key) = &key {
             let mut latest = match self.shared.latest.lock() {
                 Ok(latest) => latest,
