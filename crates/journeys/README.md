@@ -46,6 +46,7 @@ target root so prepared builds can be reused.
 
 | Journey | App | Measured operation |
 | --- | --- | --- |
+| `cadcraft.edit-heavy-engineering-dwg.985k` | CADCraft | Edit a real 985k-entity DWG and render the completed RTX frame |
 | `cadcraft.edit-hatched-drawing.12k` | CADCraft | Edit one entity in a deterministic generated 12,000-hatch drawing |
 | `cadcraft.open-dxf.large-map` | CADCraft | Open the pinned Graz map DXF |
 | `cadcraft.open-dxf.usa` | CADCraft | Open the pinned USA DXF |

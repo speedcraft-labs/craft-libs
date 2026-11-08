@@ -108,7 +108,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
         .replace("{app_binary}", &app_binary.to_string_lossy())
         .replace("{target_dir}", &target_dir(app, rev, app_rev).to_string_lossy());
     let program = rendered_program;
-    let mut cmd = Command::new(program);
+    let mut cmd = Command::new(&program);
     cmd.current_dir(cwd)
         .env("CRAFT_JOURNEY_REV", rev)
         .env("ARTCRAFT_CORPUS", corpus_root())
@@ -129,7 +129,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
         }
     }
     cmd.args(spec.args.iter().map(|a| render(a, rev, input, app, cwd)));
-    let output = cmd.output().map_err(|e| format!("launch {}: {e}", spec.program))?;
+    let output = cmd.output().map_err(|e| format!("launch {} at {program}: {e}", spec.program))?;
     if !output.status.success() {
         return Err(format!(
             "{} failed ({})\n{}\n{}",
@@ -846,7 +846,13 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
                 .unwrap_or_else(|e| AppResult { duration_ns: 0, identity: format!("ERROR: {e}") })
         })
         .inputs(input_pairs)
-        .check(|a, b| !a.identity.starts_with("ERROR:") && a.identity == b.identity)
+        .check(|a, b| {
+            let equal = !a.identity.starts_with("ERROR:") && a.identity == b.identity;
+            if !equal {
+                eprintln!("journey identity mismatch: old={:?}; new={:?}", a.identity, b.identity);
+            }
+            equal
+        })
         .wall_meter(|output| output.duration_ns)
         .run(&Config { revs: Revs::default(), ..Config::default() })
         .map_err(|e| e.to_string())?;
