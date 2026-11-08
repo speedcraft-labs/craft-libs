@@ -119,7 +119,13 @@ def main():
         reservation.close()
 
         child_env = os.environ.copy()
-        child_env.update({"MATERIALCRAFT_CONTROL_TOKEN": token, "MATERIALCRAFT_NO_PREFS": "1"})
+        child_env.update({
+            "MATERIALCRAFT_CONTROL_TOKEN": token,
+            "MATERIALCRAFT_NO_PREFS": "1",
+            # Xvfb's GLX probe otherwise loads NVIDIA EGL/GBM alongside swrast and aborts.
+            # MaterialCraft uses Vulkan; restricting EGL vendor discovery leaves Vulkan intact.
+            "__EGL_VENDOR_LIBRARY_FILENAMES": "/usr/share/glvnd/egl_vendor.d/50_mesa.json",
+        })
         command = [
             "xvfb-run", "-a", "--server-args", "-screen 0 1600x960x24",
             str(binary_path), "--control", str(port),
