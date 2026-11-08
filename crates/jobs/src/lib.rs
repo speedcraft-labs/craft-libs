@@ -357,6 +357,23 @@ mod tests {
     }
 
     #[test]
+    fn progress_is_available_before_completion() {
+        let jobs = JobSystem::new(1);
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let handle = jobs.submit(Priority::Normal, move |ctx| {
+            ctx.report_progress(37);
+            started_tx.send(()).ok();
+            release_rx.recv().ok();
+            Ok(())
+        });
+        started_rx.recv_timeout(Duration::from_secs(2)).expect("job should start");
+        assert_eq!(handle.try_recv(), Ok(JobEvent::Progress(37)));
+        release_tx.send(()).ok();
+        assert_eq!(completed(&handle), Ok(()));
+    }
+
+    #[test]
     fn urgent_job_precedes_queued_background_job() {
         let jobs = JobSystem::new(1);
         let (block_tx, block_rx) = mpsc::channel();
