@@ -20,6 +20,12 @@ filter.apply(&mut premultiplied_rgba, shape, Edge::Transparent,
 # Ok::<(), craft_blur::Error>(())
 ```
 
+The same crate also provides `MedianHistogram`, `select_nth`, and
+`median_ranked_square` for app adapters. Adapters encode their exact sample order as
+integer ranks, select the upper middle, and decode the selected input value. The square
+adapter supports repeated clamp edges and clipped windows; it does not quantize samples
+or impose a color, alpha, radius, or threading policy.
+
 `Gaussian::separable()` exposes `Separable::Kernel`, `Recursive` coefficients,
 or three odd box widths as data for another device. `Separable::reach()` returns
 finite support per axis for sampled/box passes and `None` for recursive passes:

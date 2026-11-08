@@ -8,12 +8,14 @@
 
 mod kernel;
 mod lines;
+mod median;
 mod native;
 mod periodic;
 mod recursive;
 mod region;
 
 pub use kernel::{box_widths, gaussian_kernel};
+pub use median::{MedianEdge, MedianError, MedianHistogram, median_ranked_square, select_nth};
 pub use recursive::Recursive;
 pub use region::Rect;
 use std::sync::atomic::{AtomicBool, Ordering};
