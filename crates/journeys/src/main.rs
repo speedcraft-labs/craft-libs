@@ -46,6 +46,9 @@ struct CommandSpec {
     args: Vec<String>,
     #[serde(default)]
     env: BTreeMap<String, String>,
+    /// Stable workload identity for outputs that may differ within a separately verified tolerance.
+    #[serde(default)]
+    identity: Option<String>,
     /// Extra Cargo config values after the craft-libs revision patches. This lets an adapter use
     /// an app-local patched dependency while keeping the rest of the revision's patch set.
     #[serde(default)]
@@ -177,7 +180,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
     {
         return Err(format!("selected GPU adapter {:?} did not match required adapter substring {expected:?}", gpu_adapter));
     }
-    let (duration_ns, identity) = match spec.output {
+    let (duration_ns, output_identity) = match spec.output {
         OutputProtocol::Markers => {
             let duration_ns = stdout
                 .lines()
@@ -509,6 +512,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
     };
+    let identity = spec.identity.clone().unwrap_or(output_identity);
     Ok(AppResult { duration_ns, identity, gpu_adapter, prefix_hits, prefix_passes_skipped })
 }
 

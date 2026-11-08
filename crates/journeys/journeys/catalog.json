@@ -187,8 +187,8 @@
       "app": "vectorcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/vectorcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "vectorcraft-cli", "--example", "render_bench", "--features", "gpu-raster"] },
-      "run": { "program": "{target_dir}/release/examples/render_bench", "args": ["--paths=20000"] },
-      "run_head": { "program": "{target_dir}/release/examples/render_bench", "args": ["--paths=20000"], "env": { "CRAFT_EXPECT_GPU_ADAPTER": "NVIDIA GeForce RTX 2080 Ti" } }
+      "run": { "program": "{target_dir}/release/examples/render_bench", "args": ["--paths=20000"], "identity": "vectorcraft-render-bench:v1:20000-paths:2880x1800" },
+      "run_head": { "program": "{target_dir}/release/examples/render_bench", "args": ["--paths=20000"], "env": { "CRAFT_EXPECT_GPU_ADAPTER": "NVIDIA GeForce RTX 2080 Ti" }, "identity": "vectorcraft-render-bench:v1:20000-paths:2880x1800" }
     },
     {
       "name": "designcraft.synthetic-performance",
