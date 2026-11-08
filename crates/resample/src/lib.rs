@@ -147,6 +147,13 @@ pub fn reduce_box_f32(source: &[f32], source_size: [usize; 2], dest_size: [usize
         return None;
     }
     let (fx, fy) = (sw / dw, sh / dh);
+    if fx == 2 && fy == 2 {
+        return match channels {
+            1 => reduce_box2_f32_const::<1>(source, sw, dw, dh),
+            4 => reduce_box2_f32_const::<4>(source, sw, dw, dh),
+            _ => reduce_box2_f32_dynamic(source, sw, dw, dh, channels),
+        };
+    }
     let inv = 1.0 / (fx * fy) as f32;
     let reduction = BoxReduction { sw, dw, dh, channels, fx, fy, inv };
     match channels {
@@ -154,6 +161,64 @@ pub fn reduce_box_f32(source: &[f32], source_size: [usize; 2], dest_size: [usize
         4 => reduce_box_f32_const::<4>(source, reduction),
         _ => reduce_box_f32_dynamic(source, reduction),
     }
+}
+
+fn reduce_box2_f32_const<const CHANNELS: usize>(source: &[f32], sw: usize, dw: usize, dh: usize) -> Option<Vec<f32>> {
+    let dest_len = dw.checked_mul(dh)?.checked_mul(CHANNELS)?;
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    out.resize(dest_len, 0.0);
+    let reduce_row = |y: usize, row: &mut [f32]| {
+        let top = 2 * y * sw * CHANNELS;
+        let bottom = top + sw * CHANNELS;
+        for x in 0..dw {
+            let left = 2 * x * CHANNELS;
+            let right = left + CHANNELS;
+            for c in 0..CHANNELS {
+                let at = x * CHANNELS + c;
+                let mut sum = 0.0;
+                sum += source[top + left + c];
+                sum += source[top + right + c];
+                sum += source[bottom + left + c];
+                sum += source[bottom + right + c];
+                row[at] = sum * 0.25;
+            }
+        }
+    };
+    #[cfg(feature = "rayon")]
+    out.par_chunks_mut(dw * CHANNELS).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    #[cfg(not(feature = "rayon"))]
+    out.chunks_mut(dw * CHANNELS).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    Some(out)
+}
+
+fn reduce_box2_f32_dynamic(source: &[f32], sw: usize, dw: usize, dh: usize, channels: usize) -> Option<Vec<f32>> {
+    let dest_len = dw.checked_mul(dh)?.checked_mul(channels)?;
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    out.resize(dest_len, 0.0);
+    let reduce_row = |y: usize, row: &mut [f32]| {
+        let top = 2 * y * sw * channels;
+        let bottom = top + sw * channels;
+        for x in 0..dw {
+            let left = 2 * x * channels;
+            let right = left + channels;
+            for c in 0..channels {
+                let at = x * channels + c;
+                let mut sum = 0.0;
+                sum += source[top + left + c];
+                sum += source[top + right + c];
+                sum += source[bottom + left + c];
+                sum += source[bottom + right + c];
+                row[at] = sum * 0.25;
+            }
+        }
+    };
+    #[cfg(feature = "rayon")]
+    out.par_chunks_mut(dw * channels).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    #[cfg(not(feature = "rayon"))]
+    out.chunks_mut(dw * channels).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    Some(out)
 }
 
 #[derive(Clone, Copy)]
