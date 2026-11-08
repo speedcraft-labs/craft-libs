@@ -183,6 +183,13 @@
       "inputs": [{ "name": "still-life", "path": "vectorcraft-fixtures/still-life.vectorcraft" }]
     },
     {
+      "name": "vectorcraft.render-50k-paths",
+      "app": "vectorcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/vectorcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "vectorcraft-cli", "--example", "render_bench", "--features", "gpu-raster"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "vectorcraft-cli", "--example", "render_bench", "--features", "gpu-raster", "--", "--paths=50000"] }
+    },
+    {
       "name": "designcraft.synthetic-performance",
       "app": "designcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/designcraft",
