@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use craft_bench::{
     Config, Paired, Report,
@@ -56,6 +57,25 @@ struct CommandSpec {
     /// Row in the app's native operation report (used when an app exposes several timings).
     #[serde(default)]
     measure: Option<String>,
+    /// Use an external process wall clock instead of the app-reported operation duration.
+    /// This includes process startup and work through command exit.
+    #[serde(default)]
+    wall_time: WallTime,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum WallTime {
+    #[default]
+    App,
+    Process,
+}
+
+fn primary_wall_time(wall_time: WallTime, app_duration_ns: u64, process_duration_ns: u64) -> u64 {
+    match wall_time {
+        WallTime::App => app_duration_ns,
+        WallTime::Process => process_duration_ns,
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
@@ -149,7 +169,9 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
         }
     }
     cmd.args(spec.args.iter().map(|a| render(a, rev, input, app, cwd)));
+    let started = Instant::now();
     let output = cmd.output().map_err(|e| format!("launch {}: {e}", spec.program))?;
+    let process_duration_ns = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
     if !output.status.success() {
         return Err(format!(
             "{} failed ({})\n{}\n{}",
@@ -177,7 +199,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
     {
         return Err(format!("selected GPU adapter {:?} did not match required adapter substring {expected:?}", gpu_adapter));
     }
-    let (duration_ns, identity) = match spec.output {
+    let (app_duration_ns, identity) = match spec.output {
         OutputProtocol::Markers => {
             let duration_ns = stdout
                 .lines()
@@ -509,6 +531,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
     };
+    let duration_ns = primary_wall_time(spec.wall_time, app_duration_ns, process_duration_ns);
     Ok(AppResult { duration_ns, identity, gpu_adapter, prefix_hits, prefix_passes_skipped })
 }
 
@@ -997,5 +1020,20 @@ fn main() -> ExitCode {
             eprintln!("{error}");
             ExitCode::from(2)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CommandSpec, WallTime, primary_wall_time};
+
+    #[test]
+    fn process_wall_time_uses_runner_measurement_and_defaults_to_app_time() {
+        let default: CommandSpec = serde_json::from_str(r#"{"program":"true"}"#).unwrap();
+        assert!(matches!(default.wall_time, WallTime::App));
+        assert_eq!(primary_wall_time(default.wall_time, 12, 34), 12);
+
+        let process: CommandSpec = serde_json::from_str(r#"{"program":"true","wall_time":"process"}"#).unwrap();
+        assert_eq!(primary_wall_time(process.wall_time, 12, 34), 34);
     }
 }

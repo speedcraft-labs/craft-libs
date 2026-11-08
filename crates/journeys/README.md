@@ -22,6 +22,12 @@ those values from app output instead of marker lines. Missing measurements or id
 the output check. Commands must be one-shot and leave the app's measured operation outside process
 startup when the app channel reports a more precise duration.
 
+`run.wall_time` defaults to `app`, which uses the duration reported by the application's existing
+performance channel. Set it to `process` when the journey should use the runner's monotonic clock
+from just before process launch through command exit. The app's timing marker is still required for
+the adapter protocol and output identity check; process mode makes externally measured wall time the
+primary paired metric and includes process startup plus the command's work.
+
 Cargo adapters may add `cargo_config_overrides` after the selected craft-libs revision's Cargo
 patch config. The `{app_repo}` placeholder resolves to the app's isolated worktree. This lets an
 app use a newer app-local vendored dependency when its API is ahead of the craft-libs workspace
