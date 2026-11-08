@@ -69,18 +69,21 @@ instead (same machine only); `--cpu` judges CPU time. Any input whose change exc
 `--fail-over` percent is a `REGRESSION`. Exit codes: 0 ok, 1 regression, 2 usage error,
 unreadable file, unsupported schema, or a contended report (override with `--allow-contended`).
 
-## JSON schema (`schema_version` 1)
+## JSON schema (`schema_version` 2)
 
-All times are nanoseconds. Readers must reject other versions. Any change to field names or
-meaning bumps the version.
+All times are nanoseconds. Readers upgrade version 1 reports by supplying the new optional
+metadata fields, and reject other unsupported versions. Any change to field names or meaning
+bumps the version.
 
 ```
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": str,
   "revs": { "old": str|null, "new": str|null },
   "fingerprint": { "os", "arch", "kernel"|null, "cpu_model"|null, "logical_cores", "physical_cores"|null,
                    "ram_bytes"|null, "rustc", "profile", "opt_level", "debug_assertions", "date" /* RFC 3339 UTC */ },
+  "gpu_adapters": [str],   // distinct adapter names reported by app processes; empty when none
+  "prefix_cache": { "old": { "observations", "chunk_hits", "passes_skipped" }, "new": { ... } } | null,
   "config": { "requested_repetitions", "runs_per_side", "warmup_runs", "resamples", "seed",
               "output_checked": bool, "cpu_time": "process"|"unavailable" },
   "guard": { "contended": bool, "reasons": [str], "load_before"|null, "load_after"|null, "logical_cores",
@@ -104,5 +107,5 @@ with the stored seed.
 
 ## Not covered
 
-GPU timing (a GPU consumer times its own submission inside the closure and states the device in
-`name`), cache-state control, CPU frequency pinning, and comparing reports across machines.
+GPU timing (a GPU consumer times its own submission inside the closure), cache-state control, CPU
+frequency pinning, and comparing reports across machines.

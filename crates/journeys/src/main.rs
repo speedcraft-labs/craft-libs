@@ -1,11 +1,15 @@
 //! App-level journey runner. App adapters are one-shot commands: they consume one pinned input,
 //! exercise the app's existing performance channel, and print a stable result to stdout.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+use std::sync::{Arc, Mutex};
 
-use craft_bench::{Config, Paired, Report, report::Revs};
+use craft_bench::{
+    Config, Paired, Report,
+    report::{PrefixCacheSide, PrefixCacheStats, Revs},
+};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
@@ -80,6 +84,17 @@ enum OutputProtocol {
 struct AppResult {
     duration_ns: u64,
     identity: String,
+    gpu_adapter: Option<String>,
+    prefix_hits: Option<u64>,
+    prefix_passes_skipped: Option<u64>,
+}
+
+fn parse_u64_marker(stdout: &str, marker: &str) -> Result<Option<u64>, String> {
+    stdout
+        .lines()
+        .find_map(|line| line.strip_prefix(marker))
+        .map(|value| value.parse::<u64>().map_err(|e| format!("invalid {marker} marker: {e}")))
+        .transpose()
 }
 
 fn catalog() -> Result<Catalog, String> {
@@ -142,6 +157,21 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
     // The adapter emits a stable `CRAFT_OUTPUT_SHA256=<hex>` line for semantic identity. This
     // avoids comparing timing text or logs, which naturally differ from run to run.
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let gpu_adapter = stdout
+        .lines()
+        .find_map(|line| line.strip_prefix("CRAFT_GPU_ADAPTER="))
+        .or_else(|| stderr.lines().find_map(|line| line.strip_prefix("adapter: ")))
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned);
+    let prefix_hits = parse_u64_marker(&stdout, "CRAFT_PREFIX_HITS=")?;
+    let prefix_passes_skipped = parse_u64_marker(&stdout, "CRAFT_PREFIX_PASSES_SKIPPED=")?;
+    if let Some(expected) = spec.env.get("CRAFT_EXPECT_GPU_ADAPTER")
+        && !gpu_adapter.as_deref().is_some_and(|name| name.contains(expected))
+    {
+        return Err(format!("selected GPU adapter {:?} did not match required adapter substring {expected:?}", gpu_adapter));
+    }
     let (duration_ns, identity) = match spec.output {
         OutputProtocol::Markers => {
             let duration_ns = stdout
@@ -474,7 +504,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
     };
-    Ok(AppResult { duration_ns, identity })
+    Ok(AppResult { duration_ns, identity, gpu_adapter, prefix_hits, prefix_passes_skipped })
 }
 
 fn corpus_root() -> String {
@@ -782,8 +812,16 @@ fn build_app(journey: &Journey, rev: &str, app_rev: &str, input: &Input, checkou
     let build_program = render(&journey.build.program, rev, input, &journey.app, &checkout.path);
     let cargo_build = Path::new(&build_program).file_name().is_some_and(|name| name == "cargo");
     let mut cmd = if cargo_build {
-        let mut command = Command::new("nice");
-        command.args(["-n", "19", "cargo"]).env("CARGO_BUILD_JOBS", "6");
+        let mut command = if let Some(cpus) = std::env::var_os("CRAFT_JOURNEYS_BUILD_CPUSET") {
+            let mut command = Command::new("taskset");
+            command.args(["-c"]).arg(cpus).args(["nice", "-n", "19", "cargo"]);
+            command
+        } else {
+            let mut command = Command::new("nice");
+            command.args(["-n", "19", "cargo"]);
+            command
+        };
+        command.env("CARGO_BUILD_JOBS", "6");
         command
     } else {
         Command::new(build_program)
@@ -836,20 +874,67 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
     let JourneyContext { inputs, app_base, app_head, checkouts, revisions } = context;
     let input_pairs: Vec<_> = inputs.into_iter().map(|i| (i.name.clone(), i)).collect();
     let head_run = journey.run_head.as_ref().unwrap_or(&journey.run);
+    let adapters = Arc::new(Mutex::new(BTreeSet::new()));
+    let old_adapters = Arc::clone(&adapters);
+    let new_adapters = Arc::clone(&adapters);
+    let old_prefix = Arc::new(Mutex::new(PrefixCacheSide::default()));
+    let new_prefix = Arc::new(Mutex::new(PrefixCacheSide::default()));
+    let old_prefix_runs = Arc::clone(&old_prefix);
+    let new_prefix_runs = Arc::clone(&new_prefix);
     let mut report = Paired::new(format!("{} / {}", journey.app, journey.name))
         .old(|input: &Input| {
-            run_command(&journey.run, &checkouts[0].path, old_rev, &app_base, input, &journey.app, &revisions[0].cargo_config)
-                .unwrap_or_else(|e| AppResult { duration_ns: 0, identity: format!("ERROR: {e}") })
+            let result = run_command(&journey.run, &checkouts[0].path, old_rev, &app_base, input, &journey.app, &revisions[0].cargo_config)
+                .unwrap_or_else(|e| AppResult {
+                    duration_ns: 0,
+                    identity: format!("ERROR: {e}"),
+                    gpu_adapter: None,
+                    prefix_hits: None,
+                    prefix_passes_skipped: None,
+                });
+            if let Some(adapter) = &result.gpu_adapter
+                && let Ok(mut observed) = old_adapters.lock()
+            {
+                observed.insert(adapter.clone());
+            }
+            if let (Some(hits), Some(skipped)) = (result.prefix_hits, result.prefix_passes_skipped)
+                && let Ok(mut stats) = old_prefix_runs.lock()
+            {
+                stats.observations += 1;
+                stats.chunk_hits = stats.chunk_hits.saturating_add(hits);
+                stats.passes_skipped = stats.passes_skipped.saturating_add(skipped);
+            }
+            result
         })
         .new(|input: &Input| {
-            run_command(head_run, &checkouts[1].path, new_rev, &app_head, input, &journey.app, &revisions[1].cargo_config)
-                .unwrap_or_else(|e| AppResult { duration_ns: 0, identity: format!("ERROR: {e}") })
+            let result =
+                run_command(head_run, &checkouts[1].path, new_rev, &app_head, input, &journey.app, &revisions[1].cargo_config).unwrap_or_else(|e| {
+                    AppResult { duration_ns: 0, identity: format!("ERROR: {e}"), gpu_adapter: None, prefix_hits: None, prefix_passes_skipped: None }
+                });
+            if let Some(adapter) = &result.gpu_adapter
+                && let Ok(mut observed) = new_adapters.lock()
+            {
+                observed.insert(adapter.clone());
+            }
+            if let (Some(hits), Some(skipped)) = (result.prefix_hits, result.prefix_passes_skipped)
+                && let Ok(mut stats) = new_prefix_runs.lock()
+            {
+                stats.observations += 1;
+                stats.chunk_hits = stats.chunk_hits.saturating_add(hits);
+                stats.passes_skipped = stats.passes_skipped.saturating_add(skipped);
+            }
+            result
         })
         .inputs(input_pairs)
         .check(|a, b| !a.identity.starts_with("ERROR:") && a.identity == b.identity)
         .wall_meter(|output| output.duration_ns)
         .run(&Config { revs: Revs::default(), ..Config::default() })
         .map_err(|e| e.to_string())?;
+    report.gpu_adapters = adapters.lock().map_err(|_| "GPU adapter metadata lock poisoned".to_string())?.iter().cloned().collect();
+    let old_prefix = old_prefix.lock().map_err(|_| "old prefix-cache metadata lock poisoned".to_string())?.clone();
+    let new_prefix = new_prefix.lock().map_err(|_| "new prefix-cache metadata lock poisoned".to_string())?.clone();
+    if old_prefix.observations > 0 || new_prefix.observations > 0 {
+        report.prefix_cache = Some(PrefixCacheStats { old: old_prefix, new: new_prefix });
+    }
     // A journey compares app code as well as the patched craft-libs checkout. Preserve both
     // revisions in the raw report so the measured implementation can be recreated later.
     report.revs = Revs { old: Some(format!("app:{app_base};craft-libs:{old_rev}")), new: Some(format!("app:{app_head};craft-libs:{new_rev}")) };
