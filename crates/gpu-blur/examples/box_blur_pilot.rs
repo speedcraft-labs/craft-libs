@@ -123,6 +123,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let b = readback(&device, &queue, &c.rustgpu, c.width, c.height, c.channels);
         let bound = BOUND_FACTOR * (1.0 + c.radius as f32 / 10.0);
         let (ea, eb, ep) = (max_error(&a, &c.oracle), max_error(&b, &c.oracle), max_error(&a, &b));
+        if std::env::var_os("RUSTGPU_DEBUG_VALUES").is_some() {
+            let n = a.len().min(12);
+            eprintln!("{} first {n}: oracle={:?}, WGSL={:?}, rust-gpu={:?}", c.name, &c.oracle[..n], &a[..n], &b[..n]);
+        }
         assert!(ea <= bound && eb <= bound && ep <= bound, "{}: WGSL {ea}, rust-gpu {eb}, pair {ep}, bound {bound}", c.name);
         if !c.name.starts_with("synthetic-") {
             let exact = box_blur_f64(&c.source, c.width, c.height, c.channels, c.radius);
