@@ -605,6 +605,20 @@
           "path": "pdfcraft-public-domain/osha-recordkeeping-forms-2019.pdf"
         }
       ]
+    },
+    {
+      "name": "designcraft.drag-preview.opaque-rectangle",
+      "app": "designcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/designcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "designcraft-cli", "--example", "issue237_drag_preview"] },
+      "run": { "program": "{target_dir}/release/examples/issue237_drag_preview", "args": ["cpu"], "output": "markers" },
+      "run_head": { "program": "{target_dir}/release/examples/issue237_drag_preview", "args": ["gpu"], "env": { "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" }, "output": "markers" },
+      "inputs": [
+        {
+          "name": "opm-sf85p-2017",
+          "path": "pdfcraft-public-domain/opm-sf85p-2017.pdf"
+        }
+      ]
     }
   ]
 }
