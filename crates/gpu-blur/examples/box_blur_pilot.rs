@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use craft_bench::{Config, Paired, report::Revs};
-use craft_gpu_blur::{RUSTGPU_WGSL, WGSL_SCAN, box_blur_cpu};
+use craft_gpu_blur::{BOX_H_SCAN_SPIRV, WGSL_SCAN, box_blur_cpu};
 use std::{io::BufReader, path::PathBuf, time::Instant};
 use wgpu::util::DeviceExt;
 
@@ -48,9 +48,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         label: Some("WGSL tiled box scan"),
         source: wgpu::ShaderSource::Wgsl(WGSL_SCAN.into()),
     });
+    let rustgpu_words = BOX_H_SCAN_SPIRV
+        .chunks_exact(4)
+        .map(|chunk| u32::from_le_bytes(chunk.try_into().expect("four-byte SPIR-V word")))
+        .collect::<Vec<_>>();
+    assert_eq!(BOX_H_SCAN_SPIRV.len() % 4, 0, "SPIR-V length must be word-aligned");
     let rustgpu_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("rust-gpu SPIR-V translated by Naga"),
-        source: wgpu::ShaderSource::Wgsl(RUSTGPU_WGSL.into()),
+        label: Some("rust-gpu SPIR-V through wgpu Naga spv-in"),
+        source: wgpu::ShaderSource::SpirV(rustgpu_words.into()),
     });
     let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("box blur layout"),

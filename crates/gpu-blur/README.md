@@ -18,6 +18,8 @@ revision/date and components, while a `spirv-std`/codegen version mismatch says 
 match. Rust source errors retain file and line locations. Naga parse and validation failures are
 labelled by compilation phase, though the build script currently reports them through `expect`.
 
-The matching WGSL path remains in lightcraft's `crates/gpu/src/wgsl/blur.wgsl`. GPU comparisons
+The native runner loads the SPIR-V bytes through wgpu's Naga SPIR-V input path. The build script
+also translates the module to WGSL for browser WebGPU, which only accepts WGSL source. The matching
+WGSL path remains in lightcraft's `crates/gpu/src/wgsl/blur.wgsl`. GPU comparisons
 use a maximum absolute error bound of `1e-5 * (1 + radius / 10)` against its f32 CPU running-sum
 reference, and also check a direct f64 sum. This is a numerical bound, not bitwise parity.

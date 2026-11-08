@@ -18,7 +18,7 @@ naga = { version = "30", features = ["spv-in", "wgsl-out", "wgsl-in"], optional 
 [dependencies]
 bytemuck = { workspace = true, features = ["derive"] }
 craft-gpu-blur-shader = { path = "shader" }
-wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "metal", "vulkan", "dx12", "wgsl"], optional = true }
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "metal", "vulkan", "dx12", "wgsl", "spirv"], optional = true }
 craft-bench = { workspace = true, optional = true }
 png = { version = "0.18", optional = true }
 pollster = { version = "0.4", optional = true }
