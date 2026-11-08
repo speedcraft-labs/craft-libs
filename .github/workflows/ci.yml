@@ -32,3 +32,16 @@ jobs:
       - run: cargo clippy --workspace --all-targets
       - name: Workspace tests
         run: cargo test --workspace --no-fail-fast
+
+  rustgpu-shader:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly-2026-08-15
+        with:
+          components: rust-src, rustc-dev, llvm-tools
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test -p craft-gpu-blur --features spirv
+      - run: rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-15
+      - run: cargo build -p craft-gpu-blur --features spirv --target wasm32-unknown-unknown

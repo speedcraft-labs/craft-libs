@@ -21,6 +21,7 @@ craft-bitstream = { path = "crates/bitstream" }
 craft-bench = { path = "crates/bench" }
 craft-blend = { path = "crates/blend" }
 craft-blur = { path = "crates/blur" }
+craft-gpu-blur = { path = "crates/gpu-blur" }
 craft-bvh = { path = "crates/bvh" }
 craft-cache = { path = "crates/cache" }
 craft-cache-derive = { path = "crates/cache-derive" }
