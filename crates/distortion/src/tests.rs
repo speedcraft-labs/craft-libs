@@ -1,6 +1,8 @@
 use std::time::Instant;
 
-use crate::kernel::hadamard8_coeffs;
+#[cfg(target_arch = "x86_64")]
+use crate::kernel::sad_scalar_dispatch;
+use crate::kernel::{hadamard8_coeffs, sad_scalar};
 use crate::{sad, sad8, sad16, satd, satd_av1, satd_hevc, satd_vp9, sse};
 
 #[allow(clippy::all, dead_code, unused_imports)]
@@ -245,6 +247,15 @@ fn filmcraft_satd(width: usize, height: usize) -> bool {
 }
 
 fn check(first: &[u8], first_stride: usize, second: &[u8], second_stride: usize, width: usize, height: usize) {
+    assert_eq!(
+        sad_scalar(first, first_stride, second, second_stride, width, height),
+        reference_sad(first, first_stride, second, second_stride, width, height)
+    );
+    #[cfg(target_arch = "x86_64")]
+    assert_eq!(
+        sad_scalar_dispatch(first, first_stride, second, second_stride, width, height),
+        reference_sad(first, first_stride, second, second_stride, width, height)
+    );
     assert_eq!(
         sad(first, first_stride, second, second_stride, width, height),
         reference_sad(first, first_stride, second, second_stride, width, height),
@@ -578,4 +589,104 @@ fn benchmark_kernels() {
             eprintln!("bench {width}x{height} {name} {microseconds:.1} µs/10k");
         }
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+#[ignore = "paired per-architecture SAD/SATD baseline; run release-only under scripts/bench-run"]
+fn paired_architecture_baseline() -> Result<(), Box<dyn std::error::Error>> {
+    use craft_bench::{Config, Paired, report::Revs};
+
+    struct Input {
+        width: usize,
+        height: usize,
+        left: Vec<u8>,
+        right: Vec<u8>,
+    }
+
+    let inputs = BENCH_SHAPES
+        .into_iter()
+        .map(|(width, height)| {
+            let left = (0..64 * 64).map(|i: usize| (i.wrapping_mul(73).wrapping_add(19)) as u8).collect();
+            let right = (0..64 * 64).map(|i: usize| (i.wrapping_mul(31).wrapping_add(237)) as u8).collect();
+            (format!("{width}x{height}"), Input { width, height, left, right })
+        })
+        .collect::<Vec<_>>();
+
+    let report = Paired::new("craft-distortion SAD/SATD scalar oracle vs SIMD")
+        .old(|input: &Input| {
+            (
+                reference_sad(&input.left, 64, &input.right, 64, input.width, input.height),
+                reference_sse(&input.left, 64, &input.right, 64, input.width, input.height),
+                reference_satd(&input.left, 64, &input.right, 64, input.width, input.height),
+                reference_satd_av1(&input.left, 64, &input.right, 64, input.width, input.height),
+                reference_satd_hevc(&input.left, 64, &input.right, 64, input.width, input.height),
+                reference_satd_vp9(&input.left, 64, &input.right, 64, input.width, input.height),
+            )
+        })
+        .new(|input: &Input| {
+            (
+                sad(&input.left, 64, &input.right, 64, input.width, input.height),
+                sse(&input.left, 64, &input.right, 64, input.width, input.height),
+                satd(&input.left, 64, &input.right, 64, input.width, input.height),
+                satd_av1(&input.left, 64, &input.right, 64, input.width, input.height),
+                satd_hevc(&input.left, 64, &input.right, 64, input.width, input.height),
+                satd_vp9(&input.left, 64, &input.right, 64, input.width, input.height),
+            )
+        })
+        .inputs(inputs)
+        .equal()
+        .run(&Config {
+            revs: Revs { old: Some(std::env::var("CRAFT_BENCH_BASE_REV")?), new: Some(std::env::var("CRAFT_BENCH_REV")?) },
+            ..Config::default()
+        })?;
+    report.require_publishable()?;
+    let path = std::env::var("CRAFT_DISTORTION_BENCH_OUT")?;
+    std::fs::write(path, report.to_json())?;
+    print!("{}", report.to_markdown());
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+#[ignore = "paired SAD dispatch benchmark; run release-only under scripts/bench-run"]
+fn paired_architecture_sad_dispatch() -> Result<(), Box<dyn std::error::Error>> {
+    use craft_bench::{Config, Paired, report::Revs};
+
+    struct Input {
+        width: usize,
+        height: usize,
+        left: Vec<u8>,
+        right: Vec<u8>,
+    }
+
+    let inputs = BENCH_SHAPES
+        .into_iter()
+        .map(|(width, height)| {
+            let left = (0..64 * 64).map(|i: usize| (i.wrapping_mul(73).wrapping_add(19)) as u8).collect();
+            let right = (0..64 * 64).map(|i: usize| (i.wrapping_mul(31).wrapping_add(237)) as u8).collect();
+            (format!("{width}x{height}"), Input { width, height, left, right })
+        })
+        .collect::<Vec<_>>();
+
+    let report = Paired::new("craft-distortion SAD portable SIMD vs runtime dispatch")
+        .old(|input: &Input| {
+            (0..256).fold(0u32, |sum, _| {
+                sum.wrapping_add(std::hint::black_box(crate::kernel::sad_portable(&input.left, 64, &input.right, 64, input.width, input.height)))
+            })
+        })
+        .new(|input: &Input| {
+            (0..256).fold(0u32, |sum, _| sum.wrapping_add(std::hint::black_box(sad(&input.left, 64, &input.right, 64, input.width, input.height))))
+        })
+        .inputs(inputs)
+        .equal()
+        .run(&Config {
+            revs: Revs { old: Some(std::env::var("CRAFT_BENCH_BASE_REV")?), new: Some(std::env::var("CRAFT_BENCH_REV")?) },
+            ..Config::default()
+        })?;
+    report.require_publishable()?;
+    let path = std::env::var("CRAFT_DISTORTION_BENCH_OUT")?;
+    std::fs::write(path, report.to_json())?;
+    print!("{}", report.to_markdown());
+    Ok(())
 }

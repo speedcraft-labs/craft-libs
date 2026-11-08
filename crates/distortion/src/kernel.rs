@@ -6,6 +6,8 @@
 //! bands of at most 16 rows. SATD does not use that accumulator, so its geometry check
 //! goes to [`crate::MAX_SIDE`].
 
+#[cfg(target_arch = "x86_64")]
+use pulp::{Arch, Simd, WithSimd};
 use wide::{i16x8, i32x4, u8x16, u16x8};
 
 use crate::MAX_SIDE;
@@ -249,9 +251,7 @@ fn sse_rows(first: &[u8], first_stride: usize, second: &[u8], second_stride: usi
     total
 }
 
-/// Sum of absolute differences. Width and height are `1..=64`.
-#[inline]
-pub fn sad(first: &[u8], first_stride: usize, second: &[u8], second_stride: usize, width: usize, height: usize) -> u32 {
+fn sad_wide(first: &[u8], first_stride: usize, second: &[u8], second_stride: usize, width: usize, height: usize) -> u32 {
     if (1..=16).contains(&height) {
         match width {
             4 => return sad_n::<4>(first, first_stride, second, second_stride, height),
@@ -261,6 +261,106 @@ pub fn sad(first: &[u8], first_stride: usize, second: &[u8], second_stride: usiz
         }
     }
     sad_rows(first, first_stride, second, second_stride, width, height)
+}
+
+#[inline]
+#[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+pub(crate) fn sad_scalar(first: &[u8], first_stride: usize, second: &[u8], second_stride: usize, width: usize, height: usize) -> u32 {
+    if !fits(first, first_stride, width, height) || !fits(second, second_stride, width, height) {
+        return u32::MAX;
+    }
+    let mut total = 0u32;
+    for row in 0..height {
+        let left = &first[row * first_stride..][..width];
+        let right = &second[row * second_stride..][..width];
+        for (&a, &b) in left.iter().zip(right) {
+            total += u32::from(a.abs_diff(b));
+        }
+    }
+    total
+}
+
+#[cfg_attr(target_arch = "x86_64", allow(dead_code))]
+#[inline]
+pub(crate) fn sad_portable(first: &[u8], first_stride: usize, second: &[u8], second_stride: usize, width: usize, height: usize) -> u32 {
+    if !fits(first, first_stride, width, height) || !fits(second, second_stride, width, height) {
+        return u32::MAX;
+    }
+    sad_wide(first, first_stride, second, second_stride, width, height)
+}
+
+#[cfg(target_arch = "x86_64")]
+const SAD_DISPATCH_MIN_WIDTH: usize = 32;
+
+#[cfg(target_arch = "x86_64")]
+struct SadDispatch<'a> {
+    first: &'a [u8],
+    first_stride: usize,
+    second: &'a [u8],
+    second_stride: usize,
+    width: usize,
+    height: usize,
+}
+
+#[cfg(target_arch = "x86_64")]
+impl WithSimd for SadDispatch<'_> {
+    type Output = u32;
+
+    #[inline(always)]
+    fn with_simd<S: Simd>(self, simd: S) -> Self::Output {
+        if S::IS_SCALAR {
+            return sad_scalar(self.first, self.first_stride, self.second, self.second_stride, self.width, self.height);
+        }
+        if self.width < S::U8_LANES {
+            return sad_wide(self.first, self.first_stride, self.second, self.second_stride, self.width, self.height);
+        }
+
+        let mut total = 0u32;
+        for row in 0..self.height {
+            let first_row = &self.first[row * self.first_stride..][..self.width];
+            let second_row = &self.second[row * self.second_stride..][..self.width];
+            let (first_vectors, first_tail) = S::as_simd_u8s(first_row);
+            let (second_vectors, second_tail) = S::as_simd_u8s(second_row);
+            for (left, right) in first_vectors.iter().zip(second_vectors) {
+                let delta = simd.sub_u8s(simd.max_u8s(*left, *right), simd.min_u8s(*left, *right));
+                let lanes: &[u8] = pulp::bytemuck::cast_slice(std::slice::from_ref(&delta));
+                total += lanes.iter().map(|value| u32::from(*value)).sum::<u32>();
+            }
+            total += first_tail.iter().zip(second_tail).map(|(left, right)| u32::from(left.abs_diff(*right))).sum::<u32>();
+        }
+        total
+    }
+}
+
+/// Sum of absolute differences. Runtime dispatch uses AVX2 on supported x86 CPUs; scalar-only
+/// x86 hosts use the scalar kernel. Other targets keep the existing portable implementation.
+#[cfg(target_arch = "x86_64")]
+#[inline]
+pub fn sad(first: &[u8], first_stride: usize, second: &[u8], second_stride: usize, width: usize, height: usize) -> u32 {
+    if !fits(first, first_stride, width, height) || !fits(second, second_stride, width, height) {
+        return u32::MAX;
+    }
+    // Tiny and sub-vector blocks stay on the compact 128-bit implementation; dispatch overhead
+    // erased the gain there in the paired per-shape runs.
+    if width < SAD_DISPATCH_MIN_WIDTH {
+        return sad_wide(first, first_stride, second, second_stride, width, height);
+    }
+    static ARCH: std::sync::OnceLock<Arch> = std::sync::OnceLock::new();
+    ARCH.get_or_init(Arch::new).dispatch(SadDispatch { first, first_stride, second, second_stride, width, height })
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+#[inline]
+pub fn sad(first: &[u8], first_stride: usize, second: &[u8], second_stride: usize, width: usize, height: usize) -> u32 {
+    sad_portable(first, first_stride, second, second_stride, width, height)
+}
+
+#[cfg(all(test, target_arch = "x86_64"))]
+pub(crate) fn sad_scalar_dispatch(first: &[u8], first_stride: usize, second: &[u8], second_stride: usize, width: usize, height: usize) -> u32 {
+    if !fits(first, first_stride, width, height) || !fits(second, second_stride, width, height) {
+        return u32::MAX;
+    }
+    Arch::Scalar.dispatch(SadDispatch { first, first_stride, second, second_stride, width, height })
 }
 
 /// SAD of an 8-wide block. `height` may be any value in `1..=64`.

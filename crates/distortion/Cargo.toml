@@ -17,3 +17,9 @@ simd128 = []
 
 [dependencies]
 wide = { workspace = true }
+
+[dev-dependencies]
+craft-bench.workspace = true
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+pulp = { version = "0.22.3", default-features = false, features = ["std", "x86-v3"] }
