@@ -109,7 +109,17 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
         .replace("{target_dir}", &target_dir(app, rev, app_rev).to_string_lossy());
     let program = rendered_program;
     let mut cmd = Command::new(program);
-    cmd.current_dir(cwd)
+    // EffectCraft's generated operations are self-contained. Keep their working directory
+    // stable across app revisions instead of inheriting each revision's isolated worktree.
+    let run_cwd = if matches!(spec.output, OutputProtocol::EffectcraftOps) {
+        std::env::var_os("ARTCRAFT_HYPER_ROOT")
+            .map(PathBuf::from)
+            .or_else(|| std::env::current_dir().ok())
+            .unwrap_or_else(|| cwd.to_path_buf())
+    } else {
+        cwd.to_path_buf()
+    };
+    cmd.current_dir(run_cwd)
         .env("CRAFT_JOURNEY_REV", rev)
         .env("ARTCRAFT_CORPUS", corpus_root())
         .env("CARGO_TARGET_DIR", target_dir(app, rev, app_rev))
