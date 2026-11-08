@@ -1,5 +1,8 @@
 #![no_std]
-use spirv_std::spirv;
+use spirv_std::{
+    glam::{UVec3, Vec4},
+    spirv,
+};
 
 /// Per-pixel kernel shared by the GPU entry point and the CPU execution path.
 #[inline]
@@ -20,12 +23,12 @@ pub struct Params {
 /// `size` is selected by the host: 512 for radius <= 128 and 1024 otherwise.
 #[spirv(compute(threads(256)))]
 pub fn box_h_scan(
-    #[spirv(workgroup_id)] group_id: spirv_std::glam::UVec3,
+    #[spirv(workgroup_id)] group_id: UVec3,
     #[spirv(local_invocation_index)] lane: u32,
     #[spirv(uniform, descriptor_set = 0, binding = 0)] params: &Params,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] src: &[f32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] dst: &mut [f32],
-    #[spirv(workgroup)] scan: &mut [f32; 3072],
+    #[spirv(workgroup)] scan: &mut [Vec4; 1024],
 ) {
     let w = params.width;
     let nc = params.channels;
@@ -39,11 +42,22 @@ pub fn box_h_scan(
     while item < size {
         let x = (start + item as i32).clamp(0, last) as u32;
         let pixel = (row + x) * nc;
+        let mut value = Vec4::ZERO;
         let mut channel = 0;
-        while channel < 3 {
-            scan[(item * 3 + channel) as usize] = if channel < nc { src[(pixel + channel) as usize] } else { 0.0 };
+        while channel < nc {
+            let sample = src[(pixel + channel) as usize];
+            if channel == 0 {
+                value.x = sample;
+            }
+            if channel == 1 {
+                value.y = sample;
+            }
+            if channel == 2 {
+                value.z = sample;
+            }
             channel += 1;
         }
+        scan[item as usize] = value;
         item += 256;
     }
     spirv_std::arch::workgroup_memory_barrier_with_group_sync();
@@ -55,24 +69,14 @@ pub fn box_h_scan(
         while i < count {
             let right = (i + 1) * 2 * stride - 1;
             let left = right - stride;
-            let mut channel = 0;
-            while channel < 3 {
-                let a = (right * 3 + channel) as usize;
-                let b = (left * 3 + channel) as usize;
-                scan[a] += scan[b];
-                channel += 1;
-            }
+            scan[right as usize] = scan[right as usize] + scan[left as usize];
             i += 256;
         }
         spirv_std::arch::workgroup_memory_barrier_with_group_sync();
         stride *= 2;
     }
     if lane == 0 {
-        let mut channel = 0;
-        while channel < 3 {
-            scan[((size - 1) * 3 + channel) as usize] = 0.0;
-            channel += 1;
-        }
+        scan[(size - 1) as usize] = Vec4::ZERO;
     }
     spirv_std::arch::workgroup_memory_barrier_with_group_sync();
 
@@ -83,15 +87,9 @@ pub fn box_h_scan(
         while i < count {
             let right = (i + 1) * 2 * stride - 1;
             let left = right - stride;
-            let mut channel = 0;
-            while channel < 3 {
-                let a = (left * 3 + channel) as usize;
-                let b = (right * 3 + channel) as usize;
-                let value = scan[a];
-                scan[a] = scan[b];
-                scan[b] += value;
-                channel += 1;
-            }
+            let value = scan[left as usize];
+            scan[left as usize] = scan[right as usize];
+            scan[right as usize] = scan[right as usize] + value;
             i += 256;
         }
         spirv_std::arch::workgroup_memory_barrier_with_group_sync();
@@ -108,13 +106,30 @@ pub fn box_h_scan(
         let endpoint_x = (start + hi as i32).clamp(0, last) as u32;
         let endpoint_pixel = (row + endpoint_x) * nc;
         let out_pixel = (row + x) * nc;
+        let prefix_lo = scan[lo as usize];
+        let prefix_hi = scan[hi as usize];
+        let mut endpoint = Vec4::ZERO;
         let mut channel = 0;
         while channel < nc {
-            let prefix_lo = scan[(lo * 3 + channel) as usize];
-            let prefix_hi = scan[(hi * 3 + channel) as usize];
-            let endpoint = src[(endpoint_pixel + channel) as usize];
-            dst[(out_pixel + channel) as usize] = box_blur_pixel(prefix_lo, prefix_hi, endpoint, 2 * r + 1);
+            let sample = src[(endpoint_pixel + channel) as usize];
+            if channel == 0 {
+                endpoint.x = sample;
+            }
+            if channel == 1 {
+                endpoint.y = sample;
+            }
+            if channel == 2 {
+                endpoint.z = sample;
+            }
             channel += 1;
+        }
+        let window = 2 * r + 1;
+        dst[out_pixel as usize] = box_blur_pixel(prefix_lo.x, prefix_hi.x, endpoint.x, window);
+        if nc > 1 {
+            dst[(out_pixel + 1) as usize] = box_blur_pixel(prefix_lo.y, prefix_hi.y, endpoint.y, window);
+        }
+        if nc > 2 {
+            dst[(out_pixel + 2) as usize] = box_blur_pixel(prefix_lo.z, prefix_hi.z, endpoint.z, window);
         }
     }
 }
