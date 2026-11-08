@@ -129,6 +129,12 @@ impl<T> JobHandle<T> {
     }
 }
 
+impl<T> Drop for JobHandle<T> {
+    fn drop(&mut self) {
+        self.token.cancel();
+    }
+}
+
 type Work = Box<dyn FnOnce() + Send + 'static>;
 
 struct Queued {
