@@ -1,0 +1,994 @@
+{
+  "schema_version": 1,
+  "name": "lightcraft box blur r=128 on AdapterInfo { name: \"NVIDIA GeForce RTX 2080 Ti\", vendor: 4318, device: 7687, device_type: DiscreteGpu, device_pci_bus_id: \"0000:01:00.0\", driver: \"NVIDIA\", driver_info: \"550.163.01\", backend: Vulkan, subgroup_min_size: 32, subgroup_max_size: 32, transient_saves_memory: Some(false), limit_bucket: None }",
+  "revs": {
+    "old": "80a4d6d3baeb05dd0d446f001b3ac9b7188f612a",
+    "new": "38352190932e8d0cd8048d0818f1c2c0ee90defc"
+  },
+  "fingerprint": {
+    "os": "linux",
+    "arch": "x86_64",
+    "kernel": "Linux 6.12.115+deb13.1-cloud-amd64",
+    "cpu_model": "AMD Ryzen 9 5900XT 16-Core Processor",
+    "logical_cores": 6,
+    "isolation_mode": true,
+    "allowed_cpu_list": "22-27",
+    "physical_cores": 28,
+    "ram_bytes": 92724637696,
+    "rustc": "rustc 1.99.0-nightly (d453bdd8f 2026-08-14)",
+    "profile": "release",
+    "opt_level": "3",
+    "debug_assertions": false,
+    "date": "2026-11-08T08:23:50+00:00"
+  },
+  "config": {
+    "requested_repetitions": 10,
+    "runs_per_side": 10,
+    "warmup_runs": 2,
+    "resamples": 2000,
+    "seed": 12648430,
+    "output_checked": true,
+    "cpu_time": "process"
+  },
+  "guard": {
+    "contended": false,
+    "reasons": [],
+    "load_before": 0.26977770259793354,
+    "load_after": 0.2115211521152115,
+    "logical_cores": 6,
+    "max_load_per_core": 0.5,
+    "load_threshold": 3.0,
+    "throttle_before": {
+      "speed_limit_pct": null,
+      "throttle_count": null
+    },
+    "throttle_after": {
+      "speed_limit_pct": null,
+      "throttle_count": null
+    }
+  },
+  "contended": false,
+  "publishable": true,
+  "inputs": [
+    {
+      "name": "pngsuite/basn6a08.png",
+      "wall": {
+        "old": {
+          "n": 10,
+          "median_ns": 177101.0,
+          "mad_ns": 30342.5,
+          "min_ns": 133293.0,
+          "max_ns": 261645.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 173057.0,
+          "mad_ns": 26314.0,
+          "min_ns": 142180.0,
+          "max_ns": 252819.0
+        },
+        "ratio": {
+          "point": 0.9771655721876218,
+          "ci_lo": 0.7446708686792095,
+          "ci_hi": 1.2251453924831013
+        }
+      },
+      "cpu": {
+        "old": {
+          "n": 10,
+          "median_ns": 80035.5,
+          "mad_ns": 8316.0,
+          "min_ns": 64500.0,
+          "max_ns": 258766.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 78507.0,
+          "mad_ns": 8827.5,
+          "min_ns": 66394.0,
+          "max_ns": 118421.0
+        },
+        "ratio": {
+          "point": 0.980902224637817,
+          "ci_lo": 0.6432666479010176,
+          "ci_hi": 1.3171712601641343
+        }
+      }
+    },
+    {
+      "name": "pngsuite/basn2c16.png",
+      "wall": {
+        "old": {
+          "n": 10,
+          "median_ns": 170428.0,
+          "mad_ns": 31951.0,
+          "min_ns": 133913.0,
+          "max_ns": 307322.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 179199.0,
+          "mad_ns": 34780.0,
+          "min_ns": 137641.0,
+          "max_ns": 456494.0
+        },
+        "ratio": {
+          "point": 1.0514645480789542,
+          "ci_lo": 0.6152385231689688,
+          "ci_hi": 1.7693508230834976
+        }
+      },
+      "cpu": {
+        "old": {
+          "n": 10,
+          "median_ns": 82559.5,
+          "mad_ns": 10779.5,
+          "min_ns": 65754.0,
+          "max_ns": 122720.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 94357.5,
+          "mad_ns": 18440.5,
+          "min_ns": 63449.0,
+          "max_ns": 175339.0
+        },
+        "ratio": {
+          "point": 1.142902997232299,
+          "ci_lo": 0.784264741082411,
+          "ci_hi": 1.9548580900879113
+        }
+      }
+    },
+    {
+      "name": "pngsuite/basn0g08.png",
+      "wall": {
+        "old": {
+          "n": 10,
+          "median_ns": 158054.5,
+          "mad_ns": 12413.5,
+          "min_ns": 141719.0,
+          "max_ns": 254362.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 156716.5,
+          "mad_ns": 1813.0,
+          "min_ns": 144674.0,
+          "max_ns": 588345.0
+        },
+        "ratio": {
+          "point": 0.9915345656086982,
+          "ci_lo": 0.8299502399216248,
+          "ci_hi": 1.203775546341275
+        }
+      },
+      "cpu": {
+        "old": {
+          "n": 10,
+          "median_ns": 73944.5,
+          "mad_ns": 4860.5,
+          "min_ns": 65664.0,
+          "max_ns": 238688.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 73948.0,
+          "mad_ns": 1667.5,
+          "min_ns": 63880.0,
+          "max_ns": 456306.0
+        },
+        "ratio": {
+          "point": 1.000047332796895,
+          "ci_lo": 0.7122048788890909,
+          "ci_hi": 1.079544721044818
+        }
+      }
+    },
+    {
+      "name": "pngsuite/basn4a08.png",
+      "wall": {
+        "old": {
+          "n": 10,
+          "median_ns": 171936.5,
+          "mad_ns": 19477.5,
+          "min_ns": 144013.0,
+          "max_ns": 260564.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 161401.0,
+          "mad_ns": 9558.0,
+          "min_ns": 151528.0,
+          "max_ns": 301983.0
+        },
+        "ratio": {
+          "point": 0.938724470952939,
+          "ci_lo": 0.8120666538501591,
+          "ci_hi": 1.5521776935089409
+        }
+      },
+      "cpu": {
+        "old": {
+          "n": 10,
+          "median_ns": 84078.0,
+          "mad_ns": 6106.0,
+          "min_ns": 68138.0,
+          "max_ns": 91452.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 75151.0,
+          "mad_ns": 5600.0,
+          "min_ns": 66565.0,
+          "max_ns": 161522.0
+        },
+        "ratio": {
+          "point": 0.8938247817502795,
+          "ci_lo": 0.8110775747348392,
+          "ci_hi": 1.0966231717809005
+        }
+      }
+    },
+    {
+      "name": "synthetic-24mp-r128",
+      "wall": {
+        "old": {
+          "n": 10,
+          "median_ns": 13665714.5,
+          "mad_ns": 102694.0,
+          "min_ns": 6013203.0,
+          "max_ns": 15858874.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 12341165.5,
+          "mad_ns": 45386.5,
+          "min_ns": 5328304.0,
+          "max_ns": 12406304.0
+        },
+        "ratio": {
+          "point": 0.9030750276540608,
+          "ci_lo": 0.6529333230540334,
+          "ci_hi": 1.2484714702080082
+        }
+      },
+      "cpu": {
+        "old": {
+          "n": 10,
+          "median_ns": 775493.5,
+          "mad_ns": 66479.0,
+          "min_ns": 358583.0,
+          "max_ns": 944950.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 668074.0,
+          "mad_ns": 43978.5,
+          "min_ns": 388638.0,
+          "max_ns": 842791.0
+        },
+        "ratio": {
+          "point": 0.8614823979827039,
+          "ci_lo": 0.6762423216537755,
+          "ci_hi": 1.0874330257449156
+        }
+      }
+    }
+  ],
+  "aggregate": {
+    "inputs": 5,
+    "wall": {
+      "point": 0.9711057475745237,
+      "ci_lo": 0.8551961460149488,
+      "ci_hi": 1.15384262993978
+    },
+    "cpu": {
+      "point": 0.9710260686774549,
+      "ci_lo": 0.8532521177993923,
+      "ci_hi": 1.1066929739308236
+    }
+  },
+  "runs": [
+    {
+      "order": 0,
+      "input": "pngsuite/basn2c16.png",
+      "side": "new",
+      "wall_ns": 353090,
+      "cpu_ns": 163497
+    },
+    {
+      "order": 1,
+      "input": "pngsuite/basn2c16.png",
+      "side": "old",
+      "wall_ns": 299718,
+      "cpu_ns": 117699
+    },
+    {
+      "order": 2,
+      "input": "pngsuite/basn2c16.png",
+      "side": "old",
+      "wall_ns": 307322,
+      "cpu_ns": 109435
+    },
+    {
+      "order": 3,
+      "input": "pngsuite/basn2c16.png",
+      "side": "new",
+      "wall_ns": 456494,
+      "cpu_ns": 109817
+    },
+    {
+      "order": 4,
+      "input": "synthetic-24mp-r128",
+      "side": "old",
+      "wall_ns": 15858874,
+      "cpu_ns": 701206
+    },
+    {
+      "order": 5,
+      "input": "synthetic-24mp-r128",
+      "side": "new",
+      "wall_ns": 12406304,
+      "cpu_ns": 842791
+    },
+    {
+      "order": 6,
+      "input": "synthetic-24mp-r128",
+      "side": "new",
+      "wall_ns": 12357942,
+      "cpu_ns": 679525
+    },
+    {
+      "order": 7,
+      "input": "synthetic-24mp-r128",
+      "side": "old",
+      "wall_ns": 13688774,
+      "cpu_ns": 781265
+    },
+    {
+      "order": 8,
+      "input": "pngsuite/basn4a08.png",
+      "side": "new",
+      "wall_ns": 266876,
+      "cpu_ns": 161522
+    },
+    {
+      "order": 9,
+      "input": "pngsuite/basn4a08.png",
+      "side": "old",
+      "wall_ns": 179631,
+      "cpu_ns": 84670
+    },
+    {
+      "order": 10,
+      "input": "pngsuite/basn4a08.png",
+      "side": "old",
+      "wall_ns": 182476,
+      "cpu_ns": 91452
+    },
+    {
+      "order": 11,
+      "input": "pngsuite/basn4a08.png",
+      "side": "new",
+      "wall_ns": 165504,
+      "cpu_ns": 77735
+    },
+    {
+      "order": 12,
+      "input": "pngsuite/basn2c16.png",
+      "side": "new",
+      "wall_ns": 173979,
+      "cpu_ns": 81153
+    },
+    {
+      "order": 13,
+      "input": "pngsuite/basn2c16.png",
+      "side": "old",
+      "wall_ns": 171325,
+      "cpu_ns": 89307
+    },
+    {
+      "order": 14,
+      "input": "pngsuite/basn2c16.png",
+      "side": "old",
+      "wall_ns": 223884,
+      "cpu_ns": 122720
+    },
+    {
+      "order": 15,
+      "input": "pngsuite/basn2c16.png",
+      "side": "new",
+      "wall_ns": 285690,
+      "cpu_ns": 175339
+    },
+    {
+      "order": 16,
+      "input": "synthetic-24mp-r128",
+      "side": "new",
+      "wall_ns": 12280294,
+      "cpu_ns": 564097
+    },
+    {
+      "order": 17,
+      "input": "synthetic-24mp-r128",
+      "side": "old",
+      "wall_ns": 13784664,
+      "cpu_ns": 944950
+    },
+    {
+      "order": 18,
+      "input": "synthetic-24mp-r128",
+      "side": "old",
+      "wall_ns": 13699914,
+      "cpu_ns": 857417
+    },
+    {
+      "order": 19,
+      "input": "synthetic-24mp-r128",
+      "side": "new",
+      "wall_ns": 12371067,
+      "cpu_ns": 675568
+    },
+    {
+      "order": 20,
+      "input": "pngsuite/basn6a08.png",
+      "side": "old",
+      "wall_ns": 261645,
+      "cpu_ns": 169437
+    },
+    {
+      "order": 21,
+      "input": "pngsuite/basn6a08.png",
+      "side": "new",
+      "wall_ns": 181433,
+      "cpu_ns": 82164
+    },
+    {
+      "order": 22,
+      "input": "pngsuite/basn6a08.png",
+      "side": "new",
+      "wall_ns": 199918,
+      "cpu_ns": 118421
+    },
+    {
+      "order": 23,
+      "input": "pngsuite/basn6a08.png",
+      "side": "old",
+      "wall_ns": 174411,
+      "cpu_ns": 80502
+    },
+    {
+      "order": 24,
+      "input": "pngsuite/basn6a08.png",
+      "side": "new",
+      "wall_ns": 161907,
+      "cpu_ns": 70681
+    },
+    {
+      "order": 25,
+      "input": "pngsuite/basn6a08.png",
+      "side": "old",
+      "wall_ns": 170122,
+      "cpu_ns": 88787
+    },
+    {
+      "order": 26,
+      "input": "pngsuite/basn6a08.png",
+      "side": "old",
+      "wall_ns": 150325,
+      "cpu_ns": 72957
+    },
+    {
+      "order": 27,
+      "input": "pngsuite/basn6a08.png",
+      "side": "new",
+      "wall_ns": 152359,
+      "cpu_ns": 104806
+    },
+    {
+      "order": 28,
+      "input": "pngsuite/basn0g08.png",
+      "side": "old",
+      "wall_ns": 154703,
+      "cpu_ns": 72166
+    },
+    {
+      "order": 29,
+      "input": "pngsuite/basn0g08.png",
+      "side": "new",
+      "wall_ns": 157458,
+      "cpu_ns": 74550
+    },
+    {
+      "order": 30,
+      "input": "pngsuite/basn0g08.png",
+      "side": "new",
+      "wall_ns": 156506,
+      "cpu_ns": 73147
+    },
+    {
+      "order": 31,
+      "input": "pngsuite/basn0g08.png",
+      "side": "old",
+      "wall_ns": 161406,
+      "cpu_ns": 77695
+    },
+    {
+      "order": 32,
+      "input": "pngsuite/basn2c16.png",
+      "side": "new",
+      "wall_ns": 161738,
+      "cpu_ns": 77364
+    },
+    {
+      "order": 33,
+      "input": "pngsuite/basn2c16.png",
+      "side": "old",
+      "wall_ns": 161466,
+      "cpu_ns": 85109
+    },
+    {
+      "order": 34,
+      "input": "pngsuite/basn2c16.png",
+      "side": "old",
+      "wall_ns": 143041,
+      "cpu_ns": 69030
+    },
+    {
+      "order": 35,
+      "input": "pngsuite/basn2c16.png",
+      "side": "new",
+      "wall_ns": 170011,
+      "cpu_ns": 76623
+    },
+    {
+      "order": 36,
+      "input": "pngsuite/basn0g08.png",
+      "side": "new",
+      "wall_ns": 156927,
+      "cpu_ns": 75972
+    },
+    {
+      "order": 37,
+      "input": "pngsuite/basn0g08.png",
+      "side": "old",
+      "wall_ns": 146167,
+      "cpu_ns": 238688
+    },
+    {
+      "order": 38,
+      "input": "pngsuite/basn0g08.png",
+      "side": "old",
+      "wall_ns": 163300,
+      "cpu_ns": 70312
+    },
+    {
+      "order": 39,
+      "input": "pngsuite/basn0g08.png",
+      "side": "new",
+      "wall_ns": 144674,
+      "cpu_ns": 63989
+    },
+    {
+      "order": 40,
+      "input": "pngsuite/basn4a08.png",
+      "side": "new",
+      "wall_ns": 174640,
+      "cpu_ns": 80681
+    },
+    {
+      "order": 41,
+      "input": "pngsuite/basn4a08.png",
+      "side": "old",
+      "wall_ns": 177627,
+      "cpu_ns": 87223
+    },
+    {
+      "order": 42,
+      "input": "pngsuite/basn4a08.png",
+      "side": "old",
+      "wall_ns": 147530,
+      "cpu_ns": 68138
+    },
+    {
+      "order": 43,
+      "input": "pngsuite/basn4a08.png",
+      "side": "new",
+      "wall_ns": 157298,
+      "cpu_ns": 69481
+    },
+    {
+      "order": 44,
+      "input": "pngsuite/basn4a08.png",
+      "side": "old",
+      "wall_ns": 148532,
+      "cpu_ns": 69740
+    },
+    {
+      "order": 45,
+      "input": "pngsuite/basn4a08.png",
+      "side": "new",
+      "wall_ns": 151528,
+      "cpu_ns": 66955
+    },
+    {
+      "order": 46,
+      "input": "pngsuite/basn4a08.png",
+      "side": "new",
+      "wall_ns": 152158,
+      "cpu_ns": 66565
+    },
+    {
+      "order": 47,
+      "input": "pngsuite/basn4a08.png",
+      "side": "old",
+      "wall_ns": 156386,
+      "cpu_ns": 82113
+    },
+    {
+      "order": 48,
+      "input": "pngsuite/basn0g08.png",
+      "side": "old",
+      "wall_ns": 168800,
+      "cpu_ns": 91531
+    },
+    {
+      "order": 49,
+      "input": "pngsuite/basn0g08.png",
+      "side": "new",
+      "wall_ns": 155154,
+      "cpu_ns": 72637
+    },
+    {
+      "order": 50,
+      "input": "pngsuite/basn0g08.png",
+      "side": "new",
+      "wall_ns": 154653,
+      "cpu_ns": 73477
+    },
+    {
+      "order": 51,
+      "input": "pngsuite/basn0g08.png",
+      "side": "old",
+      "wall_ns": 145115,
+      "cpu_ns": 69119
+    },
+    {
+      "order": 52,
+      "input": "pngsuite/basn0g08.png",
+      "side": "new",
+      "wall_ns": 146328,
+      "cpu_ns": 63880
+    },
+    {
+      "order": 53,
+      "input": "pngsuite/basn0g08.png",
+      "side": "old",
+      "wall_ns": 141719,
+      "cpu_ns": 65664
+    },
+    {
+      "order": 54,
+      "input": "pngsuite/basn0g08.png",
+      "side": "old",
+      "wall_ns": 143761,
+      "cpu_ns": 69049
+    },
+    {
+      "order": 55,
+      "input": "pngsuite/basn0g08.png",
+      "side": "new",
+      "wall_ns": 157288,
+      "cpu_ns": 78517
+    },
+    {
+      "order": 56,
+      "input": "pngsuite/basn4a08.png",
+      "side": "old",
+      "wall_ns": 144013,
+      "cpu_ns": 71183
+    },
+    {
+      "order": 57,
+      "input": "pngsuite/basn4a08.png",
+      "side": "new",
+      "wall_ns": 154523,
+      "cpu_ns": 75080
+    },
+    {
+      "order": 58,
+      "input": "pngsuite/basn4a08.png",
+      "side": "new",
+      "wall_ns": 153020,
+      "cpu_ns": 73748
+    },
+    {
+      "order": 59,
+      "input": "pngsuite/basn4a08.png",
+      "side": "old",
+      "wall_ns": 166246,
+      "cpu_ns": 89368
+    },
+    {
+      "order": 60,
+      "input": "synthetic-24mp-r128",
+      "side": "old",
+      "wall_ns": 13579276,
+      "cpu_ns": 769722
+    },
+    {
+      "order": 61,
+      "input": "synthetic-24mp-r128",
+      "side": "new",
+      "wall_ns": 12353803,
+      "cpu_ns": 734347
+    },
+    {
+      "order": 62,
+      "input": "synthetic-24mp-r128",
+      "side": "new",
+      "wall_ns": 12329839,
+      "cpu_ns": 646390
+    },
+    {
+      "order": 63,
+      "input": "synthetic-24mp-r128",
+      "side": "old",
+      "wall_ns": 13672772,
+      "cpu_ns": 832442
+    },
+    {
+      "order": 64,
+      "input": "pngsuite/basn2c16.png",
+      "side": "new",
+      "wall_ns": 254491,
+      "cpu_ns": 159228
+    },
+    {
+      "order": 65,
+      "input": "pngsuite/basn2c16.png",
+      "side": "old",
+      "wall_ns": 169531,
+      "cpu_ns": 80010
+    },
+    {
+      "order": 66,
+      "input": "pngsuite/basn2c16.png",
+      "side": "old",
+      "wall_ns": 149643,
+      "cpu_ns": 74530
+    },
+    {
+      "order": 67,
+      "input": "pngsuite/basn2c16.png",
+      "side": "new",
+      "wall_ns": 184419,
+      "cpu_ns": 107562
+    },
+    {
+      "order": 68,
+      "input": "pngsuite/basn6a08.png",
+      "side": "old",
+      "wall_ns": 156236,
+      "cpu_ns": 79569
+    },
+    {
+      "order": 69,
+      "input": "pngsuite/basn6a08.png",
+      "side": "new",
+      "wall_ns": 147290,
+      "cpu_ns": 68678
+    },
+    {
+      "order": 70,
+      "input": "pngsuite/basn6a08.png",
+      "side": "new",
+      "wall_ns": 142180,
+      "cpu_ns": 66394
+    },
+    {
+      "order": 71,
+      "input": "pngsuite/basn6a08.png",
+      "side": "old",
+      "wall_ns": 133293,
+      "cpu_ns": 64500
+    },
+    {
+      "order": 72,
+      "input": "pngsuite/basn2c16.png",
+      "side": "old",
+      "wall_ns": 133913,
+      "cpu_ns": 65754
+    },
+    {
+      "order": 73,
+      "input": "pngsuite/basn2c16.png",
+      "side": "new",
+      "wall_ns": 137641,
+      "cpu_ns": 63449
+    },
+    {
+      "order": 74,
+      "input": "pngsuite/basn2c16.png",
+      "side": "new",
+      "wall_ns": 151197,
+      "cpu_ns": 75211
+    },
+    {
+      "order": 75,
+      "input": "pngsuite/basn2c16.png",
+      "side": "old",
+      "wall_ns": 302453,
+      "cpu_ns": 78807
+    },
+    {
+      "order": 76,
+      "input": "pngsuite/basn6a08.png",
+      "side": "new",
+      "wall_ns": 206391,
+      "cpu_ns": 113773
+    },
+    {
+      "order": 77,
+      "input": "pngsuite/basn6a08.png",
+      "side": "old",
+      "wall_ns": 216450,
+      "cpu_ns": 90049
+    },
+    {
+      "order": 78,
+      "input": "pngsuite/basn6a08.png",
+      "side": "old",
+      "wall_ns": 179791,
+      "cpu_ns": 258766
+    },
+    {
+      "order": 79,
+      "input": "pngsuite/basn6a08.png",
+      "side": "new",
+      "wall_ns": 164681,
+      "cpu_ns": 85391
+    },
+    {
+      "order": 80,
+      "input": "pngsuite/basn0g08.png",
+      "side": "new",
+      "wall_ns": 588345,
+      "cpu_ns": 456306
+    },
+    {
+      "order": 81,
+      "input": "pngsuite/basn0g08.png",
+      "side": "old",
+      "wall_ns": 254362,
+      "cpu_ns": 131287
+    },
+    {
+      "order": 82,
+      "input": "pngsuite/basn0g08.png",
+      "side": "old",
+      "wall_ns": 216239,
+      "cpu_ns": 75723
+    },
+    {
+      "order": 83,
+      "input": "pngsuite/basn0g08.png",
+      "side": "new",
+      "wall_ns": 231749,
+      "cpu_ns": 74419
+    },
+    {
+      "order": 84,
+      "input": "pngsuite/basn6a08.png",
+      "side": "old",
+      "wall_ns": 214286,
+      "cpu_ns": 74610
+    },
+    {
+      "order": 85,
+      "input": "pngsuite/basn6a08.png",
+      "side": "new",
+      "wall_ns": 252819,
+      "cpu_ns": 74850
+    },
+    {
+      "order": 86,
+      "input": "pngsuite/basn6a08.png",
+      "side": "new",
+      "wall_ns": 218894,
+      "cpu_ns": 72817
+    },
+    {
+      "order": 87,
+      "input": "pngsuite/basn6a08.png",
+      "side": "old",
+      "wall_ns": 211010,
+      "cpu_ns": 72155
+    },
+    {
+      "order": 88,
+      "input": "pngsuite/basn4a08.png",
+      "side": "old",
+      "wall_ns": 229935,
+      "cpu_ns": 91000
+    },
+    {
+      "order": 89,
+      "input": "pngsuite/basn4a08.png",
+      "side": "new",
+      "wall_ns": 284579,
+      "cpu_ns": 75222
+    },
+    {
+      "order": 90,
+      "input": "pngsuite/basn4a08.png",
+      "side": "new",
+      "wall_ns": 301983,
+      "cpu_ns": 106059
+    },
+    {
+      "order": 91,
+      "input": "pngsuite/basn4a08.png",
+      "side": "old",
+      "wall_ns": 260564,
+      "cpu_ns": 83486
+    },
+    {
+      "order": 92,
+      "input": "synthetic-24mp-r128",
+      "side": "old",
+      "wall_ns": 13658657,
+      "cpu_ns": 738966
+    },
+    {
+      "order": 93,
+      "input": "synthetic-24mp-r128",
+      "side": "new",
+      "wall_ns": 12352492,
+      "cpu_ns": 666291
+    },
+    {
+      "order": 94,
+      "input": "synthetic-24mp-r128",
+      "side": "new",
+      "wall_ns": 12271007,
+      "cpu_ns": 669857
+    },
+    {
+      "order": 95,
+      "input": "synthetic-24mp-r128",
+      "side": "old",
+      "wall_ns": 11364610,
+      "cpu_ns": 834164
+    },
+    {
+      "order": 96,
+      "input": "synthetic-24mp-r128",
+      "side": "old",
+      "wall_ns": 6013203,
+      "cpu_ns": 358583
+    },
+    {
+      "order": 97,
+      "input": "synthetic-24mp-r128",
+      "side": "new",
+      "wall_ns": 5328304,
+      "cpu_ns": 388638
+    },
+    {
+      "order": 98,
+      "input": "synthetic-24mp-r128",
+      "side": "new",
+      "wall_ns": 5522923,
+      "cpu_ns": 435708
+    },
+    {
+      "order": 99,
+      "input": "synthetic-24mp-r128",
+      "side": "old",
+      "wall_ns": 6209985,
+      "cpu_ns": 459051
+    }
+  ]
+}

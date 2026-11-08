@@ -1,0 +1,31 @@
+[package]
+name = "craft-gpu-blur"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+build = "build.rs"
+
+[features]
+default = []
+spirv = ["dep:spirv-builder", "dep:naga"]
+gpu-runner = ["spirv", "dep:wgpu", "dep:craft-bench", "dep:png", "dep:pollster"]
+
+[build-dependencies]
+spirv-builder = { version = "=0.11.0", optional = true }
+naga = { version = "30", features = ["spv-in", "wgsl-out", "wgsl-in"], optional = true }
+
+[dependencies]
+bytemuck = { workspace = true, features = ["derive"] }
+craft-gpu-blur-shader = { path = "shader" }
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "metal", "vulkan", "dx12", "wgsl", "spirv"], optional = true }
+craft-bench = { workspace = true, optional = true }
+png = { version = "0.18", optional = true }
+pollster = { version = "0.4", optional = true }
+
+[[example]]
+name = "box_blur_pilot"
+required-features = ["gpu-runner"]
+
+[lints]
+workspace = true
