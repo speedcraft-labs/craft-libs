@@ -208,7 +208,7 @@
       "app": "photocraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "photocraft-ui-egui", "--example", "large_image_bench"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "photocraft-ui-egui", "--example", "large_image_bench", "--", "--size", "4096x2731", "--op", "open", "--cpu", "--json", "/tmp/craft-journeys-photocraft.json"], "output": "photocraft-large-image" }
+      "run": { "program": "{target_dir}/release/examples/large_image_bench", "args": ["--size", "4096x2731", "--op", "open", "--cpu", "--json", "/tmp/craft-journeys-photocraft.json"], "output": "photocraft-large-image", "wall_time": "process" }
     },
     {
       "name": "photocraft.layer-opacity-fill-move-styled",
@@ -253,7 +253,7 @@
       "app": "gridcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "gridcraft-engine", "--example", "perf"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "gridcraft-engine", "--example", "perf", "--", "1000"], "output": "gridcraft-perf" }
+      "run": { "program": "{target_dir}/release/examples/perf", "args": ["1000"], "output": "gridcraft-perf" }
     },
     {
       "name": "gridcraft.edit-100k-dependents",
@@ -393,31 +393,10 @@
         ]
       },
       "run": {
-        "program": "cargo",
-        "args": [
-          "run",
-          "--quiet",
-          "--release",
-          "-p",
-          "pdfcraft-engine",
-          "--example",
-          "edit_bench",
-          "--",
-          "form-real",
-          "{input}"
-        ],
-        "cargo_config_overrides": [
-          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
-          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
-          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
-          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
-          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
-          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
-          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
-          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
-          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
-        ],
-        "output": "markers"
+        "program": "{target_dir}/release/examples/edit_bench",
+        "args": ["form-real", "{input}"],
+        "output": "markers",
+        "wall_time": "process"
       },
       "inputs": [
         {
