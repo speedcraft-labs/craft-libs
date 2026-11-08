@@ -187,7 +187,7 @@
       "app": "vectorcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/vectorcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "vectorcraft-cli", "--example", "render_bench", "--features", "gpu-raster"] },
-      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "vectorcraft-cli", "--example", "render_bench", "--features", "gpu-raster", "--", "--paths=50000"] }
+      "run": { "program": "{target_dir}/release/examples/render_bench", "args": ["--paths=50000"] }
     },
     {
       "name": "designcraft.synthetic-performance",
