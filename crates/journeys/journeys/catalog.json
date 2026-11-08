@@ -214,14 +214,16 @@
       "app": "photocraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "photocraft-ui-egui", "--example", "perf_scenarios"] },
-      "run": { "program": "{target_dir}/release/examples/perf_scenarios", "args": ["--group", "layered", "--only", "change opacity / fill / move styled layer + refresh", "--reps", "3"], "env": { "CRAFT_JOURNEY_ROW": "change opacity / fill / move styled layer + refresh", "RAYON_NUM_THREADS": "8", "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" } }
+      "run": { "program": "{target_dir}/release/examples/perf_scenarios", "args": ["--group", "layered", "--only", "change opacity / fill / move styled layer + refresh", "--reps", "3", "--no-composite-reuse"], "env": { "CRAFT_JOURNEY_ROW": "change opacity / fill / move styled layer + refresh", "RAYON_NUM_THREADS": "8", "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" } },
+      "run_head": { "program": "{target_dir}/release/examples/perf_scenarios", "args": ["--group", "layered", "--only", "change opacity / fill / move styled layer + refresh", "--reps", "3"], "env": { "CRAFT_JOURNEY_ROW": "change opacity / fill / move styled layer + refresh", "RAYON_NUM_THREADS": "8", "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" } }
     },
     {
       "name": "photocraft.move-layer-16bit-15000x10000",
       "app": "photocraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "photocraft-ui-egui", "--example", "perf_scenarios"] },
-      "run": { "program": "{target_dir}/release/examples/perf_scenarios", "args": ["--group", "bit depths", "--only", "move layer on 16-bit 15000x10000 + refresh", "--reps", "1"], "env": { "CRAFT_JOURNEY_ROW": "move layer on 16-bit 15000x10000 + refresh", "RAYON_NUM_THREADS": "8", "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" } }
+      "run": { "program": "{target_dir}/release/examples/perf_scenarios", "args": ["--group", "bit depths", "--only", "move layer on 16-bit 15000x10000 + refresh", "--reps", "1", "--no-composite-reuse"], "env": { "CRAFT_JOURNEY_ROW": "move layer on 16-bit 15000x10000 + refresh", "RAYON_NUM_THREADS": "8", "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" } },
+      "run_head": { "program": "{target_dir}/release/examples/perf_scenarios", "args": ["--group", "bit depths", "--only", "move layer on 16-bit 15000x10000 + refresh", "--reps", "1"], "env": { "CRAFT_JOURNEY_ROW": "move layer on 16-bit 15000x10000 + refresh", "RAYON_NUM_THREADS": "8", "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" } }
     },
     {
       "name": "photocraft.content-aware-scale.24mp",
