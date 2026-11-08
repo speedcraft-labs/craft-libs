@@ -42,22 +42,10 @@ pub fn box_h_scan(
     while item < size {
         let x = (start + item as i32).clamp(0, last) as u32;
         let pixel = (row + x) * nc;
-        let mut value = Vec4::ZERO;
-        let mut channel = 0;
-        while channel < nc {
-            let sample = src[(pixel + channel) as usize];
-            if channel == 0 {
-                value.x = sample;
-            }
-            if channel == 1 {
-                value.y = sample;
-            }
-            if channel == 2 {
-                value.z = sample;
-            }
-            channel += 1;
-        }
-        scan[item as usize] = value;
+        let red = src[pixel as usize];
+        let green = if nc > 1 { src[(pixel + 1) as usize] } else { 0.0 };
+        let blue = if nc > 2 { src[(pixel + 2) as usize] } else { 0.0 };
+        scan[item as usize] = Vec4::new(red, green, blue, 0.0);
         item += 256;
     }
     spirv_std::arch::workgroup_memory_barrier_with_group_sync();
@@ -108,21 +96,10 @@ pub fn box_h_scan(
         let out_pixel = (row + x) * nc;
         let prefix_lo = scan[lo as usize];
         let prefix_hi = scan[hi as usize];
-        let mut endpoint = Vec4::ZERO;
-        let mut channel = 0;
-        while channel < nc {
-            let sample = src[(endpoint_pixel + channel) as usize];
-            if channel == 0 {
-                endpoint.x = sample;
-            }
-            if channel == 1 {
-                endpoint.y = sample;
-            }
-            if channel == 2 {
-                endpoint.z = sample;
-            }
-            channel += 1;
-        }
+        let red = src[endpoint_pixel as usize];
+        let green = if nc > 1 { src[(endpoint_pixel + 1) as usize] } else { 0.0 };
+        let blue = if nc > 2 { src[(endpoint_pixel + 2) as usize] } else { 0.0 };
+        let endpoint = Vec4::new(red, green, blue, 0.0);
         let window = 2 * r + 1;
         dst[out_pixel as usize] = box_blur_pixel(prefix_lo.x, prefix_hi.x, endpoint.x, window);
         if nc > 1 {
