@@ -287,7 +287,6 @@
         "program": "python3",
         "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}"],
         "env": {
-          "MATERIALCRAFT_PREVIEW_HDRI": "{corpus}/materialcraft-orbit/brown_photostudio_02_1k.hdr",
           "MATERIALCRAFT_GPU_DIFF_CHECK": "1",
           "MATERIALCRAFT_RECORD_GPU_TIMING": "1"
         },

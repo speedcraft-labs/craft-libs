@@ -216,6 +216,10 @@ def main():
                 if isinstance(gpu_ms, (int, float)) and gpu_ms > 0:
                     gpu_samples.append(float(gpu_ms))
             control.call("ui.input", {"events": [{"type": "up", "pos": [end_x, cy]}]})
+            # The worker-rendered CPU fallback can block the UI for longer than one scripted
+            # pointer interval. Snap both revisions to the same corpus camera before hashing the
+            # settled image, while keeping the recorded samples from the actual orbit above.
+            control.call("command.run", {"id": "view.3d", "params": {"scene": "custom", "yaw": 53.5, "pitch": 22, "distance": 3.2, "target": [0, 0, 0]}})
 
             deadline = time.monotonic() + 30
             while time.monotonic() < deadline:
