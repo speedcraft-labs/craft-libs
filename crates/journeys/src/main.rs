@@ -893,12 +893,9 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
     let mut report = Paired::new(format!("{} / {}", journey.app, journey.name))
         .old(|input: &Input| {
             let result = run_command(&journey.run, &checkouts[0].path, old_rev, &app_base, input, &journey.app, &revisions[0].cargo_config)
-                .unwrap_or_else(|e| AppResult {
-                    duration_ns: 0,
-                    identity: format!("ERROR: {e}"),
-                    gpu_adapter: None,
-                    prefix_hits: None,
-                    prefix_passes_skipped: None,
+                .unwrap_or_else(|e| {
+                    eprintln!("old {} journey run failed: {e}", journey.app);
+                    AppResult { duration_ns: 0, identity: format!("ERROR: {e}"), gpu_adapter: None, prefix_hits: None, prefix_passes_skipped: None }
                 });
             if let Some(adapter) = &result.gpu_adapter
                 && let Ok(mut observed) = old_adapters.lock()
@@ -915,8 +912,9 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
             result
         })
         .new(|input: &Input| {
-            let result =
-                run_command(head_run, &checkouts[1].path, new_rev, &app_head, input, &journey.app, &revisions[1].cargo_config).unwrap_or_else(|e| {
+            let result = run_command(head_run, &checkouts[1].path, new_rev, &app_head, input, &journey.app, &revisions[1].cargo_config)
+                .unwrap_or_else(|e| {
+                    eprintln!("new {} journey run failed: {e}", journey.app);
                     AppResult { duration_ns: 0, identity: format!("ERROR: {e}"), gpu_adapter: None, prefix_hits: None, prefix_passes_skipped: None }
                 });
             if let Some(adapter) = &result.gpu_adapter
