@@ -148,13 +148,24 @@ pub struct Vui {
     pub colour_primaries: u8,
     pub transfer_characteristics: u8,
     pub matrix_coefficients: u8,
+    /// `chroma_sample_loc_type_top_field` and `chroma_sample_loc_type_bottom_field`.
+    pub chroma_loc: Option<(u32, u32)>,
     pub field_seq: bool,
     pub timing: Option<(u32, u32)>,
 }
 
 impl Default for Vui {
     fn default() -> Self {
-        Vui { sar: (0, 0), full_range: false, colour_primaries: 2, transfer_characteristics: 2, matrix_coefficients: 2, field_seq: false, timing: None }
+        Vui {
+            sar: (0, 0),
+            full_range: false,
+            colour_primaries: 2,
+            transfer_characteristics: 2,
+            matrix_coefficients: 2,
+            chroma_loc: None,
+            field_seq: false,
+            timing: None,
+        }
     }
 }
 
@@ -201,8 +212,7 @@ fn parse_vui(r: &mut BitReader, max_sub_layers_minus1: u32) -> Result<Vui> {
         }
     }
     if r.read_flag()? {
-        r.read_ue()?;
-        r.read_ue()?;
+        v.chroma_loc = Some((r.read_ue()?, r.read_ue()?));
     }
     r.skip(1)?; // neutral_chroma_indication_flag
     v.field_seq = r.read_flag()?;
@@ -948,6 +958,31 @@ mod tests {
         let err = check_picture_size(8192, 8193).unwrap_err();
         assert!(err.to_string().contains("decoded-frame budget"));
     }
+
+    #[test]
+    fn vui_retains_chroma_sample_location() {
+        let mut w = craft_bitstream::BitWriter::new();
+        w.write_bit(false); // aspect_ratio_info_present_flag
+        w.write_bit(false); // overscan_info_present_flag
+        w.write_bit(true); // video_signal_type_present_flag
+        w.write_bits(0, 3); // video_format
+        w.write_bit(false); // video_full_range_flag
+        w.write_bit(false); // colour_description_present_flag
+        w.write_bit(true); // chroma_loc_info_present_flag
+        w.write_ue(2); // chroma_sample_loc_type_top_field
+        w.write_ue(5); // chroma_sample_loc_type_bottom_field
+        w.write_bit(false); // neutral_chroma_indication_flag
+        w.write_bit(false); // field_seq_flag
+        w.write_bit(false); // frame_field_info_present_flag
+        w.write_bit(false); // default_display_window_flag
+        w.write_bit(false); // vui_timing_info_present_flag
+        w.write_bit(false); // bitstream_restriction_flag
+
+        let bytes = w.finish();
+        let vui = parse_vui(&mut BitReader::new(&bytes), 0).unwrap();
+        assert_eq!(vui.chroma_loc, Some((2, 5)));
+    }
+
     fn pps_bits(num_ref_idx: u32, tiles: u32) -> Vec<u8> {
         pps_bits_with_qp(num_ref_idx, tiles, 0)
     }
