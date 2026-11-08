@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Orbit Poly Haven's CC0 camera model in MaterialCraft and emit frame timings."""
 
+import base64
 import hashlib
 import json
 import math
@@ -232,7 +233,7 @@ def main():
             image = control.call("view.screenshot", {"view": "3d"})
             if not image or not image.get("png"):
                 fail("MaterialCraft did not produce a settled 3D frame")
-            screenshot_sha256 = hashlib.sha256(image["png"].encode("ascii")).hexdigest()
+            screenshot_sha256 = hashlib.sha256(base64.b64decode(image["png"], validate=True)).hexdigest()
             gpu_timing_source = state.get("gpuFrameTiming") if state else None
             is_gpu_preview = bool(state and state.get("gpuPreviewActive"))
             head_check = "MATERIALCRAFT_GPU_DIFF_CHECK" in os.environ
@@ -289,9 +290,8 @@ def main():
             metadata_path = metadata_dir / f"materialcraft-orbit-{app_rev}-{adapter_slug}.json"
             metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
 
-            identity = fixture_hash
             print(f"CRAFT_JOURNEY_NS={int(median_ms * 1_000_000)}")
-            print(f"CRAFT_OUTPUT_SHA256={identity}")
+            print(f"CRAFT_OUTPUT_SHA256={screenshot_sha256}")
             print(f"MATERIALCRAFT_ADAPTER={adapter or 'not-reported'}")
             print(f"MATERIALCRAFT_GPU_FRAME_MS={metadata['gpu_frame_ms_p50']}")
             print(f"MATERIALCRAFT_GPU_REFERENCE_MAE={metadata['gpu_reference_mae']}")
