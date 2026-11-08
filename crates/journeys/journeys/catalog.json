@@ -281,12 +281,14 @@
       "run": {
         "program": "python3",
         "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}"],
+        "env": { "MATERIALCRAFT_JOURNEY_METADATA_DIR": "{target_dir}/materialcraft-metadata" },
         "output": "markers"
       },
       "run_head": {
         "program": "python3",
         "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}"],
         "env": {
+          "MATERIALCRAFT_JOURNEY_METADATA_DIR": "{target_dir}/materialcraft-metadata",
           "MATERIALCRAFT_GPU_DIFF_CHECK": "1",
           "MATERIALCRAFT_RECORD_GPU_TIMING": "1"
         },
