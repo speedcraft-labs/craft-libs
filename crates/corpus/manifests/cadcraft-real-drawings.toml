@@ -11,6 +11,33 @@ tags = ["dxf", "architecture", "villa", "10k-entities", "hatch", "blocks", "dime
 redistributable = false
 
 [[file]]
+path = "external/sd-sioux-falls.dwg"
+url = "https://dotfiles.sd.gov/cadd/city/DWG/SIOUX_FALLS.dwg"
+sha256 = "36cac1adc1e73e30d4974faa665896f5277266524602858bd0632719c2ab037f"
+licence = "South Dakota DOT publicly downloadable CADD map; redistribution terms not stated on source page"
+provenance = "https://dot.sd.gov/inside-sddot/forms-publications/maps/cadd-mapping"
+tags = ["dwg", "DOT", "GIS", "city-map", "18k-entities", "roads", "water"]
+redistributable = false
+
+[[file]]
+path = "external/sd-state-open-band.dwg"
+url = "https://dot.sd.gov/media/5e203307/sob.dwg"
+sha256 = "7b7bd042484d8093b207d889ade21bfb7755a8ea8bb10e08523ffe31bfc60f21"
+licence = "South Dakota DOT publicly downloadable CADD map; redistribution terms not stated on source page"
+provenance = "https://dot.sd.gov/inside-sddot/forms-publications/maps/cadd-mapping"
+tags = ["dwg", "DOT", "GIS", "state-map", "22k-entities", "roads", "water"]
+redistributable = false
+
+[[file]]
+path = "external/sd-yankton-roads.dwg"
+url = "https://dot.sd.gov/media/jbllfdtf/yank.dwg"
+sha256 = "82f51d5d07bd14f368f2c73010c7debbdd76607c784030fcbf1552e2529ab8f6"
+licence = "South Dakota DOT publicly downloadable CADD map; redistribution terms not stated on source page"
+provenance = "https://dot.sd.gov/inside-sddot/forms-publications/maps/cadd-mapping"
+tags = ["dwg", "DOT", "GIS", "county-roads", "10k-entities", "roads"]
+redistributable = false
+
+[[file]]
 path = "wall-brick.dxf"
 url = "https://nasji.com/cad-blocks/files/wall-brick.dxf"
 sha256 = "690f1e6ba9cab9062087db31509f3e031f77d287da125d653d572e2d31ab88b1"

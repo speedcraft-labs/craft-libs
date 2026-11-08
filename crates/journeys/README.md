@@ -48,6 +48,7 @@ target root so prepared builds can be reused.
 | --- | --- | --- |
 | `cadcraft.edit-real-villa-dxf.10k` | CADCraft | Edit a hatch in a real 10k-entity villa DXF and render the completed RTX frame |
 | `cadcraft.edit-heavy-engineering-dwg.985k` | CADCraft | Edit a real 985k-entity DWG and render the completed RTX frame |
+| `cadcraft.edit-real-sd-dot-maps` | CADCraft | Edit entities in three South Dakota DOT city, state and county DWG maps and render completed RTX frames |
 | `cadcraft.edit-hatched-drawing.12k` | CADCraft | Edit one entity in a deterministic generated 12,000-hatch drawing |
 | `cadcraft.open-dxf.large-map` | CADCraft | Open the pinned Graz map DXF |
 | `cadcraft.open-dxf.usa` | CADCraft | Open the pinned USA DXF |
