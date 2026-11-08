@@ -7,5 +7,21 @@ rust-version.workspace = true
 repository.workspace = true
 description = "Rational-ratio polyphase FIR resampler, verified against the direct upsample-filter-downsample form"
 
+[features]
+rayon = ["dep:rayon"]
+
+[[example]]
+name = "image_bench"
+required-features = ["rayon"]
+
+[dependencies]
+rayon = { workspace = true, optional = true }
+
+[dev-dependencies]
+craft-bench = { workspace = true }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+proptest = { workspace = true }
+rayon = { workspace = true }
+
 [lints]
 workspace = true

@@ -1,6 +1,30 @@
 # craft-resample
 
-Dependency-free rational-ratio polyphase FIR resampler (`L/M`), generic over `f32`/`f64`.
+Rational-ratio polyphase FIR resampler (`L/M`), generic over `f32`/`f64`, plus image reduction
+primitives for consumers that need matching coordinate and edge policies. The default feature set
+has no runtime dependencies; enable `rayon` to parallelize the image reducers.
+
+## Image reduction
+
+* `resize_nearest` resizes packed pixels or masks with explicit `Corner` or `Center` alignment.
+  It never invents values, which makes it suitable for categorical labels. Invalid sizes and
+  allocation failures return `None`.
+* `resize_bilinear_u8_coverage` resizes an 8-bit continuous coverage mask with center coordinates,
+  clamped edges, and the legacy round-to-nearest rule. It may create intermediate coverage values.
+* `reduce_box_f32` averages exact integer-ratio footprints of packed `f32` channels. It rejects
+  fractional ratios and enlargements so callers can keep their established fallback filter.
+* `downsample2_clamped_rgba` builds one level of a clamped 2×2 RGBA pyramid. Odd dimensions round
+  up and repeat the final row or column, as in affine minification pyramids.
+* `downsample2_floor_rgba` keeps the floor-sized pyramid convention where odd trailing edges are
+  discarded, as in FilmCraft's transformed-image path. `downsample2_floor_rgba_f32` accepts its
+  packed `f32` buffer without converting through temporary pixel arrays.
+
+Property tests check constants, label preservation, and odd-sized pyramid levels. The `rayon`
+feature keeps reductions row/pixel-parallel in image consumers.
+
+The `image_bench` example pairs the legacy reducers with these kernels on a corpus PNG, checks
+output equality, and writes craft-bench reports. Build it before entering the bench lock, then run
+the binary through `scripts/bench-run` while holding `bench.lock`.
 
 * `Polyphase::from_prototype(h, L, M)` splits any prototype FIR into `L` phases; the caller
   designs the filter (or uses `kaiser_prototype`, a Kaiser-windowed sinc normalised so every

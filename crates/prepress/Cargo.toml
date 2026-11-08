@@ -11,6 +11,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+craft-resample = { workspace = true }
 craft-pdf = { workspace = true, features = ["raster", "write"] }
 craft-cms = { workspace = true }
 thiserror = { workspace = true }

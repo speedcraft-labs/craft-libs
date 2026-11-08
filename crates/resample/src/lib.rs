@@ -24,8 +24,369 @@
 //! The equality of the two forms for every input, and the DC gain of a per-phase normalised
 //! prototype, are proved in Lean 4 in `lean/` (see `lean/TRUST.md`).
 
+#[cfg(feature = "rayon")]
+use rayon::prelude::*;
 use std::f64::consts::PI;
 use std::ops::{Add, Mul};
+
+/// Pixel-grid convention for nearest-neighbour resizing.
+///
+/// Both conventions are used by image formats and model pipelines. Naming the convention makes
+/// compatibility explicit while sharing the checked indexing and allocation logic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NearestAlignment {
+    /// Map destination pixel `(x, y)` to `floor(x * source_width / dest_width)` (top-left aligned).
+    Corner,
+    /// Map destination pixel centers to the closest source pixel center.
+    Center,
+}
+
+/// Nearest-neighbour resize of a packed row-major image or mask.
+///
+/// Returns `None` for zero dimensions, an undersized input, or an unrepresentable allocation.
+/// The output contains only values copied from the source, so this is suitable for categorical
+/// labels as well as exact legacy mask resampling. `channels` may be one for masks or larger for
+/// packed pixel data.
+pub fn resize_nearest<T: Copy>(
+    source: &[T],
+    source_size: [usize; 2],
+    dest_size: [usize; 2],
+    channels: usize,
+    alignment: NearestAlignment,
+) -> Option<Vec<T>> {
+    let [sw, sh] = source_size;
+    let [dw, dh] = dest_size;
+    if sw == 0 || sh == 0 || dw == 0 || dh == 0 || channels == 0 {
+        return None;
+    }
+    let source_len = sw.checked_mul(sh)?.checked_mul(channels)?;
+    let dest_len = dw.checked_mul(dh)?.checked_mul(channels)?;
+    if source.len() < source_len {
+        return None;
+    }
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    if sw == dw && sh == dh {
+        out.extend_from_slice(&source[..source_len]);
+        return Some(out);
+    }
+    let xs = nearest_indices(sw, dw, alignment)?;
+    let ys = nearest_indices(sh, dh, alignment)?;
+    for &sy in &ys {
+        for &sx in &xs {
+            let start = (sy * sw + sx) * channels;
+            out.extend_from_slice(&source[start..start + channels]);
+        }
+    }
+    Some(out)
+}
+
+/// Bilinearly resize a single-channel 8-bit coverage mask using pixel-center coordinates.
+///
+/// This is for continuous coverage, not categorical labels: intermediate values are expected.
+/// Edge samples clamp to the nearest source edge, and results round to the nearest integer.
+pub fn resize_bilinear_u8_coverage(source: &[u8], source_size: [usize; 2], dest_size: [usize; 2]) -> Option<Vec<u8>> {
+    let [sw, sh] = source_size;
+    let [dw, dh] = dest_size;
+    if sw == 0 || sh == 0 || dw == 0 || dh == 0 {
+        return None;
+    }
+    let source_len = sw.checked_mul(sh)?;
+    let dest_len = dw.checked_mul(dh)?;
+    if source.len() < source_len {
+        return None;
+    }
+    let xs = coverage_axis(sw, dw)?;
+    let ys = coverage_axis(sh, dh)?;
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    for y in &ys {
+        let top_row = y.lo * sw;
+        let bottom_row = y.hi * sw;
+        for x in &xs {
+            let tx = x.weight;
+            let ty = y.weight;
+            let top = f64::from(source[top_row + x.lo]) * (1.0 - tx) + f64::from(source[top_row + x.hi]) * tx;
+            let bottom = f64::from(source[bottom_row + x.lo]) * (1.0 - tx) + f64::from(source[bottom_row + x.hi]) * tx;
+            out.push((top * (1.0 - ty) + bottom * ty).round().clamp(0.0, 255.0) as u8);
+        }
+    }
+    Some(out)
+}
+
+#[derive(Clone, Copy)]
+struct CoverageTap {
+    lo: usize,
+    hi: usize,
+    weight: f64,
+}
+
+fn coverage_axis(source: usize, dest: usize) -> Option<Vec<CoverageTap>> {
+    let mut taps = Vec::new();
+    taps.try_reserve_exact(dest).ok()?;
+    for position in 0..dest {
+        let sample = ((position as f64 + 0.5) * source as f64 / dest as f64 - 0.5).max(0.0);
+        let lo = (sample.floor() as usize).min(source - 1);
+        taps.push(CoverageTap { lo, hi: lo.saturating_add(1).min(source - 1), weight: sample.fract() });
+    }
+    Some(taps)
+}
+
+/// Box-reduce an `f32` image by exact integer ratios.
+///
+/// This reproduces the common integer-footprint average used by material and texture pipelines.
+/// Non-integer ratios are rejected so callers can retain their established fallback filter.
+pub fn reduce_box_f32(source: &[f32], source_size: [usize; 2], dest_size: [usize; 2], channels: usize) -> Option<Vec<f32>> {
+    let [sw, sh] = source_size;
+    let [dw, dh] = dest_size;
+    if sw == 0 || sh == 0 || dw == 0 || dh == 0 || channels == 0 || dw > sw || dh > sh || !sw.is_multiple_of(dw) || !sh.is_multiple_of(dh) {
+        return None;
+    }
+    let source_len = sw.checked_mul(sh)?.checked_mul(channels)?;
+    if source.len() < source_len {
+        return None;
+    }
+    let (fx, fy) = (sw / dw, sh / dh);
+    if fx == 2 && fy == 2 {
+        return match channels {
+            1 => reduce_box2_f32_const::<1>(source, sw, dw, dh),
+            4 => reduce_box2_f32_const::<4>(source, sw, dw, dh),
+            _ => reduce_box2_f32_dynamic(source, sw, dw, dh, channels),
+        };
+    }
+    let inv = 1.0 / (fx * fy) as f32;
+    let reduction = BoxReduction { sw, dw, dh, channels, fx, fy, inv };
+    match channels {
+        1 => reduce_box_f32_const::<1>(source, reduction),
+        4 => reduce_box_f32_const::<4>(source, reduction),
+        _ => reduce_box_f32_dynamic(source, reduction),
+    }
+}
+
+fn reduce_box2_f32_const<const CHANNELS: usize>(source: &[f32], sw: usize, dw: usize, dh: usize) -> Option<Vec<f32>> {
+    let dest_len = dw.checked_mul(dh)?.checked_mul(CHANNELS)?;
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    out.resize(dest_len, 0.0);
+    let reduce_row = |y: usize, row: &mut [f32]| {
+        let top = 2 * y * sw * CHANNELS;
+        let bottom = top + sw * CHANNELS;
+        for x in 0..dw {
+            let left = 2 * x * CHANNELS;
+            let right = left + CHANNELS;
+            for c in 0..CHANNELS {
+                let at = x * CHANNELS + c;
+                let mut sum = 0.0;
+                sum += source[top + left + c];
+                sum += source[top + right + c];
+                sum += source[bottom + left + c];
+                sum += source[bottom + right + c];
+                row[at] = sum * 0.25;
+            }
+        }
+    };
+    #[cfg(feature = "rayon")]
+    out.par_chunks_mut(dw * CHANNELS).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    #[cfg(not(feature = "rayon"))]
+    out.chunks_mut(dw * CHANNELS).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    Some(out)
+}
+
+fn reduce_box2_f32_dynamic(source: &[f32], sw: usize, dw: usize, dh: usize, channels: usize) -> Option<Vec<f32>> {
+    let dest_len = dw.checked_mul(dh)?.checked_mul(channels)?;
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    out.resize(dest_len, 0.0);
+    let reduce_row = |y: usize, row: &mut [f32]| {
+        let top = 2 * y * sw * channels;
+        let bottom = top + sw * channels;
+        for x in 0..dw {
+            let left = 2 * x * channels;
+            let right = left + channels;
+            for c in 0..channels {
+                let at = x * channels + c;
+                let mut sum = 0.0;
+                sum += source[top + left + c];
+                sum += source[top + right + c];
+                sum += source[bottom + left + c];
+                sum += source[bottom + right + c];
+                row[at] = sum * 0.25;
+            }
+        }
+    };
+    #[cfg(feature = "rayon")]
+    out.par_chunks_mut(dw * channels).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    #[cfg(not(feature = "rayon"))]
+    out.chunks_mut(dw * channels).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    Some(out)
+}
+
+#[derive(Clone, Copy)]
+struct BoxReduction {
+    sw: usize,
+    dw: usize,
+    dh: usize,
+    channels: usize,
+    fx: usize,
+    fy: usize,
+    inv: f32,
+}
+
+fn reduce_box_f32_const<const CHANNELS: usize>(source: &[f32], reduction: BoxReduction) -> Option<Vec<f32>> {
+    let BoxReduction { sw, dw, dh, fx, fy, inv, .. } = reduction;
+    let dest_len = dw.checked_mul(dh)?.checked_mul(CHANNELS)?;
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    out.resize(dest_len, 0.0);
+    let reduce_row = |y: usize, row: &mut [f32]| {
+        for x in 0..dw {
+            let dest = &mut row[x * CHANNELS..(x + 1) * CHANNELS];
+            for j in 0..fy {
+                for i in 0..fx {
+                    let si = ((y * fy + j) * sw + x * fx + i) * CHANNELS;
+                    for c in 0..CHANNELS {
+                        dest[c] += source[si + c];
+                    }
+                }
+            }
+            for value in dest {
+                *value *= inv;
+            }
+        }
+    };
+    #[cfg(feature = "rayon")]
+    out.par_chunks_mut(dw * CHANNELS).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    #[cfg(not(feature = "rayon"))]
+    out.chunks_mut(dw * CHANNELS).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    Some(out)
+}
+
+fn reduce_box_f32_dynamic(source: &[f32], reduction: BoxReduction) -> Option<Vec<f32>> {
+    let BoxReduction { sw, dw, dh, channels, fx, fy, inv } = reduction;
+    let dest_len = dw.checked_mul(dh)?.checked_mul(channels)?;
+    let mut out = Vec::new();
+    out.try_reserve_exact(dest_len).ok()?;
+    out.resize(dest_len, 0.0);
+    let reduce_row = |y: usize, row: &mut [f32]| {
+        for x in 0..dw {
+            let dest = &mut row[x * channels..(x + 1) * channels];
+            for j in 0..fy {
+                for i in 0..fx {
+                    let si = ((y * fy + j) * sw + x * fx + i) * channels;
+                    for c in 0..channels {
+                        dest[c] += source[si + c];
+                    }
+                }
+            }
+            for value in dest {
+                *value *= inv;
+            }
+        }
+    };
+    #[cfg(feature = "rayon")]
+    out.par_chunks_mut(dw * channels).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    #[cfg(not(feature = "rayon"))]
+    out.chunks_mut(dw * channels).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    Some(out)
+}
+
+/// Build one RGBA pyramid level with a clamped 2×2 box footprint.
+///
+/// Odd source dimensions round up; the final footprint repeats the last row or column, matching
+/// the common compositor minification pyramid convention.
+pub fn downsample2_clamped_rgba(source: &[[f32; 4]], width: usize, height: usize) -> Option<(usize, usize, Vec<[f32; 4]>)> {
+    downsample2_rgba(source, width, height, true)
+}
+
+/// Build one RGBA pyramid level with the floor-sized 2×2 convention used by FilmCraft.
+///
+/// Odd trailing rows and columns are dropped. A one-pixel dimension is retained and sampled with
+/// clamped edges.
+pub fn downsample2_floor_rgba(source: &[[f32; 4]], width: usize, height: usize) -> Option<(usize, usize, Vec<[f32; 4]>)> {
+    downsample2_rgba(source, width, height, false)
+}
+
+/// Packed-float counterpart to [`downsample2_floor_rgba`], for RGBA buffers stored as a flat
+/// row-major `f32` slice.
+pub fn downsample2_floor_rgba_f32(source: &[f32], width: usize, height: usize) -> Option<(usize, usize, Vec<f32>)> {
+    if width == 0 || height == 0 || source.len() < width.checked_mul(height)?.checked_mul(4)? {
+        return None;
+    }
+    let (dw, dh) = ((width / 2).max(1), (height / 2).max(1));
+    let mut out = Vec::new();
+    out.try_reserve_exact(dw.checked_mul(dh)?.checked_mul(4)?).ok()?;
+    out.resize(dw * dh * 4, 0.0);
+    let reduce_row = |y: usize, row: &mut [f32]| {
+        for x in 0..dw {
+            for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                let index = ((2 * y + dy).min(height - 1) * width + (2 * x + dx).min(width - 1)) * 4;
+                for channel in 0..4 {
+                    row[x * 4 + channel] += source[index + channel];
+                }
+            }
+            for channel in 0..4 {
+                row[x * 4 + channel] *= 0.25;
+            }
+        }
+    };
+    #[cfg(feature = "rayon")]
+    out.par_chunks_mut(dw * 4).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    #[cfg(not(feature = "rayon"))]
+    out.chunks_mut(dw * 4).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    Some((dw, dh, out))
+}
+
+fn downsample2_rgba(source: &[[f32; 4]], width: usize, height: usize, round_up: bool) -> Option<(usize, usize, Vec<[f32; 4]>)> {
+    if width == 0 || height == 0 || source.len() < width.checked_mul(height)? {
+        return None;
+    }
+    let (dw, dh) = if round_up { (width.div_ceil(2), height.div_ceil(2)) } else { ((width / 2).max(1), (height / 2).max(1)) };
+    let mut out = Vec::new();
+    out.try_reserve_exact(dw.checked_mul(dh)?).ok()?;
+    out.resize(dw * dh, [0.0; 4]);
+    let reduce_row = |y: usize, row: &mut [[f32; 4]]| {
+        for (x, px) in row.iter_mut().enumerate() {
+            let (sx, sy) = (2 * x, 2 * y);
+            let indices = [
+                sy * width + sx,
+                sy * width + (sx + 1).min(width - 1),
+                (sy + 1).min(height - 1) * width + sx,
+                (sy + 1).min(height - 1) * width + (sx + 1).min(width - 1),
+            ];
+            for index in indices {
+                for (channel, value) in px.iter_mut().enumerate() {
+                    *value += source[index][channel];
+                }
+            }
+            px.iter_mut().for_each(|value| *value *= 0.25);
+        }
+    };
+    #[cfg(feature = "rayon")]
+    out.par_chunks_mut(dw).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    #[cfg(not(feature = "rayon"))]
+    out.chunks_mut(dw).enumerate().for_each(|(y, row)| reduce_row(y, row));
+    Some((dw, dh, out))
+}
+
+fn nearest_index(position: usize, source: usize, dest: usize, alignment: NearestAlignment) -> Option<usize> {
+    let (n, d) = match alignment {
+        NearestAlignment::Corner => ((position as u128).checked_mul(source as u128)?, dest as u128),
+        NearestAlignment::Center => {
+            let center = (position as u128).checked_mul(2)?.checked_add(1)?;
+            (center.checked_mul(source as u128)?, (dest as u128).checked_mul(2)?)
+        }
+    };
+    Some((n / d).min(source as u128 - 1) as usize)
+}
+
+fn nearest_indices(source: usize, dest: usize, alignment: NearestAlignment) -> Option<Vec<usize>> {
+    let mut indices = Vec::new();
+    indices.try_reserve_exact(dest).ok()?;
+    for position in 0..dest {
+        indices.push(nearest_index(position, source, dest, alignment)?);
+    }
+    Some(indices)
+}
 
 /// Sample and coefficient type of a [`Polyphase`] resampler.
 pub trait Sample: Copy + Default + Add<Output = Self> + Mul<Output = Self> {}

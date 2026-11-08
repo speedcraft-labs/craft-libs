@@ -1312,6 +1312,7 @@ dependencies = [
  "craft-cms",
  "craft-pdf",
  "craft-plate-test",
+ "craft-resample",
  "kurbo 0.13.1",
  "linesweeper",
  "thiserror 2.0.21",
@@ -1356,6 +1357,12 @@ dependencies = [
 [[package]]
 name = "craft-resample"
 version = "0.1.0"
+dependencies = [
+ "craft-bench",
+ "image",
+ "proptest",
+ "rayon",
+]
 
 [[package]]
 name = "craft-scopes"
