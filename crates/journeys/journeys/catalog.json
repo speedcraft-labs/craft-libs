@@ -241,6 +241,14 @@
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "figcraft-cli", "--", "--no-system-fonts", "perf", "--layers", "100", "--instances", "0"], "output": "figcraft-perf" }
     },
     {
+      "name": "figcraft.drag-preview.solid-rectangle",
+      "app": "figcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/figcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "figcraft-cli", "--example", "issue237_drag_preview"] },
+      "run": { "program": "{target_dir}/release/examples/issue237_drag_preview", "args": ["cpu"], "output": "markers" },
+      "run_head": { "program": "{target_dir}/release/examples/issue237_drag_preview", "args": ["gpu"], "env": { "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" }, "output": "markers" }
+    },
+    {
       "name": "gridcraft.synthetic-workbook-open",
       "app": "gridcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft",
