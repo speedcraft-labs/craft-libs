@@ -105,6 +105,7 @@ pub struct JobHandle<T> {
     token: CancellationToken,
     progress: mpsc::Receiver<u8>,
     result: mpsc::Receiver<Result<T, JobError>>,
+    cancel_on_drop: bool,
 }
 
 impl<T> JobHandle<T> {
@@ -127,11 +128,19 @@ impl<T> JobHandle<T> {
         }
         self.result.try_recv().map(JobEvent::Completed)
     }
+
+    /// Stops observing the result without cancelling the job. Keyed jobs remain cancellable by
+    /// a later [`JobSystem::submit_latest`] call with the same key.
+    pub fn detach(mut self) {
+        self.cancel_on_drop = false;
+    }
 }
 
 impl<T> Drop for JobHandle<T> {
     fn drop(&mut self) {
-        self.token.cancel();
+        if self.cancel_on_drop {
+            self.token.cancel();
+        }
     }
 }
 
@@ -281,7 +290,7 @@ impl JobSystem {
         queue.push(queued);
         drop(queue);
         self.shared.ready.notify_one();
-        JobHandle { token, progress: progress_rx, result: result_rx }
+        JobHandle { token, progress: progress_rx, result: result_rx, cancel_on_drop: true }
     }
 }
 
