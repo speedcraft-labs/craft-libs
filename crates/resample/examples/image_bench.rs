@@ -206,7 +206,7 @@ where
         .inputs([(name.to_owned(), input)])
         .equal()
         .run(&Config {
-            repetitions: 40,
+            repetitions: 400,
             revs: Revs { old: Some("legacy-inline".into()), new: Some(env!("CARGO_PKG_VERSION").into()) },
             ..Config::default()
         })?;
