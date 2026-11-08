@@ -1232,6 +1232,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-jobs"
+version = "0.1.0"
+
+[[package]]
 name = "craft-journeys"
 version = "0.1.0"
 dependencies = [

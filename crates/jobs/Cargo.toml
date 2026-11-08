@@ -1,0 +1,11 @@
+[package]
+name = "craft-jobs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Cancellable, prioritized background jobs for creative apps"
+
+[lints]
+workspace = true
