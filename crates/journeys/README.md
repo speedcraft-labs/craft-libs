@@ -392,8 +392,17 @@ mismatch, aligned by bilinear resize before the declared lossy MAE 8 check.
 If the compositor capture times out and falls back to headless, that PNG and its
 candidate timestamps/hashes are retained as a failed attempt. The driver retries
 (up to three attempts) with the **original action clock still running**; it does
-not discard or subtract the timeout. Only a successful native capture supplies
-the endpoint. Three failures reject the session. The first 31-file pilot exposed
+not subtract any assumed delay. A successful native PNG can verify an earlier
+real X11 frame sampled during **any** attempt; the earliest exact RGB match
+supplies the endpoint. Without a matching X11 frame, the successful native
+capture completion supplies the explicit upper bound. Three failures reject the session. The first 31-file pilot exposed
 three such upstream timeouts and was rejected by the earlier fail-on-any-fallback
 policy; its report/logs remain retained. The replacement matrix uses this explicit
 retry policy for all three revisions, declared before collection.
+
+A rejected first block of the 50-file matrix exposed why retry candidates must be
+combined: a fork-main exposure request took 6315.13 ms through capture retry, but
+an earlier X11 frame matched the successful native PNG 5571.34 ms before that
+endpoint (input-to-proven-frame 743.79 ms). That block was stopped and retained;
+the final matrix uses the earliest exact pixel proof across all attempts for every
+revision. Tests cover both this case and the conservative no-match upper bound.

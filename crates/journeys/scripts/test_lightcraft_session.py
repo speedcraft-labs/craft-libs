@@ -42,7 +42,7 @@ class Boundaries(unittest.TestCase):
             def capture(control,path):
                 end=50 if not log.read_text() else 80
                 path.write_bytes(b'capture')
-                control.last_capture_proof=dict(method='native-upper-bound',frame_ns=end,verified_ns=end,rgb_sha256=str(end))
+                control.last_capture_proof=dict(method='native-upper-bound',frame_ns=end,verified_ns=end,rgb_sha256=str(end),width=10,height=10,candidates=[])
                 if end==50:log.write_text('rendering headlessly')
                 return end,str(end)
             with patch('lightcraft_real_app.session_capture_once',side_effect=capture) as capture_mock:
@@ -55,6 +55,28 @@ class Boundaries(unittest.TestCase):
             validate_session(s)
             control.last_capture_proof['native']=False
             with self.assertRaisesRegex(ValueError,'headless'):validate_session(s)
+
+    def test_retry_native_png_verifies_earlier_x11_frame(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from lightcraft_real_app import session_frame
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);log=root/'app.log';log.write_text('')
+            control=SimpleNamespace(session_log=log)
+            def capture(control,path):
+                first=not log.read_text();end=50 if first else 80;digest='headless' if first else 'result'
+                path.write_bytes(b'capture')
+                candidate=dict(ns=45 if first else 75,width=10,height=10,rgb_sha256='result')
+                control.last_capture_proof=dict(method='verified-x11',frame_ns=end,verified_ns=end,rgb_sha256=digest,width=10,height=10,candidates=[candidate])
+                if first:log.write_text('rendering headlessly')
+                return end,digest
+            with patch('lightcraft_real_app.session_capture_once',side_effect=capture):end,digest=session_frame(control,root/'frame.png')
+            self.assertEqual((end,digest),(45,'result'))
+            self.assertEqual(control.last_capture_proof['verified_ns'],80)
+            s=fixture();s['samples'][0].update(frame_ns=end,duration_ns=end-30,frame_sha256=digest,evidence={'capture':control.last_capture_proof})
+            validate_session(s)
 
     def test_tiers_cannot_be_inside_a_pruned_corpus_root(self):
         import json

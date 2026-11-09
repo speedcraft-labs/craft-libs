@@ -20,3 +20,12 @@ pinned; the original 31-file tier remains explicitly labeled as an abandoned pil
 Raw evidence is in NAS ticket `313-session-latency`, directories `paired-typical`
 and `paired-heavy`; the replacement reports use new output directories. No old
 launch-per-task journey or published report was changed.
+
+
+The first 50-file block then exposed a retry-boundary error: a main exposure sample
+was 6315.13 ms through retry, while an earlier retained X11 frame was provably the
+same result 5571.34 ms earlier (743.79 ms input-to-frame). It was stopped, not
+published. The final implementation compares the successful native PNG against
+candidates from **all** attempts and uses the earliest exact match. No timeout is
+subtracted by assumption. The original `paired-typical-50` data remains retained;
+the replacement output directories use the suffix `-verified`.
