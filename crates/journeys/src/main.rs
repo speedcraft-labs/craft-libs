@@ -71,6 +71,16 @@ struct CommandSpec {
     verify: Option<Box<CommandSpec>>,
 }
 
+struct CommandContext<'a> {
+    cwd: &'a Path,
+    rev: &'a str,
+    app_rev: &'a str,
+    input: &'a Input,
+    app: &'a str,
+    cargo_config: &'a Path,
+    target_dir: &'a str,
+}
+
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 enum WallTime {
@@ -155,7 +165,8 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
     let rendered_program =
         render(&spec.program, rev, input, app, cwd).replace("{app_binary}", &app_binary.to_string_lossy()).replace("{target_dir}", &target_dir_text);
     let program = rendered_program;
-    let mut cmd = make_command(spec, cwd, rev, app_rev, input, app, cargo_config, &target_dir_text, program);
+    let context = CommandContext { cwd, rev, app_rev, input, app, cargo_config, target_dir: &target_dir_text };
+    let mut cmd = make_command(spec, &context, program);
     let started = Instant::now();
     let output = cmd.output().map_err(|e| format!("launch {}: {e}", spec.program))?;
     let process_duration_ns = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
@@ -522,7 +533,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
         let verify_program = render(&verifier.program, rev, input, app, cwd)
             .replace("{app_binary}", &app_binary.to_string_lossy())
             .replace("{target_dir}", &target_dir_text);
-        let verifier_output = make_command(verifier, cwd, rev, app_rev, input, app, cargo_config, &target_dir_text, verify_program)
+        let verifier_output = make_command(verifier, &context, verify_program)
             .output()
             .map_err(|e| format!("launch verifier {}: {e}", verifier.program))?;
         if !verifier_output.status.success() {
@@ -545,23 +556,13 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
     Ok(AppResult { duration_ns, identity, gpu_adapter, prefix_hits, prefix_passes_skipped })
 }
 
-fn make_command(
-    spec: &CommandSpec,
-    cwd: &Path,
-    rev: &str,
-    app_rev: &str,
-    input: &Input,
-    app: &str,
-    cargo_config: &Path,
-    target_dir_text: &str,
-    program: String,
-) -> Command {
+fn make_command(spec: &CommandSpec, context: &CommandContext<'_>, program: String) -> Command {
     let mut cmd = Command::new(program);
-    cmd.current_dir(cwd)
-        .env("CRAFT_JOURNEY_REV", rev)
-        .env("CRAFT_JOURNEY_APP_REV", app_rev)
+    cmd.current_dir(context.cwd)
+        .env("CRAFT_JOURNEY_REV", context.rev)
+        .env("CRAFT_JOURNEY_APP_REV", context.app_rev)
         .env("ARTCRAFT_CORPUS", corpus_root())
-        .env("CARGO_TARGET_DIR", target_dir_text)
+        .env("CARGO_TARGET_DIR", context.target_dir)
         .env("SQLX_OFFLINE", "true")
         .env("RUST_MIN_STACK", "8388608");
     if let Some(root) = std::env::var_os("ARTCRAFT_HYPER_ROOT") {
@@ -569,15 +570,19 @@ fn make_command(
         cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
     }
     for (key, value) in &spec.env {
-        cmd.env(key, render(value, rev, input, app, cwd).replace("{target_dir}", target_dir_text));
+        cmd.env(key, render(value, context.rev, context.input, context.app, context.cwd).replace("{target_dir}", context.target_dir));
     }
     if Path::new(&spec.program).file_name().is_some_and(|name| name == "cargo") {
-        cmd.args(["--config"]).arg(cargo_config);
+        cmd.args(["--config"]).arg(context.cargo_config);
         for config in &spec.cargo_config_overrides {
-            cmd.args(["--config"]).arg(render(config, rev, input, app, cwd));
+            cmd.args(["--config"]).arg(render(config, context.rev, context.input, context.app, context.cwd));
         }
     }
-    cmd.args(spec.args.iter().map(|a| render(a, rev, input, app, cwd).replace("{target_dir}", target_dir_text)));
+    cmd.args(
+        spec.args
+            .iter()
+            .map(|a| render(a, context.rev, context.input, context.app, context.cwd).replace("{target_dir}", context.target_dir)),
+    );
     cmd
 }
 
