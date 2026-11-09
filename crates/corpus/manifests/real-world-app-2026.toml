@@ -1,5 +1,5 @@
 name = "real-world-app-2026"
-description = "Public real-world Photoshop, PDF, spreadsheet and word-processing documents selected for first-frame and common-task journeys."
+description = "Public real-world Photoshop, PDF, spreadsheet, word-processing and presentation documents selected for first-frame and common-task journeys."
 
 [[file]]
 path = "wallpaper-rocky-shore.psd"
@@ -73,3 +73,12 @@ licence = "Commonwealth of Massachusetts publication; no redistribution license 
 provenance = "https://www.mass.gov/lists/autism-commission-reports"
 redistributable = false
 tags = ["docx", "government-report", "316-paragraphs", "1-table", "35689-text-chars", "median-real-document"]
+
+[[file]]
+path = "mdar-unit-3-spanish-course.pptx"
+url = "https://www.mass.gov/doc/unit-3-presentation/download"
+sha256 = "9d9a497300f86cb42e6ea2710e31585575662fc6c06a3b6589f30c784269c58b"
+licence = "Commonwealth of Massachusetts publication; no redistribution license stated on the source page."
+provenance = "https://www.mass.gov/lists/mdar-spanish-language-course"
+redistributable = false
+tags = ["pptx", "presentation", "educational-course", "26-slides", "960x540-pt", "median-real-presentation"]

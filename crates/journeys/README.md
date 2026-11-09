@@ -58,6 +58,8 @@ target root so prepared builds can be reused.
 | `cadcraft.open-dxf.us-main` | CADCraft | Open the pinned US-main DXF |
 | `wordcraft.startup-cold-first-frame`, `wordcraft.startup-warm-first-frame` | WordCraft | Cold and warm start through the first interactive document frame |
 | `wordcraft.open-typical-docx`, `wordcraft.scroll-typical-docx`, `wordcraft.edit-typical-docx`, `wordcraft.save-typical-docx` | WordCraft | Open, scroll, edit and save a public median-sized DOCX; save output is reopened and checked outside the timed process |
+| `deckcraft.startup-cold-first-frame`, `deckcraft.startup-warm-first-frame` | DeckCraft | Cold and warm start through the first interactive presentation frame |
+| `deckcraft.open-typical-pptx`, `deckcraft.navigate-typical-pptx`, `deckcraft.edit-title-typical-pptx`, `deckcraft.save-typical-pptx`, `deckcraft.export-typical-pptx` | DeckCraft | Open, navigate, edit text, save and export a public median-sized 26-slide PPTX |
 | `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
 | `deckcraft.drag-shape.heavy-slide` | DeckCraft | Drag a picture shape across the pinned, picture-rich 24th slide of the Apache-2.0 licensed HowWeRefactor deck through the editor canvas texture path; records every CPU frame |
 | `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
@@ -204,3 +206,17 @@ save adapters run one `perf_probe --task` action per process; the external proce
 document load, the action, and exit. Adapter parity for upstream `storytold/wordcraft@main` is provided
 by an `app_base_patch` applied only in the temporary upstream checkout. WordCraft pins different
 craft-libs revisions per crate, so its journeys use app-locked dependencies on both revisions.
+
+## Real-world DeckCraft
+
+The DeckCraft extension measures cold and warm startup to the first interactive frame, then opens a
+presentation, navigates to a slide, edits its title text, saves the edited PPTX and exports a PDF.
+Task wall time is measured outside the one-shot CLI process; startup is measured by the desktop
+control driver through a returned screenshot and a successful UI inspection.
+
+The payload is the 8,541,624-byte Unit 3 Spanish Language Course presentation from the official
+[Massachusetts MDAR course page](https://www.mass.gov/lists/mdar-spanish-language-course). The page
+lists six course presentations sized 9.93, 6.90, 8.15, 29.6, 6.60 and 7.81 MB; their byte-size
+median is 7.98 MB. Unit 3 at 8.15 MB is the nearest listed file. It has 26 slides at 960×540 pt and
+contains 4,140,408 bytes of embedded media. The source does not state redistribution terms, so the
+corpus entry is fetched on demand and marked non-redistributable.
