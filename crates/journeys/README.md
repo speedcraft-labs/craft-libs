@@ -257,3 +257,28 @@ upstream and fork GPU paths produce non-identical pixels, so the output gate che
 photo/edit state and valid rendered output instead of requiring identical encoded bytes. Across the
 retained Agentbox renders, previews differed by at most one 8-bit RGB code value (alpha matched);
 the 2048 × 1640 JPEGs differed by at most 11, with mean absolute channel error below 0.5.
+
+
+### LightCraft session latency (hyper #291 correction)
+
+Run `craft-journeys session --config session.json --out REPORT_DIRECTORY`.
+Build all three app revisions before locking. Config keys: `revisions` with `point`,
+`main`, `upstream` (each has `revision`, absolute `binary`); `payloads` maps tier names
+to absolute RAW folders; `sessions` (10), `warmups` (2), `repetitions` (3).
+The existing desktop driver launches once per session. Action clocks run from
+control-request send to native frame capture after finished-render state; they
+include polling, capture and IPC overhead, not OS input delivery or scanout.
+No action includes launch or exit; the lifecycle validator rejects that mistake.
+Import visits every thumbnail grid page and checks resident textures and pixels;
+repeat imports remove catalog records only, keeping originals. Exposure is a held
+slider with 60 backpressured moves, each verified and captured, not a 60 Hz gesture.
+JPEG export is checked independently. Populated-library startup and quit have
+separate clocks. Warm-ups and all samples are retained; bootstrap resamples paired
+sessions, keeping slider steps in their original clusters. craft-bench's guard and
+a nonempty observed GPU adapter gate publication. Native capture fallback fails.
+
+Agentbox: use the NVIDIA X display (`DISPLAY=:91`, `WGPU_BACKEND=vulkan`), not a
+software adapter. Build in the one ticket target directory, retain reports outside
+it, then run through `flock /jobs/work/speedcraft-labs/bench.lock
+/jobs/work/speedcraft-labs/scripts/bench-run ...`. Existing launch-per-task journeys
+and their reports are unchanged.
