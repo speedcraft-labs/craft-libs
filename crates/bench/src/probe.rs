@@ -31,14 +31,23 @@ pub struct RealProbe;
 
 impl SystemProbe for RealProbe {
     fn load1(&self) -> Option<f64> {
-        #[cfg(target_os = "linux")]
-        if isolated_mode() {
-            return isolated_cpu_load();
+        // Mac benchmarks serialize through scripts/bench-run's lock. Machine-wide load can
+        // include unrelated work outside that lock, so it is unavailable as a rejection gate.
+        #[cfg(target_os = "macos")]
+        {
+            None
         }
-        if let Ok(s) = std::fs::read_to_string("/proc/loadavg") {
-            return parse_proc_loadavg(&s);
+        #[cfg(not(target_os = "macos"))]
+        {
+            #[cfg(target_os = "linux")]
+            if isolated_mode() {
+                return isolated_cpu_load();
+            }
+            if let Ok(s) = std::fs::read_to_string("/proc/loadavg") {
+                return parse_proc_loadavg(&s);
+            }
+            parse_sysctl_loadavg(&cmd("sysctl", &["-n", "vm.loadavg"])?)
         }
-        parse_sysctl_loadavg(&cmd("sysctl", &["-n", "vm.loadavg"])?)
     }
 
     fn logical_cores(&self) -> usize {

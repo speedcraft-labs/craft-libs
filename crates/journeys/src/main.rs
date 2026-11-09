@@ -65,6 +65,20 @@ struct CommandSpec {
     /// This includes process startup and work through command exit.
     #[serde(default)]
     wall_time: WallTime,
+    /// Optional post-run verifier. Its output identity is checked after the timed command exits,
+    /// so parsing or hashing saved output does not inflate the app's wall time.
+    #[serde(default)]
+    verify: Option<Box<CommandSpec>>,
+}
+
+struct CommandContext<'a> {
+    cwd: &'a Path,
+    rev: &'a str,
+    app_rev: &'a str,
+    input: &'a Input,
+    app: &'a str,
+    cargo_config: &'a Path,
+    target_dir: &'a str,
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
@@ -151,28 +165,8 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
     let rendered_program =
         render(&spec.program, rev, input, app, cwd).replace("{app_binary}", &app_binary.to_string_lossy()).replace("{target_dir}", &target_dir_text);
     let program = rendered_program;
-    let mut cmd = Command::new(program);
-    cmd.current_dir(cwd)
-        .env("CRAFT_JOURNEY_REV", rev)
-        .env("CRAFT_JOURNEY_APP_REV", app_rev)
-        .env("ARTCRAFT_CORPUS", corpus_root())
-        .env("CARGO_TARGET_DIR", &target_dir_text)
-        .env("SQLX_OFFLINE", "true")
-        .env("RUST_MIN_STACK", "8388608");
-    if let Some(root) = std::env::var_os("ARTCRAFT_HYPER_ROOT") {
-        let root = PathBuf::from(root);
-        cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
-    }
-    for (key, value) in &spec.env {
-        cmd.env(key, render(value, rev, input, app, cwd).replace("{target_dir}", &target_dir_text));
-    }
-    if Path::new(&spec.program).file_name().is_some_and(|name| name == "cargo") {
-        cmd.args(["--config"]).arg(cargo_config);
-        for config in &spec.cargo_config_overrides {
-            cmd.args(["--config"]).arg(render(config, rev, input, app, cwd));
-        }
-    }
-    cmd.args(spec.args.iter().map(|a| render(a, rev, input, app, cwd)));
+    let context = CommandContext { cwd, rev, app_rev, input, app, cargo_config, target_dir: &target_dir_text };
+    let mut cmd = make_command(spec, &context, program);
     let started = Instant::now();
     let output = cmd.output().map_err(|e| format!("launch {}: {e}", spec.program))?;
     let process_duration_ns = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
@@ -203,7 +197,7 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
     {
         return Err(format!("selected GPU adapter {:?} did not match required adapter substring {expected:?}", gpu_adapter));
     }
-    let (app_duration_ns, identity) = match spec.output {
+    let (app_duration_ns, mut identity) = match spec.output {
         OutputProtocol::Markers => {
             let duration_ns = stdout
                 .lines()
@@ -535,8 +529,56 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
     };
+    if let Some(verifier) = &spec.verify {
+        let verify_program = render(&verifier.program, rev, input, app, cwd)
+            .replace("{app_binary}", &app_binary.to_string_lossy())
+            .replace("{target_dir}", &target_dir_text);
+        let verifier_output =
+            make_command(verifier, &context, verify_program).output().map_err(|e| format!("launch verifier {}: {e}", verifier.program))?;
+        if !verifier_output.status.success() {
+            return Err(format!(
+                "verifier {} failed ({})\n{}\n{}",
+                verifier.program,
+                verifier_output.status,
+                String::from_utf8_lossy(&verifier_output.stdout),
+                String::from_utf8_lossy(&verifier_output.stderr)
+            ));
+        }
+        let verified_stdout = String::from_utf8_lossy(&verifier_output.stdout);
+        identity = verified_stdout
+            .lines()
+            .find_map(|line| line.strip_prefix("CRAFT_OUTPUT_SHA256="))
+            .map(str::to_owned)
+            .ok_or_else(|| "verifier output is missing CRAFT_OUTPUT_SHA256=<hex>".to_string())?;
+    }
     let duration_ns = primary_wall_time(spec.wall_time, app_duration_ns, process_duration_ns);
     Ok(AppResult { duration_ns, identity, gpu_adapter, prefix_hits, prefix_passes_skipped })
+}
+
+fn make_command(spec: &CommandSpec, context: &CommandContext<'_>, program: String) -> Command {
+    let mut cmd = Command::new(program);
+    cmd.current_dir(context.cwd)
+        .env("CRAFT_JOURNEY_REV", context.rev)
+        .env("CRAFT_JOURNEY_APP_REV", context.app_rev)
+        .env("ARTCRAFT_CORPUS", corpus_root())
+        .env("CARGO_TARGET_DIR", context.target_dir)
+        .env("SQLX_OFFLINE", "true")
+        .env("RUST_MIN_STACK", "8388608");
+    if let Some(root) = std::env::var_os("ARTCRAFT_HYPER_ROOT") {
+        let root = PathBuf::from(root);
+        cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
+    }
+    for (key, value) in &spec.env {
+        cmd.env(key, render(value, context.rev, context.input, context.app, context.cwd).replace("{target_dir}", context.target_dir));
+    }
+    if Path::new(&spec.program).file_name().is_some_and(|name| name == "cargo") {
+        cmd.args(["--config"]).arg(context.cargo_config);
+        for config in &spec.cargo_config_overrides {
+            cmd.args(["--config"]).arg(render(config, context.rev, context.input, context.app, context.cwd));
+        }
+    }
+    cmd.args(spec.args.iter().map(|a| render(a, context.rev, context.input, context.app, context.cwd).replace("{target_dir}", context.target_dir)));
+    cmd
 }
 
 fn corpus_root() -> String {
@@ -1000,7 +1042,12 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
             result
         })
         .inputs(input_pairs)
-        .check(|a, b| !a.identity.starts_with("ERROR:") && a.identity == b.identity)
+        .check(|a, b| {
+            if std::env::var_os("CRAFT_JOURNEYS_DEBUG_OUTPUT").is_some() && a.identity != b.identity {
+                eprintln!("journey output mismatch: old {:?} ({} ns), new {:?} ({} ns)", a.identity, a.duration_ns, b.identity, b.duration_ns);
+            }
+            !a.identity.starts_with("ERROR:") && a.identity == b.identity
+        })
         .wall_meter(|output| output.duration_ns)
         .run(&Config { revs: Revs::default(), ..Config::default() })
         .map_err(|e| e.to_string())?;
