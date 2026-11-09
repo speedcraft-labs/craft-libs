@@ -1,3 +1,13 @@
+diff --git a/crates/engine/Cargo.toml b/crates/engine/Cargo.toml
+--- a/crates/engine/Cargo.toml
++++ b/crates/engine/Cargo.toml
+@@ -28,5 +28,6 @@ gridcraft-math = { workspace = true }
+ image = { workspace = true }
+ 
+ [dev-dependencies]
++sha2 = { workspace = true }
+ gridcraft-xlsx = { workspace = true, features = ["test-support"] }
+ zip = { workspace = true }
 diff --git a/crates/engine/examples/edit_single_cell_perf.rs b/crates/engine/examples/edit_single_cell_perf.rs
 new file mode 100644
 index 00000000..c800c1be
