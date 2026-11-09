@@ -14,7 +14,7 @@ use craft_bench::{
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-const USAGE: &str = "usage:\n  craft-journeys run --journey X --out file.json [--no-build]\n  craft-journeys compare --base REV --head REV --journey X [--no-build]\n  craft-journeys prepare --base REV --head REV --journey X";
+const USAGE: &str = "usage:\n  craft-journeys session --config session.json --out directory\n  craft-journeys run --journey X --out file.json [--no-build]\n  craft-journeys compare --base REV --head REV --journey X [--no-build]\n  craft-journeys prepare --base REV --head REV --journey X";
 
 #[derive(Debug, Deserialize)]
 struct Catalog {

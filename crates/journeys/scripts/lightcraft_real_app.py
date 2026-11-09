@@ -319,7 +319,7 @@ def session_execute(control, command, params=None):
 
 def session_idle(state):
     perf = state['perf']
-    return all(perf.get(k) == 0 for k in ('renderQueue', 'rendersInFlight', 'pendingSlots'))
+    return perf.get('renderQueue') == 0 and perf.get('rendersInFlight') == 0 and perf.get('pendingSlots') == []
 
 
 def session_wait(control, predicate, timeout=180):
@@ -353,6 +353,7 @@ def session_detail(control, photo):
 def session_sample(record, action, sent, end, digest, warmup, **evidence):
     record['samples'].append(dict(action=action, sent_ns=sent, frame_ns=end, duration_ns=end-sent,
                                   frame_sha256=digest, warmup=warmup, checked=True, evidence=evidence))
+    (Path(record['directory'])/'partial-session.json').write_text(json.dumps(record,indent=2)+'\n')
 
 
 def session_pointer(control, x, y, kind='move'):
@@ -415,7 +416,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
     directory.mkdir(parents=True,exist_ok=False)
     library,profile = directory/'library',directory/'profile'
     log_path=directory/'app.log'
-    record=dict(side=side,tier=tier,pair=pair,samples=[],launch_ns=time.perf_counter_ns())
+    record=dict(side=side,tier=tier,pair=pair,directory=str(directory),samples=[],launch_ns=time.perf_counter_ns())
     process,control=spawn(binary,library,profile,None,log_path=log_path)
     try:
         state=control.call('ui.inspect')
@@ -430,25 +431,43 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
                 session_execute(control,'photo.deletePermanently',{'ids': ids})
                 control.call('ui.move', {'x': 600, 'y': 350})
                 control.call('ui.scroll', {'dy': 100000})
-            result=session_execute(control,'library.import',{'paths':paths,'mode':'add'})
+            control.call('ui.dropFiles',{'paths':[str(payload)]})
             sent=control.last_sent_ns
-            ids=result['imported']
-            if result.get('failed') or len(ids)!=len(paths) or result.get('duplicates'):
-                raise RuntimeError(f'incomplete import: {result}')
+            review=session_wait(control,lambda s:(s.get('ui',{}).get('dialog') or {}).get('kind')=='import')
+            dialog=review['ui']['dialog']
+            opts=dialog['opts']
+            if len(opts['candidates'])!=len(paths) or not all(opts['checked']):
+                raise RuntimeError(f'import scan did not accept every RAW: {opts}')
+            if opts.get('copy') or opts.get('move_files'):
+                raise RuntimeError('import review must add files in place')
+            result=control.call('ui.dialog.confirm')
+            if result.get('importing')!=len(paths):
+                raise RuntimeError(f'incomplete import request: {result}')
+            session_wait(control,lambda s:s.get('import') is None and s.get('scan') is None)
+            catalog=session_execute(control,'catalog.query',{'limit':len(paths)+1})
+            photos=sorted(catalog['photos'],key=lambda p:p['fileName'])
+            if len(photos)!=len(paths) or {p['fileName'] for p in photos}!={Path(p).name for p in paths}:
+                raise RuntimeError(f'incomplete/wrong import: {catalog}')
+            ids=[p['id'] for p in photos]
             grid_dir=directory/f'import-{iteration}'
             grid_dir.mkdir()
             end,digest,frames=session_grid(control,ids,grid_dir)
             session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),frames=frames)
         record['photo_ids']=ids
+        record['photos']=photos
         photo=ids[0]
+        if photos[0].get('previewOnly'):
+            raise RuntimeError(f'full-quality RAW preview unavailable: {photos[0]}')
         for iteration in range(warmups+repetitions):
             session_execute(control,'library.select',{'ids':[photo]})
             session_execute(control,'view.detail')
             sent=control.last_sent_ns
+            session_execute(control,'view.zoom100')
             state=session_detail(control,photo)
             end,digest=session_frame(control,directory/f'preview-{iteration}.png')
             session_sample(record,'preview',sent,end,digest,iteration<warmups,loupe=state['loupe'],image_rect=state['imageRect'])
             session_execute(control,'view.squareGrid')
+            session_execute(control,'view.zoomFit')
         session_execute(control,'view.detail')
         session_detail(control,photo)
         # A held real slider gesture, one acknowledged pointer movement and resulting frame per step.
@@ -466,7 +485,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
                 exposure=session_execute(control,'develop.get',{'id':photo})['light']['exposure']
                 if exposure==before:
                     raise RuntimeError(f'slider step {step} had no effect: {exposure}')
-                session_sample(record,'exposure',sent,end,digest,iteration<warmups,step=step,exposure=exposure,loupe=state['loupe'])
+                session_sample(record,'exposure',sent,end,digest,iteration<warmups,step=step,exposure=exposure,loupe=state['loupe'],image_rect=state['imageRect'])
             session_pointer(control,x+w*position,y+h*.5,'up')
         for iteration in range(warmups+repetitions):
             selected=ids[1+iteration%(len(ids)-1)]
@@ -474,7 +493,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             sent=control.last_sent_ns
             state=session_detail(control,selected)
             end,digest=session_frame(control,directory/f'switch-{iteration}.png')
-            session_sample(record,'switch',sent,end,digest,iteration<warmups,photo=selected,loupe=state['loupe'])
+            session_sample(record,'switch',sent,end,digest,iteration<warmups,photo=selected,loupe=state['loupe'],image_rect=state['imageRect'])
         for iteration in range(warmups+repetitions):
             output=directory/f'export-{iteration}.jpg'
             result=session_execute(control,'app.export',{'path':str(output),'ids':[photo],'format':'jpeg','longEdge':2048,'quality':90,'background':True})
@@ -484,6 +503,14 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             if max(jpeg_size(output))!=2048:
                 raise RuntimeError(f'invalid JPEG export: {result}, {state["export"]}')
             session_sample(record,'export',sent,end,digest,iteration<warmups,jpeg_sha256=file_digest(output),dimensions=jpeg_size(output))
+        # A fixed-state pixel oracle outside every action clock; use identical source/settings.
+        session_execute(control,'library.select',{'ids':[photo]})
+        session_execute(control,'develop.set',{'values':{'light.exposure':0.7}})
+        session_detail(control,photo)
+        oracle=directory/'oracle.png'
+        render_preview(control,oracle,photo)
+        record['oracle']=str(oracle)
+        record['oracle_source']=file_digest(Path(paths[0]))
         state=control.call('ui.inspect')
         record['gpu_adapter']=state['perf'].get('gpu')
         record['pre_quit_state']=state
@@ -498,7 +525,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         # Separately measure reopening the already-populated library, including a finished photo frame.
         started=time.perf_counter_ns()
         process,control=spawn(binary,library,profile,None,log_path=directory/'startup.log')
-        session_detail(control,selected)
+        session_detail(control,photo)
         ended,_=session_frame(control,directory/'startup-library.png')
         record['startup_library_ns']=ended-started
         record['startup_state']=control.call('ui.inspect')
@@ -510,9 +537,39 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         validate_session(record)
         (directory/'session.json').write_text(json.dumps(record,indent=2)+'\n')
         return record
+    except Exception as error:
+        record['failure']=str(error)
+        (directory/'partial-session.json').write_text(json.dumps(record,indent=2)+'\n')
+        raise
     finally:
         if process is not None and process.poll() is None:
             stop(process,control)
+        control.stream.close()
+
+
+def session_quit_probe(binary, photo_path, directory, side, pair):
+    """Diagnostic of the previous ui.render→quit path, never a session action claim."""
+    directory.mkdir(parents=True,exist_ok=False)
+    launched=time.perf_counter_ns()
+    process,control=spawn(binary,directory/'library',directory/'profile',photo_path,log_path=directory/'app.log')
+    try:
+        photo=wait_for_photo(control,process)
+        opened=time.perf_counter_ns()
+        render_preview(control,directory/'render.png',photo['id'])
+        rendered=time.perf_counter_ns()
+        state=control.call('ui.inspect')
+        control.call('engine.execute',{'command':'app.quit'})
+        sent=control.last_sent_ns
+        process.wait(timeout=150)
+        ended=time.perf_counter_ns()
+        if process.returncode!=0:raise RuntimeError(f'quit probe process exited {process.returncode}')
+        record=dict(side=side,pair=pair,launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
+                    quit_request_ns=sent,exit_ns=ended,quit_ns=ended-sent,render_ns=rendered-opened,
+                    process_ns=ended-launched,pre_quit_state=state,gpu_adapter=state['perf'].get('gpu'))
+        (directory/'diagnostic.json').write_text(json.dumps(record,indent=2)+'\n')
+        return record
+    finally:
+        if process.poll() is None:stop(process,control)
         control.stream.close()
 
 
@@ -527,12 +584,25 @@ def session_main(args):
     options.out.mkdir(parents=True,exist_ok=False)
     (options.out/'config.json').write_text(json.dumps(config,indent=2)+'\n')
     sessions=[]
-    report=dict(schema='lightcraft-session-v1',config=config,sessions=sessions,publishable=False)
+    report=dict(schema='lightcraft-session-v1',config=config,sessions=sessions,publishable=False,
+                harness_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=Path(__file__).resolve().parents[3],text=True).strip(),
+                binary_sha256={side:file_digest(Path(rev['binary'])) for side,rev in config['revisions'].items()})
     def checkpoint():
         (options.out/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     checkpoint()
     display=ensure_display()
     try:
+        if config.get('quit_probe'):
+            report['schema']='lightcraft-quit-diagnostic-v1'
+            report['diagnostic']=[]
+            for pair in range(config.get('sessions',10)):
+                order=('point','main','upstream') if pair%2==0 else ('upstream','main','point')
+                for side in order:
+                    print(f'quit probe pair {pair} {side}',flush=True)
+                    record=session_quit_probe(Path(config['revisions'][side]['binary']),Path(config['quit_probe']),options.out/f'probe-{pair}-{side}',side,pair)
+                    report['diagnostic'].append(record)
+                    checkpoint()
+            return 0
         # ABC/CBA blocks keep the primary comparison adjacent, reverse order on alternate pairs.
         for tier,payload in config['payloads'].items():
             for pair in range(config.get('sessions',10)):
@@ -543,6 +613,8 @@ def session_main(args):
                     record=run_session(Path(revision['binary']),Path(payload),options.out/f'{tier}-{pair}-{side}',side,tier,pair,config.get('repetitions',3),config.get('warmups',2))
                     sessions.append(record)
                     checkpoint()
+        from lightcraft_session_report import check_pixels
+        report['pixel_checks']=check_pixels(sessions)
         report['rows']=summarize(sessions)
         report['gpu_adapters']=sorted({s['gpu_adapter'] for s in sessions})
         report['output_checked']=True
