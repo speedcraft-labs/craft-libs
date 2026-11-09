@@ -329,7 +329,7 @@
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "materialcraft"] },
       "run": {
         "program": "python3",
-        "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}", "{journey_repo}/crates/journeys/fixtures/materialcraft-atomic-sample.mcraft"],
+        "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}", "{journey_repo}/crates/journeys/fixtures/materialcraft-pbr-sample.sbs"],
         "env": {
           "MATERIALCRAFT_JOURNEY_METADATA_DIR": "{target_dir}/materialcraft-metadata",
           "MATERIALCRAFT_FORCE_SOFTWARE": "1",
@@ -340,7 +340,7 @@
       },
       "run_head": {
         "program": "python3",
-        "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}", "{journey_repo}/crates/journeys/fixtures/materialcraft-atomic-sample.mcraft"],
+        "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}", "{journey_repo}/crates/journeys/fixtures/materialcraft-pbr-sample.sbs"],
         "env": {
           "MATERIALCRAFT_JOURNEY_METADATA_DIR": "{target_dir}/materialcraft-metadata",
           "MATERIALCRAFT_FORCE_SOFTWARE": "1",

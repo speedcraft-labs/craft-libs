@@ -165,6 +165,8 @@ def main():
             control.call("ui.resize", {"width": 1600, "height": 960})
             journey_start = time.monotonic()
             control.call("command.run", {"id": "file.open", "params": {"path": str(graph_path)}})
+            # The pinned sample includes the app's default empty graph followed by the sample.
+            control.call("command.run", {"id": "graph.open", "params": {"graph": 1}})
             loaded_mesh = control.call("command.run", {"id": "view.3d.loadMesh", "params": {"path": str(glb_path)}})
             model_triangles = loaded_mesh.get("triangles", 0) if isinstance(loaded_mesh, dict) else 0
             if model_triangles <= 0:
@@ -195,11 +197,11 @@ def main():
             material_session = control.call("session.inspect")
             material_graph = material_session.get("graph") or {}
             graph_nodes = material_graph.get("nodes") or []
-            parameter_node = next((node for node in graph_nodes if node.get("def") == "input_value"), None)
+            parameter_node = next((node for node in graph_nodes if node.get("def") == "uniform"), None)
             if not parameter_node:
-                fail("the material graph has no editable value input")
+                fail("the PBR material graph has no uniform color node")
             control.call("command.run", {"id": "graph.select", "params": {"ids": [parameter_node["id"]]}})
-            control.call("command.run", {"id": "graph.node.param", "params": {"id": parameter_node["id"], "param": "default", "value": 0.5}})
+            control.call("command.run", {"id": "graph.node.param", "params": {"id": parameter_node["id"], "param": "color", "value": "#8a5b34"}})
             time.sleep(0.05)
             deadline = time.monotonic() + 30
             while time.monotonic() < deadline:
@@ -279,7 +281,7 @@ def main():
             metadata = {
                 "journey": "materialcraft.open-edit-orbit-export",
                 "model": "Poly Haven Camera_01 (CC0-1.0)",
-                "material_graph": "MaterialCraft built-in atomic sample",
+                "material_graph": "MaterialCraft PBR outputs sample",
                 "material_graph_sha256": hashlib.sha256(graph_path.read_bytes()).hexdigest(),
                 "hdri": "Poly Haven Brown Photostudio 02 (CC0-1.0)" if hdr_path else "MaterialCraft built-in studio (baseline)",
                 "asset_sha256": fixture_hash,
