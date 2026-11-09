@@ -254,7 +254,7 @@ the 2048 × 1640 JPEGs differed by at most 11, with mean absolute channel error 
 ### LightCraft session latency (hyper #291 correction)
 
 Run `craft-journeys session --config session.json --out REPORT_DIRECTORY`.
-Build all three app revisions before locking. Config keys: `revisions` with `point`,
+Install Python 3 with Pillow for pixel verification. Build all three app revisions before locking. Config keys: `revisions` with `point`,
 `main`, `upstream` (each has `revision`, absolute `binary`); `payloads` maps tier names
 to absolute RAW folders; `sessions` (10), `warmups` (2), `repetitions` (3).
 The existing desktop driver launches once per session. Action clocks run from
@@ -274,3 +274,45 @@ software adapter. Build in the one ticket target directory, retain reports outsi
 it, then run through `flock /jobs/work/speedcraft-labs/bench.lock
 /jobs/work/speedcraft-labs/scripts/bench-run ...`. Existing launch-per-task journeys
 and their reports are unchanged.
+
+Payload acquisition is pinned in `crates/corpus/manifests/lightcraft-session-2026.toml`.
+Fetch it with craft-corpus, then materialize hard-linked tier folders:
+
+```sh
+craft-corpus fetch crates/corpus/manifests/lightcraft-session-2026.toml "$ARTCRAFT_CORPUS/lightcraft-session-2026"
+python3 crates/journeys/scripts/lightcraft_session_corpus.py \
+  crates/corpus/manifests/lightcraft-session-2026.toml \
+  "$ARTCRAFT_CORPUS/lightcraft-session-2026" \
+  crates/journeys/fixtures/lightcraft-session-tiers.json
+```
+
+`typical-31` contains 31 distinct Sony ILCE-7M3 (A7 III) RAWs, including photographer
+DNG conversions. This is a **smaller provisional tier**, not completion of the
+requested approximately 50-photo single-camera tier. The accessible Signature
+Edits gallery supplied 28 files and raw.pixls.us three; further Signature Edits
+galleries returned a CAPTCHA. No photo is duplicated to inflate the count.
+`heavy-500` contains 476 CC0 raw.pixls.us files plus 24 Signature Edits RAWs, with
+active-sensor sizes in the 23–46 MP window (nominally 24–45 MP). It includes camera
+compression/crop variants and is an engineering workload, not a measured user
+population percentile. The manifest excludes entries licensed BY-NC-SA and samples
+attributed to Adobe DNG Converter. DNGs contributed by photographers remain eligible;
+DNG wrappers identifying their source as JPEG/TIFF are excluded. RAW decoding may
+still be unsupported in an app revision; that is a reported failure, never silently
+replaced by synthetic files or a smaller payload.
+
+[raw.pixls.us](https://raw.pixls.us/) records each selected entry as CC0-1.0; its
+repository also has non-CC0 entries, which are **not** selected. Signature Edits'
+[free RAW license](https://www.signatureedits.com/free-raw-license-terms/) permits
+use, modification and distribution including commercial use, with restrictions on
+competing photo-sharing services. The manifest records per-file URLs, SHA-256 and
+provenance; no RAW media is committed. Tier membership is explicit in the JSON
+fixture. Selection provenance and download logs belong with the raw reports.
+
+The actions are motivated by upstream issues #3786 (320 CR2s from CF, thumbnails),
+#1372 (high-quality previews), #1709 (exposure/preview lag), #3767 (22,763-photo NAS
+startup lens scan) and #1011 (57,947-photo sidebar). These local-SSD, smaller-library
+tiers do not reproduce CF/NFS storage, a 22k-photo scan or a 58k-photo sidebar.
+Preview opens 100% zoom with automatic source quality. Exposure remains a global
+slider exercise, not a mask correctness test for #1709. There is no blended score.
+The fixed +0.7 oracle outside timing requires at most one RGB code of difference
+and identical alpha between revisions, the bound declared before collection.

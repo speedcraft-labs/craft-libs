@@ -80,3 +80,23 @@ def markdown(rows):
             cells = [f"{s[side]['median_ns']/1e6:.2f}/{s[side]['p95_ns']/1e6:.2f}" for side in ('point', 'main')]
             lines.append(f"| {r['action']} | {cells[0]} | {cells[1]} | {r['speedup']:.3f} ({r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}) | {s['upstream']['median_ns']/1e6:.2f} | {r['verdict']} |")
     return '\n'.join(lines) + '\n'
+
+
+def check_pixels(sessions):
+    from PIL import Image, ImageChops, ImageStat
+    checks=[]
+    for tier,pair in sorted({(s['tier'],s['pair']) for s in sessions}):
+        group={s['side']:s for s in sessions if s['tier']==tier and s['pair']==pair}
+        for side in ('main','upstream'):
+            a,b=group['point'],group[side]
+            if a['oracle_source']!=b['oracle_source']:
+                raise ValueError('oracle source mismatch')
+            old,new=(Image.open(s['oracle']).convert('RGBA') for s in (a,b))
+            if old.size!=new.size:raise ValueError('oracle dimensions differ')
+            diff=ImageChops.difference(old,new)
+            maximum=[high for low,high in diff.getextrema()]
+            mean=ImageStat.Stat(diff).mean
+            checks.append(dict(tier=tier,pair=pair,side=side,max_rgba=maximum,mean_rgba=mean))
+            if max(maximum[:3])>1 or maximum[3]!=0:
+                raise ValueError(f'fixed +0.7 preview exceeded predeclared 1-code RGB/identical-alpha bound: {checks[-1]}')
+    return checks
