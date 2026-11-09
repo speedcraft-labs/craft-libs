@@ -105,6 +105,12 @@ class Boundaries(unittest.TestCase):
         s=fixture(); s['samples'][0]['checked']=False
         with self.assertRaises(ValueError): validate_session(s)
 
+    def test_exposure_requires_changed_photo_pixels(self):
+        from lightcraft_session_report import verify_photo_change
+        with self.assertRaisesRegex(ValueError,'photo pixels'):verify_photo_change('unchanged-photo','unchanged-photo')
+        with self.assertRaises(ValueError):verify_photo_change('', 'new-photo')
+        verify_photo_change('old-photo','new-photo')
+
     def test_foreign_gpu_process_rejects_publication(self):
         s=fixture();s['process_ids']=[123]
         s['gpu_processes_before']={'processes':[]}

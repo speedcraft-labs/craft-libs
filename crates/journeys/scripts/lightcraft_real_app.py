@@ -747,15 +747,16 @@ def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=Fal
             raise ValueError('unknown legacy diagnostic action')
         rendered=time.perf_counter_ns()
         state=control.call('ui.inspect')
-        control.call('engine.execute',{'command':'app.quit'})
+        quit_reply_error=None
+        try:control.call('engine.execute',{'command':'app.quit'})
+        except (RuntimeError,OSError) as error:quit_reply_error=str(error)
         sent=control.last_sent_ns
         if trace_quit:
             with (directory/'quit-backtrace.txt').open('wb') as log:
                 subprocess.run(['sudo','-n','gdb','-q','-batch','-p',str(process.pid),'-ex','set pagination off','-ex','thread apply all bt 90','-ex','detach'],stdout=log,stderr=log,timeout=45)
         ended=session_wait_exit(process)
-        if process.returncode!=0:raise RuntimeError(f'quit probe process exited {process.returncode}')
         gpu_after=session_gpu_processes()
-        record=dict(side=side,pair=pair,task=task,profiled=trace_quit,gpu_processes_before=gpu_before,gpu_processes_after=gpu_after,process_ids=[process.pid],launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
+        record=dict(side=side,pair=pair,task=task,profiled=trace_quit,exit_code=process.returncode,success=process.returncode==0,forced_termination=False,quit_reply_error=quit_reply_error,gpu_processes_before=gpu_before,gpu_processes_after=gpu_after,process_ids=[process.pid],launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
                     quit_request_ns=sent,exit_ns=ended,quit_ns=ended-sent,render_ns=rendered-opened,
                     process_ns=ended-launched,pre_quit_state=state,gpu_adapter=state['perf'].get('gpu'))
         if any(p['pid']!=process.pid for p in gpu_after['processes']):
@@ -805,6 +806,9 @@ def session_main(args):
                         checkpoint()
             report['gpu_adapters']=sorted({r['gpu_adapter'] for r in report['diagnostic'] if r['gpu_adapter']})
             report['gpu_process_checks_passed']=True
+            report['exit_failures']=[dict(side=r['side'],task=r['task'],pair=r['pair'],exit_code=r['exit_code']) for r in report['diagnostic'] if not r['success']]
+            report['all_exits_successful']=not report['exit_failures']
+            print(f'quit diagnostic: {len(report["diagnostic"])} attempts, {len(report["exit_failures"])} process failures; no forced exits',flush=True)
             checkpoint()
             return 0
         # ABC/CBA blocks keep the primary comparison adjacent, reverse order on alternate pairs.
