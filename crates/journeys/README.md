@@ -81,8 +81,8 @@ Run and compare:
 
 ```sh
 cargo run --release -p craft-journeys -- run --journey cadcraft.open-dxf.large-map --out baselines/cadcraft-open.json
-cargo run --release -p craft-journeys -- compare --base BASE_LIBS_REV --head HEAD_LIBS_REV --journey wordcraft.open-office-docx --out baselines/wordcraft-open.json
-cargo run --release -p craft-journeys -- prepare --base BASE_LIBS_REV --head HEAD_LIBS_REV --journey wordcraft.open-office-docx
+cargo run --release -p craft-journeys -- compare --base app-locked --head app-locked --journey wordcraft.open-typical-docx --out baselines/wordcraft-open.json
+cargo run --release -p craft-journeys -- prepare --base app-locked --head app-locked --journey wordcraft.open-typical-docx
 ```
 
 `run` pairs the current craft-libs working tree against itself to produce a baseline report.
@@ -164,6 +164,11 @@ The app-specific real-input adapters are part of the speedcraft-labs fork change
 applies the additive adapter code only in the temporary upstream checkout used by `prepare` or
 `compare`; it never changes or pushes to an upstream repository.
 
+When an app pins different craft-libs commits per crate, set `app_locked_dependencies = true` on its
+journeys and pass `app-locked` for both `--base` and `--head`. The build then uses each app revision's
+own Cargo.lock instead of replacing all of its craft-libs dependencies with one shared revision.
+Reports still record both app commit SHAs and mark the dependency mode as `craft-libs:app-locked`.
+
 ## Real-world CADCraft
 
 The real-world catalog includes cold and warm desktop startup, opening a typical drawing, changing
@@ -197,4 +202,5 @@ redistribution terms, so the corpus entry is fetched on demand and marked non-re
 WordCraft startup uses its localhost control channel with a per-profile key. The open, scroll, edit and
 save adapters run one `perf_probe --task` action per process; the external process clock covers launch,
 document load, the action, and exit. Adapter parity for upstream `storytold/wordcraft@main` is provided
-by an `app_base_patch` applied only in the temporary upstream checkout.
+by an `app_base_patch` applied only in the temporary upstream checkout. WordCraft pins different
+craft-libs revisions per crate, so its journeys use app-locked dependencies on both revisions.

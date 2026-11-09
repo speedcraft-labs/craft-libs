@@ -34,6 +34,10 @@ struct Journey {
     /// to carry the same benchmark adapter in its own repository.
     #[serde(default)]
     app_base_patch: Option<PathBuf>,
+    /// Keep each app revision's Cargo.lock and pinned craft-libs revisions instead of applying
+    /// the harness's single-revision craft-libs overlay.
+    #[serde(default)]
+    app_locked_dependencies: bool,
     #[serde(default)]
     inputs: Vec<Input>,
 }
@@ -77,7 +81,7 @@ struct CommandContext<'a> {
     app_rev: &'a str,
     input: &'a Input,
     app: &'a str,
-    cargo_config: &'a Path,
+    cargo_config: Option<&'a Path>,
     target_dir: &'a str,
 }
 
@@ -158,7 +162,15 @@ fn render(s: &str, rev: &str, input: &Input, app: &str, app_repo: &Path) -> Stri
         .replace("{corpus}", &corpus_root())
 }
 
-fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: &Input, app: &str, cargo_config: &Path) -> Result<AppResult, String> {
+fn run_command(
+    spec: &CommandSpec,
+    cwd: &Path,
+    rev: &str,
+    app_rev: &str,
+    input: &Input,
+    app: &str,
+    cargo_config: Option<&Path>,
+) -> Result<AppResult, String> {
     let target_dir_path = target_dir(app, rev, app_rev);
     let target_dir_text = target_dir_path.to_string_lossy().into_owned();
     let app_binary = target_dir_path.join(format!("release/examples/perf_probe{}", std::env::consts::EXE_SUFFIX));
@@ -580,7 +592,9 @@ fn make_command(spec: &CommandSpec, context: &CommandContext<'_>, program: Strin
         cmd.env(key, render(value, context.rev, context.input, context.app, context.cwd).replace("{target_dir}", context.target_dir));
     }
     if Path::new(&spec.program).file_name().is_some_and(|name| name == "cargo") {
-        cmd.args(["--config"]).arg(context.cargo_config);
+        if let Some(config) = context.cargo_config {
+            cmd.args(["--config"]).arg(config);
+        }
         for config in &spec.cargo_config_overrides {
             cmd.args(["--config"]).arg(render(config, context.rev, context.input, context.app, context.cwd));
         }
@@ -739,13 +753,17 @@ impl AppCheckout {
 }
 
 struct LibRevision {
-    _checkout: AppCheckout,
-    cargo_config: PathBuf,
+    _checkout: Option<AppCheckout>,
+    cargo_config: Option<PathBuf>,
 }
 
 impl LibRevision {
     fn alias(revision: &Self) -> Self {
-        Self { _checkout: AppCheckout::alias(&revision._checkout), cargo_config: revision.cargo_config.clone() }
+        Self { _checkout: revision._checkout.as_ref().map(AppCheckout::alias), cargo_config: revision.cargo_config.clone() }
+    }
+
+    fn app_locked() -> Self {
+        Self { _checkout: None, cargo_config: None }
     }
 
     fn at(repo: &Path, rev: &str) -> Result<Self, String> {
@@ -795,7 +813,7 @@ impl LibRevision {
         std::fs::create_dir_all(&config_dir).map_err(|e| format!("{}: {e}", config_dir.display()))?;
         let cargo_config = config_dir.join(format!("{}-{}.toml", &repo_key[..16], &rev_key[..16]));
         std::fs::write(&cargo_config, config).map_err(|e| format!("{}: {e}", cargo_config.display()))?;
-        Ok(Self { _checkout: checkout, cargo_config })
+        Ok(Self { _checkout: Some(checkout), cargo_config: Some(cargo_config) })
     }
 }
 
@@ -890,9 +908,17 @@ fn journey_context(journey: &Journey, old_rev: &str, new_rev: &str) -> Result<Jo
     let app_base = app_old.revision.clone();
     let app_head = app_new.revision.clone();
     let checkouts = [app_old, app_new];
-    let lib_repo = craft_libs_repo()?;
-    let libs_old = LibRevision::at(&lib_repo, old_rev)?;
-    let libs_new = if old_rev == new_rev { LibRevision::alias(&libs_old) } else { LibRevision::at(&lib_repo, new_rev)? };
+    let (libs_old, libs_new) = if journey.app_locked_dependencies {
+        if old_rev != "app-locked" || new_rev != "app-locked" {
+            return Err(format!("{} uses app-locked dependencies; pass --base app-locked --head app-locked", journey.name));
+        }
+        (LibRevision::app_locked(), LibRevision::app_locked())
+    } else {
+        let lib_repo = craft_libs_repo()?;
+        let libs_old = LibRevision::at(&lib_repo, old_rev)?;
+        let libs_new = if old_rev == new_rev { LibRevision::alias(&libs_old) } else { LibRevision::at(&lib_repo, new_rev)? };
+        (libs_old, libs_new)
+    };
     Ok(JourneyContext { inputs, app_base, app_head, checkouts, revisions: [libs_old, libs_new] })
 }
 
@@ -962,7 +988,9 @@ fn build_app(journey: &Journey, rev: &str, app_rev: &str, input: &Input, checkou
         cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
     }
     if cargo_build {
-        cmd.args(["--config"]).arg(&libs.cargo_config);
+        if let Some(config) = libs.cargo_config.as_ref() {
+            cmd.args(["--config"]).arg(config);
+        }
         for config in &journey.build.cargo_config_overrides {
             cmd.args(["--config"]).arg(render(config, rev, input, &journey.app, &checkout.path));
         }
@@ -1008,7 +1036,7 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
     let new_prefix_runs = Arc::clone(&new_prefix);
     let mut report = Paired::new(format!("{} / {}", journey.app, journey.name))
         .old(|input: &Input| {
-            let result = run_command(&journey.run, &checkouts[0].path, old_rev, &app_base, input, &journey.app, &revisions[0].cargo_config)
+            let result = run_command(&journey.run, &checkouts[0].path, old_rev, &app_base, input, &journey.app, revisions[0].cargo_config.as_deref())
                 .unwrap_or_else(|e| AppResult {
                     duration_ns: 0,
                     identity: format!("ERROR: {e}"),
@@ -1031,9 +1059,13 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
             result
         })
         .new(|input: &Input| {
-            let result =
-                run_command(head_run, &checkouts[1].path, new_rev, &app_head, input, &journey.app, &revisions[1].cargo_config).unwrap_or_else(|e| {
-                    AppResult { duration_ns: 0, identity: format!("ERROR: {e}"), gpu_adapter: None, prefix_hits: None, prefix_passes_skipped: None }
+            let result = run_command(head_run, &checkouts[1].path, new_rev, &app_head, input, &journey.app, revisions[1].cargo_config.as_deref())
+                .unwrap_or_else(|e| AppResult {
+                    duration_ns: 0,
+                    identity: format!("ERROR: {e}"),
+                    gpu_adapter: None,
+                    prefix_hits: None,
+                    prefix_passes_skipped: None,
                 });
             if let Some(adapter) = &result.gpu_adapter
                 && let Ok(mut observed) = new_adapters.lock()
@@ -1065,8 +1097,8 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
     if old_prefix.observations > 0 || new_prefix.observations > 0 {
         report.prefix_cache = Some(PrefixCacheStats { old: old_prefix, new: new_prefix });
     }
-    // A journey compares app code as well as the patched craft-libs checkout. Preserve both
-    // revisions in the raw report so the measured implementation can be recreated later.
+    // Preserve app revisions and the craft-libs revision or lock mode so the measured build can
+    // be recreated later.
     report.revs = Revs { old: Some(format!("app:{app_base};craft-libs:{old_rev}")), new: Some(format!("app:{app_head};craft-libs:{new_rev}")) };
     if let Some(path) = out {
         std::fs::write(path, report.to_json()).map_err(|e| format!("{}: {e}", path.display()))?;
