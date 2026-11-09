@@ -106,7 +106,6 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
         "XDG_CONFIG_HOME": str(profile / ".config"),
         "XDG_DATA_HOME": str(profile / ".local/share"),
         "XDG_CACHE_HOME": str(profile / ".cache"),
-        "GRIDCRAFT_NO_PREFS": "",
     })
     for key in ("PHOTOCRAFT_NO_PREFS", "PDFCRAFT_NO_PREFS", "GRIDCRAFT_NO_PREFS"):
         env.pop(key, None)
