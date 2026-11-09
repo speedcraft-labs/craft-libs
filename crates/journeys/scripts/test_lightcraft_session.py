@@ -30,6 +30,32 @@ class Boundaries(unittest.TestCase):
         proof['verified_ns']=151
         with self.assertRaises(ValueError):validate_session(s)
 
+    def test_headless_retry_keeps_elapsed_time_and_failed_evidence(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from lightcraft_real_app import session_frame
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);log=root/'app.log';log.write_text('')
+            control=SimpleNamespace(session_log=log)
+            def capture(control,path):
+                end=50 if not log.read_text() else 80
+                path.write_bytes(b'capture')
+                control.last_capture_proof=dict(method='native-upper-bound',frame_ns=end,verified_ns=end,rgb_sha256=str(end))
+                if end==50:log.write_text('rendering headlessly')
+                return end,str(end)
+            with patch('lightcraft_real_app.session_capture_once',side_effect=capture) as capture_mock:
+                end,digest=session_frame(control,root/'frame.png')
+            self.assertEqual(capture_mock.call_count,2)
+            self.assertEqual((end,digest),(80,'80'))
+            self.assertTrue((root/'frame.headless-attempt-0.png').exists())
+            self.assertFalse(control.last_capture_proof['attempts'][0]['native'])
+            s=fixture();s['samples'][0].update(frame_ns=end,duration_ns=end-30,frame_sha256=digest,evidence={'capture':control.last_capture_proof})
+            validate_session(s)
+            control.last_capture_proof['native']=False
+            with self.assertRaisesRegex(ValueError,'headless'):validate_session(s)
+
     def test_tiers_cannot_be_inside_a_pruned_corpus_root(self):
         import json
         import tempfile

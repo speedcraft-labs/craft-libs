@@ -163,6 +163,7 @@ def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *
         process.wait(timeout=5)
         raise TimeoutError("LightCraft control channel did not start")
     control.process_pid=process.pid
+    control.session_log=log_path
     return process, control
 
 
@@ -382,7 +383,7 @@ class SessionX11Capture:
         return ImageGrab.grab(bbox=self.bounds,xdisplay=self.display).convert('RGB')
 
 
-def session_frame(control, path):
+def session_capture_once(control, path):
     import threading
     from PIL import Image
     candidates=[]
@@ -423,6 +424,28 @@ def session_frame(control, path):
         width=reference.width,height=reference.height,failures=failures,
         candidates=[dict(ns=ns,width=size[0],height=size[1],rgb_sha256=digest) for ns,size,digest in candidates if ns<=verified_ns])
     return end,reference_hash
+
+
+def session_frame(control, path):
+    # The native API can fall back after a compositor timeout. Keep that failed
+    # evidence, retry without resetting the caller's action clock, and require a
+    # successful native capture before accepting any endpoint.
+    attempts=[]
+    for attempt in range(3):
+        log=getattr(control,'session_log',None)
+        before=log.stat().st_size if log is not None else 0
+        end,digest=session_capture_once(control,path)
+        recent=log.read_bytes()[before:] if log is not None else b''
+        proof=control.last_capture_proof
+        proof['native']='rendering headlessly' not in recent.decode(errors='replace')
+        if proof['native']:
+            proof['attempts']=attempts
+            return end,digest
+        retained=path.with_name(f'{path.stem}.headless-attempt-{attempt}{path.suffix}')
+        path.rename(retained)
+        proof['reference_png']=str(retained)
+        attempts.append(proof)
+    raise RuntimeError(f'native compositor capture failed after three attempts: {attempts}')
 
 
 def session_detail(control, photo):
@@ -540,6 +563,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         control.call('ui.set',{'settings':{'previewLimit':0,'lensDatabase':'declined'}})
         control.call('ui.dialog.cancel')
         record['interactive_ns'],_=session_frame(control,directory/'interactive.png')
+        record['interactive_capture']=control.last_capture_proof
         # Initial GPU setup may continue after the first interactive (CPU) window.
         # Warm it completely before measuring actions; never publish silent CPU fallback.
         state=session_wait(control,lambda s:bool(s['perf'].get('gpu')),timeout=900)
@@ -653,13 +677,11 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         session_detail(control,photo)
         ended,_=session_frame(control,directory/'startup-library.png')
         record['startup_library_ns']=ended-started
+        record['startup_capture']=control.last_capture_proof
         record['startup_state']=control.call('ui.inspect')
         session_wait(control,lambda s:session_idle(s) and not s['activity'] and not s['tasks'])
         stop(process,control)
         process=None
-        for log in (log_path,directory/'startup.log'):
-            if 'rendering headlessly' in log.read_text(errors='replace'):
-                raise RuntimeError('native screenshot fell back to headless rendering')
         validate_session(record)
         (directory/'session.json').write_text(json.dumps(record,indent=2)+'\n')
         return record
