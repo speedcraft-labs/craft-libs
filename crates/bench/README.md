@@ -48,10 +48,11 @@ a microsecond is below timer resolution: batch it inside the closure.
   `thermal_throttle` counter rises during the run. Load is `/proc/loadavg` or `sysctl vm.loadavg`;
   where neither exists load is `null` and is not treated as contention. The after-run load
   includes the benchmark's own load, so a many-thread benchmark on a few cores can trip it.
-- **macOS measurements.** `scripts/bench-run` serializes runs with a `shlock` lock file and
-  `craft-bench` uses the system load average and `pmset` thermal limit. macOS does not expose CPU
-  affinity, so work cannot be pinned away from background jobs. The lock prevents competing
-  SpeedCraft benchmarks on that Mac; unrelated system work can still add noise. Reports record
+- **macOS measurements.** `scripts/bench-run` serializes runs with a `shlock` lock file. Machine
+  load is recorded as unavailable because it includes unrelated processes outside the lock;
+  thermal throttling is still checked with `pmset`. macOS does not expose CPU affinity, so work
+  cannot be pinned away from background jobs. The lock prevents competing SpeedCraft benchmarks
+  on that Mac; unrelated system work can still add noise. Reports record
   `fingerprint.arch` (`arm64` or `x86_64`) and must be compared only within the same architecture.
 - **Publishable** means: not contended, at least 10 runs per side, at least 2000 resamples, and an
   output check ran. Only a publishable report may back a speedup claim.
