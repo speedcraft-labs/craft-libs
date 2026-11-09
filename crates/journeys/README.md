@@ -334,3 +334,35 @@ pidfd readiness observes quit without Popen's 50 ms timeout-poll quantization.
 JPEGs must reproduce a separate 2048px render of the same photo/settings within
 lossy MAE 8; cross-revision JPEG differences must stay within RGB max 16/MAE 0.5.
 These output gates are outside every action clock and declared before the matrix.
+
+
+For Agentbox, use a private NVIDIA Xorg display at 1920×1080 (the 1600×1000 app
+window must fit entirely on screen). `session_frame` samples the **actual visible
+X11 window belonging to the app PID**, via Pillow XCB readback, every 5 ms while
+the existing native control screenshot is pending. It uses the first candidate
+whose complete RGB pixels hash identically to that later native PNG. All candidate
+timestamps/hashes and the reference PNG are retained. This verifies that the
+*earlier displayed frame* already showed the result, instead of including the
+screenshot API's mandatory 120 ms / three-frame settle delay. The validator rejects
+an early timestamp without a matching pixel proof. No delay is subtracted.
+
+If no earlier candidate matches exactly (or X11 capture is unavailable/occluded),
+the sample explicitly falls back to the later native-capture **upper bound**.
+The method and verification timestamp are recorded per sample. These are sampled
+input-to-result-frame observations, including readback/IPC/polling overhead, not
+hardware scanout timestamps. Prerequisites are Pillow with XCB, `xwininfo`, `xprop`,
+and the GPU-backed X display; no OS synthetic input is sent.
+
+GPU initialization is fully warmed before actions, with `gpu_ready_ns` recorded
+separately. Runs share an explicit NVIDIA shader cache under the one ticket target,
+like a returning user; its path is recorded and compiled cache contents are not
+backed up. Idle quit waits for background preview preparation to finish **before**
+its clock; the separate cold legacy diagnostic deliberately quits during setup.
+
+The preview oracle gate is strict for the primary fork-point→fork-main comparison.
+Current upstream's color output exceeds that bound on the Sony RAW, so its median
+column is marked **descriptive only / not pixel-equivalent**, with all measured
+differences retained. No upstream-relative speedup is claimed. `publishable` in
+this session schema refers to the primary comparison (`publish_scope` records it).
+The per-side JPEG/source-render check allows a one-pixel short-edge rounding
+mismatch, aligned by bilinear resize before the declared lossy MAE 8 check.
