@@ -105,6 +105,8 @@ scenarios = [row for section in report_data.get("sections", []) for row in secti
 timeline_rows = [row for section in report_data.get("sections", []) if section.get("section") == "timeline" for row in section.get("rows", [])]
 if len(scenarios) < 4 or len(timeline_rows) < 2:
     raise SystemExit("FilmCraft playback/scrub/timeline results are incomplete")
+if any(row.get("clips") != 16 for row in timeline_rows):
+    raise SystemExit("FilmCraft timeline did not retain all eight video and eight soundtrack regions")
 if any(row.get("waveform_streams", 0) < 1 or row.get("waveform_buckets", 0) < 1 for row in timeline_rows):
     raise SystemExit("FilmCraft timeline did not paint waveform data from the pinned soundtrack")
 elapsed = time.perf_counter_ns() - started
@@ -118,7 +120,7 @@ identity = identity_hash.hexdigest()
 print(f"CRAFT_JOURNEY_NS={elapsed}")
 print(f"CRAFT_OUTPUT_SHA256={identity}")
 print(
-    f"duration_seconds=60 playback_scrub_timeline_rows={len(scenarios)} "
+    f"duration_seconds=60 playback_scrub_timeline_rows={len(scenarios)} cut_regions=16 "
     f"waveform_buckets={timeline_rows[0]['waveform_buckets']} export_bytes={exported.stat().st_size} "
     f"music_sha256={music_sha256}"
 )
