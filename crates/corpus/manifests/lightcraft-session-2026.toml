@@ -1,5 +1,5 @@
 name = "lightcraft-session-2026"
-description = "Real RAWs for session latency; CC0 raw.pixls.us and permissive Signature Edits originals."
+description = "Real RAWs for session latency; CC0 raw.pixls.us, Signature Edits originals and CC-BY-SA-4.0 RawNIND A7C photos."
 
 [[file]]
 path = "pixls-1002.cr2"
@@ -4144,3 +4144,403 @@ sha256 = "5dee4eb2351133d6947bcd1a7c66d349172fd40c0baaf07f2212ee15627cb350"
 licence = "Signature Edits free RAW license"
 provenance = "https://www.signatureedits.com/free-raw-license-terms/"
 tags = ["raw", "session", "ilce-7m3"]
+
+[[file]]
+path = "rawnind-28369.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28369"
+sha256 = "e9ba7ac3688c8b8b16999657a37718275b9c51d6dd804b6b4ceb1590bc68548f"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28398.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28398"
+sha256 = "a642a838af54e6fd09337a0fdb831623b6491f44eb08e1156a2c4040e5e3b0cd"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28409.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28409"
+sha256 = "f774a3f605b3e346608e2892057a8d154fa5906de47d1aa2008c1abd65aff51c"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28438.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28438"
+sha256 = "a453c14d2d97b0eb2dccdf50ae91cc99f1c0ad09761214839bd1e798dd24d00c"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28439.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28439"
+sha256 = "2ee4c90a4405f632d5af4782401d0532094dae7081a1bc815534175724662293"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28454.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28454"
+sha256 = "e181f5e4c6229819537372b92429be092d0728d897610de913377a36f3cad69e"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28470.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28470"
+sha256 = "c0daf60fccb19cdac66c2d5a24900c05920af98c60b57e9d0daa4ebd26cc6966"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28512.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28512"
+sha256 = "e5188e0178747e4a842eb920d39d93cc4c569cd2e1ad250a267f24fb11e59b9c"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28533.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28533"
+sha256 = "1b3011e3b7e290f524203918fae043c67186622ec5c45bc0cd8cc446c267ba2e"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28554.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28554"
+sha256 = "ffdbed2f5aee1827a1de9cf562bd892375372ec856c9af6928c1331f9481c71a"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28579.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28579"
+sha256 = "7bae8f5ba2861749c824caaa2fafeaaa347cc01c53e0dd013f7d770d9eb8caee"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28613.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28613"
+sha256 = "afe2378999eec058f73ef6184c49c542f67a05ea0006613f5494c3e4a9fa3651"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28635.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28635"
+sha256 = "62950277c741f6cfec9d247a70a6bc6216690a6793d8a949708c3a170c2fd597"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28669.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28669"
+sha256 = "0a3e104c2690880051e06117044a58cda145b79a53650d25d81822ff152f89c8"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28683.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28683"
+sha256 = "c5d4c3dc0395f93ef724bf36e9cc8bb83d7483f7469bc082681d798ca6e703e7"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28694.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28694"
+sha256 = "009de3f7bb3a2ae8ad108cb38e3573d186fd9f83e9b6390f8ea627841228304a"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28706.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28706"
+sha256 = "597a65e2cc83c03d04bf5874535704ab83bb097a33e19cbc493eff30f674a3ff"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28762.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28762"
+sha256 = "a9d041c44f19762d7eb6622fd1cb9cce0cb44f996578c5b939276f1f3790cfc9"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28771.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28771"
+sha256 = "1f5b46462cb8ea8308a520ec90aabe3838629f765064fd94f3414e964b49d424"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28793.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28793"
+sha256 = "82d48ac43fbe2acd5600d1a5cfa2a87f81d9d94b524588ae86bb8ead250bfb79"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28800.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28800"
+sha256 = "7c709d1f80e1c728035be4de106b87283215d6aa81533f3fbaaf8ad7d2f95a14"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28803.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28803"
+sha256 = "907de0d23a975d936a993e81ed4c55a58dcc33cfa6b48a091e966d37189105af"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28820.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28820"
+sha256 = "1d9f0e43ae164f69ba1dfab858ec19ec2d2469940b7beb9250a09133d4bccdc6"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28843.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28843"
+sha256 = "c5cc4425819e6f6c3db4a3116e344401ae54d82b0ed3698bf16b9088cb001109"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28890.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28890"
+sha256 = "76fee3fdc44d1c75bbb6af392381290fd77d8521bdf935734e0a3ab96fab7dc5"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28901.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28901"
+sha256 = "337f5ac71425cc5881aea998114058e2324bd5f9edce42825c70e7e64d0c0f98"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28922.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28922"
+sha256 = "5709d7df1ce9cb972a32015bbcc0948c477a6e021e68967bf7724eff169c7a8c"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28924.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28924"
+sha256 = "00dd90a083a2207ffe2518c513bf60ffe176fd3186a4f975237948400a95feb4"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28937.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28937"
+sha256 = "00fcd35c2b8f65dbe0fa530ec19fd5fab774b8e495deb9cd49df97b345dadaa5"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28951.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28951"
+sha256 = "ae2949b0e2ab70c6ab1b834d435847d6c73ed4687a7029f3b191262553c604f2"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28952.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28952"
+sha256 = "690fc991f37abb88a4f86667fcf6dc0e4c6aedc0776e09cd3ff97ebb308a8796"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28953.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28953"
+sha256 = "59eb3fbb5bc08c9f764bd280e5f8840d6ce6afb7ab19d189c9429dd7980a4505"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-28955.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/28955"
+sha256 = "0c067d3a5a9c6a5d8b666fb609f597c31b2b2b220ac4cb7106235c9db8bcad5e"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29005.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29005"
+sha256 = "415b0cde8ca85c382f7cdc0b2e67a6c0d92acbb3ca793a86f8c1644e5f2036c2"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29007.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29007"
+sha256 = "a68d3a220482d3891d5700e4fbb28ab08b086c7b38826f1ab78e4d1f30e4d76e"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29041.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29041"
+sha256 = "a88b76409b93eef4316dc0663c9a11e3151103d2f2e141a0c8ab16a805dceafe"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29059.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29059"
+sha256 = "8f0b3f560cd6cea7220c4794b28f13c2fccb10b45a1b6c8796c7f4ef2d0de441"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29067.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29067"
+sha256 = "6210d8eb46260ddb5ef672925001e1dd01a89471ad55f5985d7525c52f955ca5"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29082.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29082"
+sha256 = "399b76221b116b41dba33db00932f086d85a76d7997a34f884dac143c91708a0"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29113.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29113"
+sha256 = "47973b90a6b65ed00adc3248fd7beada21078cb4157cc0c634de46fb94f23432"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29143.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29143"
+sha256 = "d20f8457e4877a66522ad0094d30a2b2a8ec32759f97e646d1bb20a401b55c6f"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29145.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29145"
+sha256 = "aec234a8ed592a79d472f771bb9963f2a7c8dbc1def271a30ecfe60ceeffe876"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29149.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29149"
+sha256 = "17723fd25930ec9dffd7165ce4022656c89080892eed005369bff90f828f9870"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29175.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29175"
+sha256 = "640f14f3ef10a7e6a9dfd7a1edde1c30e930c3a584824507625a70911bef8816"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29177.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29177"
+sha256 = "ffdfb8b9ed0923bf9ae35df62bb83795cd9c4b0d3592b5c330edbb59c637e594"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29272.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29272"
+sha256 = "b562ff0cf5c7d9b4b036a3c4f56a010f36c6cf3cabc7d5819e194411366fd6b1"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29278.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29278"
+sha256 = "e6292130a662226b896852b76256a263411421be7211932cd743731bebaebe70"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29282.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29282"
+sha256 = "63ad4d9825aa8afe5015d0f2d60c4b93f3dd9ca09edf9b279e44908c71c02d05"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29321.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29321"
+sha256 = "8629766baa14aba0f6c0067ece306b243b83cd4ba1fa71032da85ee8a250cdeb"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]
+
+[[file]]
+path = "rawnind-29352.arw"
+url = "https://dataverse.uclouvain.be/api/access/datafile/29352"
+sha256 = "c65cf841e9b1e87c389b1570f8e59c74a47128e2539728daa684d4f98c15afac"
+licence = "CC-BY-SA-4.0"
+provenance = "https://doi.org/10.14428/DVN/DEQCIM"
+tags = ["raw", "session", "ilce-7c"]

@@ -267,10 +267,10 @@ slider with 60 backpressured moves, each verified and captured, not a 60 Hz gest
 JPEG export is checked independently. Populated-library startup and quit have
 separate clocks. Warm-ups and all samples are retained; bootstrap resamples paired
 sessions, keeping slider steps in their original clusters. craft-bench's guard and
-a nonempty observed GPU adapter gate publication. Native capture fallback fails.
+a nonempty observed GPU adapter gate publication. Headless capture fallback is retained and retried; no such image is accepted as a result frame.
 
-Agentbox: use the NVIDIA X display (`DISPLAY=:91`, `WGPU_BACKEND=vulkan`), not a
-software adapter. Build in the one ticket target directory, retain reports outside
+Agentbox: use a private NVIDIA X display large enough for the window (for this run,
+`DISPLAY=:118` at 1920×1080, `WGPU_BACKEND=vulkan`). Build in the one ticket target directory, retain reports outside
 it, then run through `flock /jobs/work/speedcraft-labs/bench.lock
 /jobs/work/speedcraft-labs/scripts/bench-run ...`. Existing launch-per-task journeys
 and their reports are unchanged.
@@ -287,11 +287,24 @@ python3 crates/journeys/scripts/lightcraft_session_corpus.py \
   --out "$ARTCRAFT_CORPUS/lightcraft-session-tiers-2026"
 ```
 
-`typical-31` contains 31 distinct Sony ILCE-7M3 (A7 III) RAWs, including photographer
-DNG conversions. This is a **smaller provisional tier**, not completion of the
-requested approximately 50-photo single-camera tier. The accessible Signature
-Edits gallery supplied 28 files and raw.pixls.us three; further Signature Edits
-galleries returned a CAPTCHA. No photo is duplicated to inflate the count.
+`typical-50` contains 50 distinct Sony ILCE-7C (A7C) RAWs at 6000×4000 (24 MP),
+one low-ISO ground-truth exposure per scene from the [Raw Natural Image Noise
+Dataset](https://doi.org/10.14428/DVN/DEQCIM), version 1.0 (2025-01-15), by Benoit
+Brummer and Christophe De Vleeschouwer, Université catholique de Louvain. The
+Dataverse metadata explicitly licenses the dataset [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/),
+including commercial use, with attribution and ShareAlike for adapted material.
+That license also applies to derived photographic outputs; it does not change the
+software's license. The manifest pins each immutable Dataverse file URL and SHA-256.
+The selection takes the first 50 distinct scenes in filename order among full-size
+45–55 MB ARWs with `_GT_` in the name; every downloaded EXIF identifies ILCE-7C and
+6000×4000, and all 50 SHA-256 values differ. These real low-ISO scenes include
+household objects, textures and plants; they are not a measured user percentile.
+
+`typical-31` remains as the **abandoned, undersized pilot**: 31 distinct Sony A7 III
+RAWs, including photographer DNG conversions (28 Signature Edits plus three
+raw.pixls.us). Further Signature Edits galleries returned a CAPTCHA. The pilot
+was stopped after its first complete three-revision block once the 50-file source
+was validated; no photo is duplicated or relabeled to inflate its size.
 `heavy-500` contains 470 CC0 raw.pixls.us files plus 30 Signature Edits RAWs, with
 active-sensor sizes in the 23–46 MP window (nominally 24–45 MP). It includes camera
 compression/crop variants and is an engineering workload, not a measured user
@@ -366,3 +379,13 @@ differences retained. No upstream-relative speedup is claimed. `publishable` in
 this session schema refers to the primary comparison (`publish_scope` records it).
 The per-side JPEG/source-render check allows a one-pixel short-edge rounding
 mismatch, aligned by bilinear resize before the declared lossy MAE 8 check.
+
+
+If the compositor capture times out and falls back to headless, that PNG and its
+candidate timestamps/hashes are retained as a failed attempt. The driver retries
+(up to three attempts) with the **original action clock still running**; it does
+not discard or subtract the timeout. Only a successful native capture supplies
+the endpoint. Three failures reject the session. The first 31-file pilot exposed
+three such upstream timeouts and was rejected by the earlier fail-on-any-fallback
+policy; its report/logs remain retained. The replacement matrix uses this explicit
+retry policy for all three revisions, declared before collection.

@@ -23,6 +23,8 @@ def validate_session(session):
             raise ValueError('unchecked output')
         proof=action.get('evidence',{}).get('capture')
         if proof is not None:
+            if proof.get('native') is False:
+                raise ValueError('headless capture is not a native result frame')
             if proof['frame_ns']!=action['frame_ns'] or not action['frame_ns']<=proof['verified_ns']<=session['quit_request_ns']:
                 raise ValueError('capture verification overlaps a different lifecycle interval')
             if proof['rgb_sha256']!=action['frame_sha256']:
