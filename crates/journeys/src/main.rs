@@ -533,9 +533,8 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
         let verify_program = render(&verifier.program, rev, input, app, cwd)
             .replace("{app_binary}", &app_binary.to_string_lossy())
             .replace("{target_dir}", &target_dir_text);
-        let verifier_output = make_command(verifier, &context, verify_program)
-            .output()
-            .map_err(|e| format!("launch verifier {}: {e}", verifier.program))?;
+        let verifier_output =
+            make_command(verifier, &context, verify_program).output().map_err(|e| format!("launch verifier {}: {e}", verifier.program))?;
         if !verifier_output.status.success() {
             return Err(format!(
                 "verifier {} failed ({})\n{}\n{}",
@@ -578,11 +577,7 @@ fn make_command(spec: &CommandSpec, context: &CommandContext<'_>, program: Strin
             cmd.args(["--config"]).arg(render(config, context.rev, context.input, context.app, context.cwd));
         }
     }
-    cmd.args(
-        spec.args
-            .iter()
-            .map(|a| render(a, context.rev, context.input, context.app, context.cwd).replace("{target_dir}", context.target_dir)),
-    );
+    cmd.args(spec.args.iter().map(|a| render(a, context.rev, context.input, context.app, context.cwd).replace("{target_dir}", context.target_dir)));
     cmd
 }
 
