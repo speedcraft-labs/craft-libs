@@ -726,7 +726,9 @@ def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=Fal
     """Diagnostic of the previous ui.render→quit path, never a session action claim."""
     directory.mkdir(parents=True,exist_ok=False)
     gpu_before=session_gpu_processes()
-    if gpu_before['processes']:raise RuntimeError(f'foreign GPU process before quit probe: {gpu_before}')
+    if gpu_before['processes']:
+        (directory/'gpu-processes-rejected.json').write_text(json.dumps(gpu_before,indent=2))
+        raise RuntimeError(f'foreign GPU process before quit probe: {gpu_before}')
     launched=time.perf_counter_ns()
     process,control=spawn(binary,directory/'library',directory/'profile',photo_path,log_path=directory/'app.log')
     try:
@@ -753,11 +755,13 @@ def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=Fal
         ended=session_wait_exit(process)
         if process.returncode!=0:raise RuntimeError(f'quit probe process exited {process.returncode}')
         gpu_after=session_gpu_processes()
-        if any(p['pid']!=process.pid for p in gpu_after['processes']):raise RuntimeError(f'foreign GPU process after quit probe: {gpu_after}')
         record=dict(side=side,pair=pair,task=task,profiled=trace_quit,gpu_processes_before=gpu_before,gpu_processes_after=gpu_after,process_ids=[process.pid],launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
                     quit_request_ns=sent,exit_ns=ended,quit_ns=ended-sent,render_ns=rendered-opened,
                     process_ns=ended-launched,pre_quit_state=state,gpu_adapter=state['perf'].get('gpu'))
+        if any(p['pid']!=process.pid for p in gpu_after['processes']):
+            record['failure']=f'foreign GPU process after quit probe: {gpu_after}'
         (directory/'diagnostic.json').write_text(json.dumps(record,indent=2)+'\n')
+        if record.get('failure'):raise RuntimeError(record['failure'])
         return record
     finally:
         if process.poll() is None:stop(process,control)

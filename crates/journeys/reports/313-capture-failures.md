@@ -37,3 +37,13 @@ benchmark lock. Its reports are explicitly marked `provisional-shared-gpu` and
 excluded. The user added an exclusive GPU-lock rule; the final matrix is collected
 again with both locks and before/after NVIDIA process snapshots. A foreign PID now
 rejects publication in the harness. The earlier data is backed up, not deleted.
+
+
+The first runs under both exclusive locks were rejected too: FilmCraft work under
+`targets/291-media-journeys` did not yet honor the new GPU lock. The cold diagnostic
+stopped after 65 accepted launches when its after-process listing contained foreign
+PID 2516433. The typical-50 point session completed 74 samples but failed the same
+gate; the heavy tier was rejected before launch (foreign PID 2666189), and a second
+quit attempt saw foreign PID 2698448. Those reports remain not publishable and their
+raw GPU CSVs/logs are backed up. The rejected quit iteration now also saves its
+complete timing record before returning the GPU-isolation error.
