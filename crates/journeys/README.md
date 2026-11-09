@@ -291,7 +291,8 @@ craft-corpus fetch crates/corpus/manifests/lightcraft-session-2026.toml "$ARTCRA
 python3 crates/journeys/scripts/lightcraft_session_corpus.py \
   crates/corpus/manifests/lightcraft-session-2026.toml \
   "$ARTCRAFT_CORPUS/lightcraft-session-2026" \
-  crates/journeys/fixtures/lightcraft-session-tiers.json
+  crates/journeys/fixtures/lightcraft-session-tiers.json \
+  --out "$ARTCRAFT_CORPUS/lightcraft-session-tiers-2026"
 ```
 
 `typical-31` contains 31 distinct Sony ILCE-7M3 (A7 III) RAWs, including photographer
@@ -299,7 +300,7 @@ DNG conversions. This is a **smaller provisional tier**, not completion of the
 requested approximately 50-photo single-camera tier. The accessible Signature
 Edits gallery supplied 28 files and raw.pixls.us three; further Signature Edits
 galleries returned a CAPTCHA. No photo is duplicated to inflate the count.
-`heavy-500` contains 476 CC0 raw.pixls.us files plus 24 Signature Edits RAWs, with
+`heavy-500` contains 470 CC0 raw.pixls.us files plus 30 Signature Edits RAWs, with
 active-sensor sizes in the 23–46 MP window (nominally 24–45 MP). It includes camera
 compression/crop variants and is an engineering workload, not a measured user
 population percentile. The manifest excludes entries licensed BY-NC-SA and samples
@@ -324,3 +325,20 @@ Preview opens 100% zoom with automatic source quality. Exposure remains a global
 slider exercise, not a mask correctness test for #1709. There is no blended score.
 The fixed +0.7 oracle outside timing requires at most one RGB code of difference
 and identical alpha between revisions, the bound declared before collection.
+
+The initial heavy tier's scanner returned 494 candidates from 500 files: ARQ,
+GPR and STI extensions were ignored. Those six source pins and the rejection
+reason are retained in `fixtures/lightcraft-session-excluded.json`; six other
+licensed RAWs replace them before collecting comparisons. Tier folders live
+**outside** the stamped download root because craft-corpus prunes unlisted files.
+
+Session profiles pin their app via a private `CRAFT_VERSIONS_FILE`, suppressing
+asynchronous update prompts/network checks. Optional lens-profile onboarding is
+dismissed before timing; no lens database is downloaded. A slider gesture crosses
+egui's drag threshold before two warm-up moves and 60 measured moves. Each session
+in the initial matrix uses one measured import/preview/switch/export after two
+warm-ups; the ten sessions supply ten independent observations per side. Linux
+pidfd readiness observes quit without Popen's 50 ms timeout-poll quantization.
+JPEGs must reproduce a separate 2048px render of the same photo/settings within
+lossy MAE 8; cross-revision JPEG differences must stay within RGB max 16/MAE 0.5.
+These output gates are outside every action clock and declared before the matrix.

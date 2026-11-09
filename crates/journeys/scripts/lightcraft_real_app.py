@@ -135,6 +135,12 @@ def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *
         "XDG_CACHE_HOME": str(profile / ".cache"),
         "LIGHTCRAFT_CONFIG_DIR": str(profile / "lightcraft-config"),
     })
+    if log_path is not None:
+        # Session-only profile: a launcher-managed pin suppresses asynchronous update
+        # prompts/network checks without changing the app or the legacy journeys.
+        versions = profile / 'versions.json'
+        versions.write_text(json.dumps({'apps': {'lightcraft': {'Pinned': 'session-benchmark'}}}))
+        env['CRAFT_VERSIONS_FILE'] = str(versions)
     command = [str(binary), "--library", str(library), "--no-demo", "--control", str(port)]
     if photo_path is not None:
         command.append(str(photo_path))
@@ -436,7 +442,15 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
     process,control=spawn(binary,library,profile,None,log_path=log_path)
     try:
         state=control.call('ui.inspect')
+        # ui.inspect deliberately omits transient dialogs. Cancel optional first-run
+        # onboarding through the supported dialog API before any action is timed.
+        control.call('ui.dialog.cancel')
         record['interactive_ns'],_=session_frame(control,directory/'interactive.png')
+        # Initial GPU setup may continue after the first interactive (CPU) window.
+        # Warm it completely before measuring actions; never publish silent CPU fallback.
+        state=session_wait(control,lambda s:bool(s['perf'].get('gpu')),timeout=900)
+        record['gpu_ready_ns']=time.perf_counter_ns()
+        record['gpu_adapter']=state['perf']['gpu']
         control.call('ui.set', {'settings': {'previewLimit': 0}})
         paths=[str(p) for p in sorted(payload.iterdir()) if p.is_file() and not p.name.startswith('.')]
         if not paths:
@@ -449,13 +463,8 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
                 control.call('ui.scroll', {'dy': 100000})
             control.call('ui.dropFiles',{'paths':[str(payload)]})
             sent=control.last_sent_ns
-            review=session_wait(control,lambda s:(s.get('ui',{}).get('dialog') or {}).get('kind')=='import')
-            dialog=review['ui']['dialog']
-            opts=dialog['opts']
-            if len(opts['candidates'])!=len(paths) or not all(opts['checked']):
-                raise RuntimeError(f'import scan did not accept every RAW: {opts}')
-            if opts.get('copy') or opts.get('move_files'):
-                raise RuntimeError('import review must add files in place')
+            review=session_wait(control,lambda s:any(w['id']=='label:importSource' for w in control.call('ui.widgets',{'filter':'label:importSource'})))
+            control.call('ui.clickWidget',{'id':'button:importAdd'})
             result=control.call('ui.dialog.confirm')
             if result.get('importing')!=len(paths):
                 raise RuntimeError(f'incomplete import request: {result}')
@@ -489,11 +498,16 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         # A held real slider gesture, one acknowledged pointer movement and resulting frame per step.
         slider=next(w for w in control.call('ui.widgets',{'filter':'slider:light.exposure'}) if w['id']=='slider:light.exposure')
         x,y,w,h=slider['rect']
-        for iteration in range(warmups+repetitions):
-            session_pointer(control,x+w*(.35 if iteration%2==0 else .65),y+h*.5,'down')
-            for step in range(60):
+        for iteration in range(repetitions):
+            start=.30 if iteration%2==0 else .70
+            control.call('ui.move',{'x':x+w*start,'y':y+h*.5})
+            session_pointer(control,x+w*start,y+h*.5,'down')
+            # Cross egui's drag threshold before the 60 individually timed moves.
+            session_pointer(control,x+w*(.35 if iteration%2==0 else .65),y+h*.5)
+            session_detail(control,photo)
+            for step in range(warmups+60):
                 before=session_execute(control,'develop.get',{'id':photo})['light']['exposure']
-                position=.35+.3*(step+1)/60 if iteration%2==0 else .65-.3*(step+1)/60
+                position=.35+.3*(step+1)/(warmups+60) if iteration%2==0 else .65-.3*(step+1)/(warmups+60)
                 session_pointer(control,x+w*position,y+h*.5)
                 sent=control.last_sent_ns
                 state=session_detail(control,photo)
@@ -501,7 +515,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
                 exposure=session_execute(control,'develop.get',{'id':photo})['light']['exposure']
                 if exposure==before:
                     raise RuntimeError(f'slider step {step} had no effect: {exposure}')
-                session_sample(record,'exposure',sent,end,digest,iteration<warmups,step=step,exposure=exposure,loupe=state['loupe'],image_rect=state['imageRect'])
+                session_sample(record,'exposure',sent,end,digest,step<warmups,step=step-warmups,exposure=exposure,loupe=state['loupe'],image_rect=state['imageRect'])
             session_pointer(control,x+w*position,y+h*.5,'up')
         for iteration in range(warmups+repetitions):
             selected=ids[1+iteration%(len(ids)-1)]
@@ -519,6 +533,9 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             if max(jpeg_size(output))!=2048:
                 raise RuntimeError(f'invalid JPEG export: {result}, {state["export"]}')
             session_sample(record,'export',sent,end,digest,iteration<warmups,jpeg_sha256=file_digest(output),dimensions=jpeg_size(output))
+        record['export_sample']=str(output)
+        record['export_oracle']=str(directory/'export-oracle.png')
+        control.call('ui.render',{'id':photo,'size':2048,'path':record['export_oracle']})
         # A fixed-state pixel oracle outside every action clock; use identical source/settings.
         session_execute(control,'library.select',{'ids':[photo]})
         session_execute(control,'develop.set',{'values':{'light.exposure':0.7}})
