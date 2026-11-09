@@ -1,5 +1,5 @@
 name = "real-world-app-2026"
-description = "Public real-world Photoshop, PDF and spreadsheet documents selected for first-frame and common-task journeys."
+description = "Public real-world Photoshop, PDF, spreadsheet and word-processing documents selected for first-frame and common-task journeys."
 
 [[file]]
 path = "wallpaper-rocky-shore.psd"
@@ -64,3 +64,12 @@ sha256 = "910dbaa64cdccb5d97fac0e100b2772214d5d9b4723b1e340fb36edc134496e4"
 licence = "U.S. government work; public domain (17 U.S.C. § 105)"
 provenance = "https://www.irs.gov/pub/irs-prior/f990--2023.pdf"
 tags = ["pdf", "form", "acroform", "government", "12-pages", "1075-fields", "median-real-pdf"]
+
+[[file]]
+path = "autism-commission-2019.docx"
+url = "https://www.mass.gov/doc/2019-annual-report-of-the-autism-commission/download"
+sha256 = "ad801828c5fbb6ff69407cd792b5cc87ca499d5b520fcca77d9024ab1969e248"
+licence = "Commonwealth of Massachusetts publication; no redistribution license stated on the source page."
+provenance = "https://www.mass.gov/lists/autism-commission-reports"
+redistributable = false
+tags = ["docx", "government-report", "316-paragraphs", "1-table", "35689-text-chars", "median-real-document"]

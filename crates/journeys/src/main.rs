@@ -244,19 +244,27 @@ fn run_command(spec: &CommandSpec, cwd: &Path, rev: &str, app_rev: &str, input: 
             let value: serde_json::Value = serde_json::from_str(stdout.trim()).map_err(|e| format!("invalid app JSON output: {e}"))?;
             let (millis, identity) = match spec.output {
                 OutputProtocol::WordcraftProbe => {
-                    let first_page_ms = value
-                        .get("open_to_first_page_ms")
-                        .and_then(serde_json::Value::as_f64)
-                        .ok_or_else(|| "wordcraft probe JSON is missing open_to_first_page_ms".to_string())?;
-                    let page_count = value
-                        .get("page_count")
-                        .and_then(serde_json::Value::as_u64)
-                        .ok_or_else(|| "wordcraft probe JSON is missing page_count".to_string())?;
-                    let body_paragraphs = value
-                        .get("body_paragraphs")
-                        .and_then(serde_json::Value::as_u64)
-                        .ok_or_else(|| "wordcraft probe JSON is missing body_paragraphs".to_string())?;
-                    (first_page_ms, format!("{page_count}|{body_paragraphs}"))
+                    if let Some(task_ms) = value.get("task_ms").and_then(serde_json::Value::as_f64) {
+                        let identity = value
+                            .get("task_identity")
+                            .and_then(serde_json::Value::as_str)
+                            .ok_or_else(|| "wordcraft task JSON is missing task_identity".to_string())?;
+                        (task_ms, identity.to_owned())
+                    } else {
+                        let first_page_ms = value
+                            .get("open_to_first_page_ms")
+                            .and_then(serde_json::Value::as_f64)
+                            .ok_or_else(|| "wordcraft probe JSON is missing open_to_first_page_ms".to_string())?;
+                        let page_count = value
+                            .get("page_count")
+                            .and_then(serde_json::Value::as_u64)
+                            .ok_or_else(|| "wordcraft probe JSON is missing page_count".to_string())?;
+                        let body_paragraphs = value
+                            .get("body_paragraphs")
+                            .and_then(serde_json::Value::as_u64)
+                            .ok_or_else(|| "wordcraft probe JSON is missing body_paragraphs".to_string())?;
+                        (first_page_ms, format!("{page_count}|{body_paragraphs}"))
+                    }
                 }
                 OutputProtocol::DeckcraftBench => {
                     let open_ms = value
