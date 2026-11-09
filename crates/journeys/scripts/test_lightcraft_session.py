@@ -105,6 +105,14 @@ class Boundaries(unittest.TestCase):
         s=fixture(); s['samples'][0]['checked']=False
         with self.assertRaises(ValueError): validate_session(s)
 
+    def test_foreign_gpu_process_rejects_publication(self):
+        s=fixture();s['process_ids']=[123]
+        s['gpu_processes_before']={'processes':[]}
+        s['gpu_processes_after']={'processes':[{'pid':123,'name':'our exited app'}]}
+        validate_session(s)
+        s['gpu_processes_after']['processes'].append({'pid':456,'name':'other GPU test'})
+        with self.assertRaisesRegex(ValueError,'foreign GPU'):validate_session(s)
+
     def test_stable_ratio_resamples_sessions(self):
         from lightcraft_session_report import ACTIONS
         sessions=[]

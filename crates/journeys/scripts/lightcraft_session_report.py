@@ -12,6 +12,11 @@ def validate_session(session):
         raise ValueError('invalid lifecycle ordering')
     if not session['gpu_adapter']:
         raise ValueError('empty GPU adapter')
+    own=set(session.get('process_ids',[]))
+    for field in ('gpu_processes_before','gpu_processes_after'):
+        snapshot=session.get(field)
+        if snapshot is not None and any(p['pid'] not in own for p in snapshot['processes']):
+            raise ValueError('foreign GPU process makes session not publishable')
     for action in session['samples']:
         if action['action'] not in ACTIONS:
             raise ValueError('unknown action')

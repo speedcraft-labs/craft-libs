@@ -272,6 +272,7 @@ a nonempty observed GPU adapter gate publication. Headless capture fallback is r
 Agentbox: use a private NVIDIA X display large enough for the window (for this run,
 `DISPLAY=:118` at 1920×1080, `WGPU_BACKEND=vulkan`). Build in the one ticket target directory, retain reports outside
 it, then run through `flock /jobs/work/speedcraft-labs/bench.lock
+flock -x /jobs/work/speedcraft-labs/gpu.lock
 /jobs/work/speedcraft-labs/scripts/bench-run ...`. Existing launch-per-task journeys
 and their reports are unchanged.
 
@@ -398,3 +399,13 @@ an earlier X11 frame matched the successful native PNG 5571.34 ms before that
 endpoint (input-to-proven-frame 743.79 ms). That block was stopped and retained;
 the final matrix uses the earliest exact pixel proof across all attempts for every
 revision. Tests cover both this case and the conservative no-match upper bound.
+
+
+GPU isolation is mandatory on Agentbox: acquire `bench.lock`, then **exclusive**
+`gpu.lock`, then invoke `bench-run`. Other GPU tests take the GPU lock shared.
+Before launch and after the populated-library startup process has exited, every
+session records the complete `nvidia-smi --query-compute-apps=pid,name --format=csv`
+result with a monotonic timestamp. Any foreign PID rejects publication. The
+initial GPU-sharing pilots are marked provisional and excluded, even if the CPU
+guard passed; the published matrix is re-measured under the exclusive GPU lock.
+The cold quit diagnostic records the same process snapshots outside its clocks.

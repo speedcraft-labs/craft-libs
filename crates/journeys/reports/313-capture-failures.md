@@ -29,3 +29,11 @@ published. The final implementation compares the successful native PNG against
 candidates from **all** attempts and uses the earliest exact match. No timeout is
 subtracted by assumption. The original `paired-typical-50` data remains retained;
 the replacement output directories use the suffix `-verified`.
+
+
+The first corrected matrix was also stopped after a foreign GPU test process
+(`targets/312-upstream-sync`, PID 2009059) was found using the RTX outside the CPU
+benchmark lock. Its reports are explicitly marked `provisional-shared-gpu` and
+excluded. The user added an exclusive GPU-lock rule; the final matrix is collected
+again with both locks and before/after NVIDIA process snapshots. A foreign PID now
+rejects publication in the harness. The earlier data is backed up, not deleted.

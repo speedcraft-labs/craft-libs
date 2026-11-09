@@ -558,13 +558,29 @@ def session_grid(control, ids, directory):
     raise RuntimeError(f'not all thumbnails shown: {len(seen)}/{len(ids)}')
 
 
+def session_gpu_processes():
+    import csv
+    import io
+    command=['nvidia-smi','--query-compute-apps=pid,name','--format=csv']
+    output=subprocess.check_output(command,text=True,timeout=15)
+    rows=list(csv.reader(io.StringIO(output)))
+    if not rows or rows[0][0].strip()!='pid':raise RuntimeError(f'invalid GPU process listing: {output}')
+    processes=[dict(pid=int(row[0].strip()),name=row[1].strip()) for row in rows[1:] if row]
+    return dict(ns=time.perf_counter_ns(),command=command,csv=output,processes=processes)
+
+
 def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups):
     from lightcraft_session_report import validate_session
     directory.mkdir(parents=True,exist_ok=False)
     library,profile = directory/'library',directory/'profile'
     log_path=directory/'app.log'
-    record=dict(side=side,tier=tier,pair=pair,directory=str(directory),samples=[],launch_ns=time.perf_counter_ns())
+    gpu_before=session_gpu_processes()
+    if gpu_before['processes']:
+        (directory/'gpu-processes-rejected.json').write_text(json.dumps(gpu_before,indent=2))
+        raise RuntimeError(f'foreign GPU process before session: {gpu_before}')
+    record=dict(side=side,tier=tier,pair=pair,directory=str(directory),samples=[],gpu_processes_before=gpu_before,launch_ns=time.perf_counter_ns())
     process,control=spawn(binary,library,profile,None,log_path=log_path)
+    record['process_ids']=[process.pid]
     try:
         state=control.call('ui.inspect')
         # ui.inspect deliberately omits transient dialogs. Cancel optional first-run
@@ -683,6 +699,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         # Separately measure reopening the already-populated library, including a finished photo frame.
         started=time.perf_counter_ns()
         process,control=spawn(binary,library,profile,None,log_path=directory/'startup.log')
+        record['process_ids'].append(process.pid)
         session_detail(control,photo)
         ended,_=session_frame(control,directory/'startup-library.png')
         record['startup_library_ns']=ended-started
@@ -691,6 +708,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         session_wait(control,lambda s:session_idle(s) and not s['activity'] and not s['tasks'])
         stop(process,control)
         process=None
+        record['gpu_processes_after']=session_gpu_processes()
         validate_session(record)
         (directory/'session.json').write_text(json.dumps(record,indent=2)+'\n')
         return record
@@ -707,6 +725,8 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
 def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=False, task="open"):
     """Diagnostic of the previous ui.render→quit path, never a session action claim."""
     directory.mkdir(parents=True,exist_ok=False)
+    gpu_before=session_gpu_processes()
+    if gpu_before['processes']:raise RuntimeError(f'foreign GPU process before quit probe: {gpu_before}')
     launched=time.perf_counter_ns()
     process,control=spawn(binary,directory/'library',directory/'profile',photo_path,log_path=directory/'app.log')
     try:
@@ -732,7 +752,9 @@ def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=Fal
                 subprocess.run(['sudo','-n','gdb','-q','-batch','-p',str(process.pid),'-ex','set pagination off','-ex','thread apply all bt 90','-ex','detach'],stdout=log,stderr=log,timeout=45)
         ended=session_wait_exit(process)
         if process.returncode!=0:raise RuntimeError(f'quit probe process exited {process.returncode}')
-        record=dict(side=side,pair=pair,task=task,profiled=trace_quit,launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
+        gpu_after=session_gpu_processes()
+        if any(p['pid']!=process.pid for p in gpu_after['processes']):raise RuntimeError(f'foreign GPU process after quit probe: {gpu_after}')
+        record=dict(side=side,pair=pair,task=task,profiled=trace_quit,gpu_processes_before=gpu_before,gpu_processes_after=gpu_after,process_ids=[process.pid],launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
                     quit_request_ns=sent,exit_ns=ended,quit_ns=ended-sent,render_ns=rendered-opened,
                     process_ns=ended-launched,pre_quit_state=state,gpu_adapter=state['perf'].get('gpu'))
         (directory/'diagnostic.json').write_text(json.dumps(record,indent=2)+'\n')
@@ -778,6 +800,7 @@ def session_main(args):
                         report['diagnostic'].append(record)
                         checkpoint()
             report['gpu_adapters']=sorted({r['gpu_adapter'] for r in report['diagnostic'] if r['gpu_adapter']})
+            report['gpu_process_checks_passed']=True
             checkpoint()
             return 0
         # ABC/CBA blocks keep the primary comparison adjacent, reverse order on alternate pairs.
@@ -798,6 +821,7 @@ def session_main(args):
             row['upstream_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream' and c['tier']==row['tier'])
         report['gpu_adapters']=sorted({s['gpu_adapter'] for s in sessions})
         report['output_checked']=True
+        report['gpu_process_checks_passed']=True
         # The Rust entry point attaches craft-bench's guard/fingerprint and decides publication.
         checkpoint()
         (options.out/'table.md').write_text(markdown(report['rows']))
