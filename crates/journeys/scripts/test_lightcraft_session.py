@@ -19,6 +19,11 @@ class Boundaries(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_session(s)
 
+    def test_empty_texture_queue_shape_is_a_list(self):
+        from lightcraft_real_app import session_idle
+        self.assertTrue(session_idle({'perf':{'renderQueue':0,'rendersInFlight':0,'pendingSlots':[]}}))
+        self.assertFalse(session_idle({'perf':{'renderQueue':0,'rendersInFlight':0,'pendingSlots':['Main']}}))
+
     def test_unchecked_or_empty_gpu_rejected(self):
         s=fixture(); s['gpu_adapter']=None
         with self.assertRaises(ValueError): validate_session(s)
