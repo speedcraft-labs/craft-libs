@@ -1,7 +1,7 @@
 diff --git a/crates/engine/Cargo.toml b/crates/engine/Cargo.toml
 --- a/crates/engine/Cargo.toml
 +++ b/crates/engine/Cargo.toml
-@@ -28,6 +28,7 @@ gridcraft-math = { workspace = true }
+@@ -28,5 +28,6 @@ gridcraft-math = { workspace = true }
  image = { workspace = true }
  
  [dev-dependencies]
