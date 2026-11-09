@@ -222,6 +222,14 @@
       "inputs": [{ "name": "still-life", "path": "vectorcraft-fixtures/still-life.vectorcraft" }]
     },
     {
+      "name": "vectorcraft.select-drag-export.public-map",
+      "app": "vectorcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/vectorcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "vectorcraft-cli"] },
+      "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/vectorcraft_real_app.py", "{target_dir}/release/vectorcraft-cli", "{input}", "{target_dir}/outputs/{input_name}.svg"], "output": "markers", "wall_time": "process" },
+      "inputs": [{ "name": "us-public-domain-map", "path": "vectorcraft-real-world-2026/us-public-domain-map.svg" }]
+    },
+    {
       "name": "designcraft.synthetic-performance",
       "app": "designcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/designcraft",

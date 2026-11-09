@@ -69,6 +69,7 @@ target root so prepared builds can be reused.
 | `pdfcraft.edit-acroform-3129` | PdfCraft | Edit one field in a generated 3,129-field AcroForm |
 | `pdfcraft.export-pdf.form-fixture` | PdfCraft | Export the pinned one-page form PDF to PNG |
 | `vectorcraft.export-svg.still-life` | VectorCraft | Export the pinned Still Life document to SVG |
+| `vectorcraft.select-drag-export.public-map` | VectorCraft | Open a public-domain map with 347 paths, select and drag a path through the pointer tool, and export SVG |
 | `designcraft.synthetic-performance` | DesignCraft | Compose a deterministic synthetic document |
 | `effectcraft.synthetic-project-open` | EffectCraft | Open a generated project sized toward the surveyed 125 MB |
 | `effectcraft.first-frame-heavy-comp` | EffectCraft | Render a cold full-resolution (1,920×1,080) first frame of a generated 5,000-layer composition |
