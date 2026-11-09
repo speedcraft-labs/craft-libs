@@ -440,6 +440,15 @@ def session_frame(control, path):
         proof['native']='rendering headlessly' not in recent.decode(errors='replace')
         if proof['native']:
             proof['attempts']=attempts
+            # A failed control screenshot may still have sampled the correct real
+            # window. The successful native PNG verifies those earlier X11 pixels
+            # too: take the earliest match across every attempt, never a timeout
+            # or an assumed subtraction from the action duration.
+            proof['candidates']=[c for failed in attempts for c in failed['candidates']]+proof['candidates']
+            matching=[c['ns'] for c in proof['candidates'] if c['ns']<=proof['verified_ns'] and c['rgb_sha256']==digest and (c['width'],c['height'])==(proof['width'],proof['height'])]
+            if matching:
+                end=min(matching)
+                proof.update(method='verified-x11',frame_ns=end)
             return end,digest
         retained=path.with_name(f'{path.stem}.headless-attempt-{attempt}{path.suffix}')
         path.rename(retained)
