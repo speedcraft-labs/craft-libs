@@ -1,0 +1,29 @@
+name = "cadcraft-real-drawings"
+description = "Public CAD source documents. The 7-file real corpus spans 1.79–47.84 MB; the selected 7.78 MB State Open Band DWG is its byte-size median (22k entities), not the 985k-entity engineering outlier."
+
+[[file]]
+path = "external/sd-state-open-band.dwg"
+url = "https://dot.sd.gov/media/5e203307/sob.dwg"
+sha256 = "7b7bd042484d8093b207d889ade21bfb7755a8ea8bb10e08523ffe31bfc60f21"
+licence = "Publicly downloadable from the South Dakota Department of Transportation; redistribution terms are not stated on the source page."
+provenance = "https://dot.sd.gov/inside-sddot/forms-publications/maps/cadd-mapping"
+redistributable = false
+tags = ["dwg", "state-map", "roads", "water", "22k-entities", "median-real-drawing"]
+
+[[file]]
+path = "external/sd-yankton-roads.dwg"
+url = "https://dot.sd.gov/media/jbllfdtf/yank.dwg"
+sha256 = "82f51d5d07bd14f368f2c73010c7debbdd76607c784030fcbf1552e2529ab8f6"
+licence = "Publicly downloadable from the South Dakota Department of Transportation; redistribution terms are not stated on the source page."
+provenance = "https://dot.sd.gov/inside-sddot/forms-publications/maps/cadd-mapping"
+redistributable = false
+tags = ["dwg", "county-roads", "10k-entities"]
+
+[[file]]
+path = "external/sd-sioux-falls.dwg"
+url = "https://dotfiles.sd.gov/cadd/city/DWG/SIOUX_FALLS.dwg"
+sha256 = "36cac1adc1e73e30d4974faa665896f5277266524602858bd0632719c2ab037f"
+licence = "Publicly downloadable from the South Dakota Department of Transportation; redistribution terms are not stated on the source page."
+provenance = "https://dot.sd.gov/inside-sddot/forms-publications/maps/cadd-mapping"
+redistributable = false
+tags = ["dwg", "city-map", "18k-entities"]
