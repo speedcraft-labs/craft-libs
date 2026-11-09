@@ -56,7 +56,8 @@ target root so prepared builds can be reused.
 | `cadcraft.open-dxf.large-map` | CADCraft | Open the pinned Graz map DXF |
 | `cadcraft.open-dxf.usa` | CADCraft | Open the pinned USA DXF |
 | `cadcraft.open-dxf.us-main` | CADCraft | Open the pinned US-main DXF |
-| `wordcraft.open-office-docx` | WordCraft | Open the pinned synthetic 1,096-page DOCX and measure from file open through the first painted page |
+| `wordcraft.startup-cold-first-frame`, `wordcraft.startup-warm-first-frame` | WordCraft | Cold and warm start through the first interactive document frame |
+| `wordcraft.open-typical-docx`, `wordcraft.scroll-typical-docx`, `wordcraft.edit-typical-docx`, `wordcraft.save-typical-docx` | WordCraft | Open, scroll, edit and save a public median-sized DOCX; save output is reopened and checked outside the timed process |
 | `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
 | `deckcraft.drag-shape.heavy-slide` | DeckCraft | Drag a picture shape across the pinned, picture-rich 24th slide of the Apache-2.0 licensed HowWeRefactor deck through the editor canvas texture path; records every CPU frame |
 | `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
@@ -80,8 +81,8 @@ Run and compare:
 
 ```sh
 cargo run --release -p craft-journeys -- run --journey cadcraft.open-dxf.large-map --out baselines/cadcraft-open.json
-cargo run --release -p craft-journeys -- compare --base BASE_LIBS_REV --head HEAD_LIBS_REV --journey wordcraft.open-office-docx --out baselines/wordcraft-open.json
-cargo run --release -p craft-journeys -- prepare --base BASE_LIBS_REV --head HEAD_LIBS_REV --journey wordcraft.open-office-docx
+cargo run --release -p craft-journeys -- compare --base app-locked --head app-locked --journey wordcraft.open-typical-docx --out baselines/wordcraft-open.json
+cargo run --release -p craft-journeys -- prepare --base app-locked --head app-locked --journey wordcraft.open-typical-docx
 ```
 
 `run` pairs the current craft-libs working tree against itself to produce a baseline report.
@@ -131,7 +132,7 @@ Each journey times one PdfCraft `Session` edit after open.
 
 ### Real-world app journeys
 
-The first end-to-end set covers PhotoCraft, PdfCraft and GridCraft. Each app has fresh-profile
+The end-to-end set covers PhotoCraft, PdfCraft, GridCraft, CADCraft and WordCraft. Each app has fresh-profile
 (`startup-cold-first-frame`) and primed-profile (`startup-warm-first-frame`) starts. Startup timing
 comes from the external Python driver, from process launch until a screenshot request completes on
 the UI thread; a follow-up inspection confirms that the window accepts control requests. Cold
@@ -143,6 +144,8 @@ means an empty app profile, not a flushed operating-system file cache. Task jour
 | PhotoCraft | `quote-card-misty-beach.psd`, 5,919,438 bytes; 1000×1000, 4 layers | open, Gaussian Blur, save PSD |
 | PdfCraft | IRS 2023 Form 990, 800,253 bytes; 12 pages, 1,075 fields | open, edit a form field, save edited PDF |
 | GridCraft | 2024 AIES estimates workbook, 14,050 bytes; 1 sheet, 62 rows, 485 stored cells | open, edit A3, save XLSX |
+| CADCraft | State Open Band DWG, 7,777,818 bytes; about 22k entities | open, edit entity color, save DWG |
+| WordCraft | Autism Commission 2019 DOCX, 302,427 bytes; 316 paragraphs and 1 table | open, scroll, edit text, save DOCX |
 
 The local corpus medians are 32,738 bytes for 431 PSD files, 11,256 bytes for 993 XLSX files, and
 3,312,310 bytes for six PDFs; those sets are mostly compatibility fixtures. For the PSD payload,
@@ -160,6 +163,11 @@ This keeps the file and operation realistic while making the task repeatable on 
 The app-specific real-input adapters are part of the speedcraft-labs fork changes. `app_base_patch`
 applies the additive adapter code only in the temporary upstream checkout used by `prepare` or
 `compare`; it never changes or pushes to an upstream repository.
+
+When an app pins different craft-libs commits per crate, set `app_locked_dependencies = true` on its
+journeys and pass `app-locked` for both `--base` and `--head`. The build then uses each app revision's
+own Cargo.lock instead of replacing all of its craft-libs dependencies with one shared revision.
+Reports still record both app commit SHAs and mark the dependency mode as `craft-libs:app-locked`.
 
 ## Real-world CADCraft
 
@@ -179,3 +187,20 @@ On the Agentbox, CADCraft startup needs a GPU-backed X11 display because its def
 path cannot start on the GLX-disabled Xvfb server. Start the Agentbox's RTX-backed Xorg server once
 before benchmarking, set DISPLAY for craft-journeys (for example DISPLAY=:116), and keep that server
 outside the timed app process. On Mac, the native desktop display is used.
+
+## Real-world WordCraft
+
+The WordCraft extension measures cold and warm startup to the first interactive frame, then opens,
+scrolls, edits text in, and saves one real DOCX. Its Massachusetts Autism Commission 2019 annual report
+is 302,427 bytes, with 316 paragraphs, one table and 35,689 text characters. The [official report
+page](https://www.mass.gov/lists/autism-commission-reports) lists seven DOCX annual reports sized
+56.48, 61.46, 79.43, 295.34, 369.91, 9,830 and 9,830 KB. The selected report is the median by
+published size (295.34 KB). The source does not state
+redistribution terms, so the corpus entry is fetched on demand and marked non-redistributable. See
+`crates/corpus/manifests/real-world-app-2026.toml`.
+
+WordCraft startup uses its localhost control channel with a per-profile key. The open, scroll, edit and
+save adapters run one `perf_probe --task` action per process; the external process clock covers launch,
+document load, the action, and exit. Adapter parity for upstream `storytold/wordcraft@main` is provided
+by an `app_base_patch` applied only in the temporary upstream checkout. WordCraft pins different
+craft-libs revisions per crate, so its journeys use app-locked dependencies on both revisions.
