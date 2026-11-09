@@ -162,6 +162,7 @@ def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *
         process.terminate()
         process.wait(timeout=5)
         raise TimeoutError("LightCraft control channel did not start")
+    control.process_pid=process.pid
     return process, control
 
 
@@ -354,13 +355,74 @@ def session_wait(control, predicate, timeout=180):
     raise TimeoutError(f'LightCraft frame state did not converge: {state}')
 
 
+class SessionX11Capture:
+    """Read our visible X11 window; later native PNG must prove identical pixels."""
+    def __init__(self, pid):
+        import re
+        from PIL import ImageGrab
+        self.display=os.environ.get('DISPLAY')
+        tree=subprocess.check_output(['xwininfo','-display',self.display,'-root','-tree'],text=True)
+        selected=None
+        for wid in re.findall(r'^\s*(0x[0-9a-f]+)\s',tree,re.M):
+            prop=subprocess.run(['xprop','-display',self.display,'-id',wid,'_NET_WM_PID'],capture_output=True,text=True)
+            if re.search(r'=\s*'+str(pid)+r'\s*$',prop.stdout):
+                info=subprocess.check_output(['xwininfo','-display',self.display,'-id',wid],text=True)
+                def value(key):return int(re.search(re.escape(key)+r':\s*(-?\d+)',info)[1])
+                rectangle=(value('Absolute upper-left X'),value('Absolute upper-left Y'),value('Width'),value('Height'))
+                if selected is None or rectangle[2]*rectangle[3]>selected[2]*selected[3]:selected=rectangle
+        if selected is None:raise RuntimeError('no X11 window belongs to the app PID')
+        x,y,w,h=selected
+        screen=ImageGrab.grab(xdisplay=self.display)
+        if x<0 or y<0 or x+w>screen.width or y+h>screen.height:
+            raise RuntimeError('app window extends outside the X display')
+        self.bounds=(x,y,x+w,y+h)
+
+    def grab(self):
+        from PIL import ImageGrab
+        return ImageGrab.grab(bbox=self.bounds,xdisplay=self.display).convert('RGB')
+
+
 def session_frame(control, path):
-    # Never use ui.render: it is a separate render, not the visible result of the action.
-    control.call('ui.screenshot', {'path': str(path), 'headless': False})
-    end = time.perf_counter_ns()
-    if min(png_size(path)) <= 0:
-        raise RuntimeError('empty native frame')
-    return end, file_digest(path)
+    import threading
+    from PIL import Image
+    candidates=[]
+    failures=[]
+    stop_sampling=threading.Event()
+    sampler=None
+    try:
+        if not hasattr(control,'x11_capture'):
+            control.x11_capture=SessionX11Capture(control.process_pid)
+        def sample():
+            try:
+                while not stop_sampling.is_set():
+                    pixels=control.x11_capture.grab()
+                    captured=time.perf_counter_ns()
+                    candidates.append((captured,pixels.size,hashlib.sha256(pixels.tobytes()).hexdigest()))
+                    stop_sampling.wait(.005)
+            except Exception as error:
+                failures.append(str(error))
+        sampler=threading.Thread(target=sample,daemon=True)
+        sampler.start()
+    except Exception as error:
+        failures.append(str(error))
+    try:
+        # A later native PNG verifies which earlier displayed frame really showed
+        # this result. Hashes retain every observed candidate without duplicate media.
+        control.call('ui.screenshot', {'path': str(path), 'headless': False})
+        verified_ns=time.perf_counter_ns()
+    finally:
+        stop_sampling.set()
+        if sampler is not None:sampler.join(timeout=3)
+    if min(png_size(path))<=0:raise RuntimeError('empty native frame')
+    reference=Image.open(path).convert('RGB')
+    reference_hash=hashlib.sha256(reference.tobytes()).hexdigest()
+    matching=[ns for ns,size,digest in candidates if ns<=verified_ns and size==reference.size and digest==reference_hash]
+    end=min(matching) if matching else verified_ns
+    control.last_capture_proof=dict(method='verified-x11' if matching else 'native-upper-bound',frame_ns=end,verified_ns=verified_ns,
+        reference_png=str(path),reference_png_sha256=file_digest(path),rgb_sha256=reference_hash,
+        width=reference.width,height=reference.height,failures=failures,
+        candidates=[dict(ns=ns,width=size[0],height=size[1],rgb_sha256=digest) for ns,size,digest in candidates if ns<=verified_ns])
+    return end,reference_hash
 
 
 def session_detail(control, photo):
@@ -386,6 +448,20 @@ def session_pointer(control, x, y, kind='move'):
     control.call('ui.pointer', {'events': [{'kind': kind, 'x': (x-rect[0])/rect[2], 'y': (y-rect[1])/rect[3]}]})
 
 
+def session_grid_settled(control):
+    previous=None
+    stable=0
+    deadline=time.monotonic()+180
+    while time.monotonic()<deadline:
+        state=control.call('ui.inspect')
+        offset=state.get('scroll',{}).get('grid')
+        stable=stable+1 if offset is not None and previous is not None and abs(offset-previous)<.05 else 0
+        if stable>=3 and session_idle(state):return state
+        previous=offset
+        time.sleep(.01)
+    raise TimeoutError('grid did not settle')
+
+
 def session_grid(control, ids, directory):
     """Visit every grid thumbnail, retaining a native frame and checking actual image content."""
     from PIL import Image, ImageStat
@@ -393,9 +469,20 @@ def session_grid(control, ids, directory):
     frames = []
     session_execute(control, 'view.squareGrid')
     control.call('ui.set', {'thumbSize': 100})
+    first=session_execute(control,'catalog.query',{'limit':1})['photos'][0]['id']
+    session_execute(control,'library.select',{'ids':[first]})
+    session_frame(control,directory/'grid-ready.png')
+    # Import can reveal the active photo near the bottom of the date-sorted grid.
+    # Explicitly visit from the top; trackpad-point deltas avoid wheel-notch scaling.
+    view=next(w for w in control.call('ui.widgets',{'filter':'grid:scroll'}) if w['id']=='grid:scroll')
+    vx,vy,vw,vh=view['rect']
+    control.call('ui.move',{'x':vx+vw/2,'y':vy+vh/2})
+    control.call('ui.scroll',{'dy':100000,'source':'trackpad','unit':'point'})
+    session_wait(control,lambda s:s.get('scroll',{}).get('grid') is not None and s['scroll']['grid']<1)
+    session_frame(control,directory/'grid-top.png')
     previous_scroll = None
     for page in range(len(ids) + 5):
-        state = session_wait(control, session_idle)
+        state = session_grid_settled(control)
         widgets = control.call('ui.widgets', {'filter': 'thumb:'})
         visible = []
         for w in widgets:
@@ -403,16 +490,21 @@ def session_grid(control, ids, directory):
                 continue
             ident = int(w['id'].split(':')[1])
             x,y,width,height = w['rect']
-            if ident in ids and y >= 0 and y+height <= state['window'][1] and x >= 0:
+            if ident in ids and y >= vy and y+height <= vy+vh and x >= vx and x+width <= vx+vw:
                 visible.append((ident, (x,y,width,height)))
         if not visible:
-            raise RuntimeError('no fully visible grid thumbnails')
+            (directory/f'empty-grid-{page}.json').write_text(json.dumps(dict(state=state,widgets=widgets),indent=2))
+            session_frame(control,directory/f'empty-grid-{page}.png')
+            raise RuntimeError('no fully visible grid thumbnails; state and native frame retained')
         # With no pending renders, require resident thumbnail textures as well as non-placeholder pixels.
         if state['perf']['thumbTextures'] < len(visible):
             time.sleep(.02)
             continue
         path = directory / f'grid-{page}.png'
         end,digest = session_frame(control,path)
+        after=control.call('ui.inspect')
+        if abs(after['scroll']['grid']-state['scroll']['grid'])>.5:
+            continue  # The recorded geometry and captured pixels must describe the same viewport.
         image = Image.open(path).convert('RGB')
         ppp = state['pixelsPerPoint']
         for ident,(x,y,w,h) in visible:
@@ -421,7 +513,7 @@ def session_grid(control, ids, directory):
             if max(ImageStat.Stat(crop).stddev) < 1.0:
                 raise RuntimeError(f'blank/placeholder thumbnail {ident} on page {page}')
             seen.add(ident)
-        frames.append(dict(path=str(path), sha256=digest, ids=[i for i,_ in visible]))
+        frames.append(dict(path=str(path), sha256=digest, ids=[i for i,_ in visible],perf=state['perf'],capture=control.last_capture_proof))
         if seen == set(ids):
             return end,digest,frames
         scroll = state.get('scroll',{}).get('grid')
@@ -429,7 +521,8 @@ def session_grid(control, ids, directory):
             raise RuntimeError(f'grid stopped before all thumbnails: {len(seen)}/{len(ids)}')
         previous_scroll = scroll
         control.call('ui.move', {'x': state['window'][0]/2, 'y': state['window'][1]/2})
-        control.call('ui.scroll', {'dy': -state['window'][1]*.55})
+        control.call('ui.scroll', {'dy': -vh*.5,'source':'trackpad','unit':'point'})
+        session_wait(control,lambda s:s.get('scroll',{}).get('grid')!=scroll)
     raise RuntimeError(f'not all thumbnails shown: {len(seen)}/{len(ids)}')
 
 
@@ -444,6 +537,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         state=control.call('ui.inspect')
         # ui.inspect deliberately omits transient dialogs. Cancel optional first-run
         # onboarding through the supported dialog API before any action is timed.
+        control.call('ui.set',{'settings':{'previewLimit':0,'lensDatabase':'declined'}})
         control.call('ui.dialog.cancel')
         record['interactive_ns'],_=session_frame(control,directory/'interactive.png')
         # Initial GPU setup may continue after the first interactive (CPU) window.
@@ -451,7 +545,6 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         state=session_wait(control,lambda s:bool(s['perf'].get('gpu')),timeout=900)
         record['gpu_ready_ns']=time.perf_counter_ns()
         record['gpu_adapter']=state['perf']['gpu']
-        control.call('ui.set', {'settings': {'previewLimit': 0}})
         paths=[str(p) for p in sorted(payload.iterdir()) if p.is_file() and not p.name.startswith('.')]
         if not paths:
             raise ValueError('empty RAW payload')
@@ -477,7 +570,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             grid_dir=directory/f'import-{iteration}'
             grid_dir.mkdir()
             end,digest,frames=session_grid(control,ids,grid_dir)
-            session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),frames=frames)
+            session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),frames=frames,capture=control.last_capture_proof)
         record['photo_ids']=ids
         record['photos']=photos
         photo=ids[0]
@@ -490,7 +583,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             session_execute(control,'view.zoom100')
             state=session_detail(control,photo)
             end,digest=session_frame(control,directory/f'preview-{iteration}.png')
-            session_sample(record,'preview',sent,end,digest,iteration<warmups,loupe=state['loupe'],image_rect=state['imageRect'])
+            session_sample(record,'preview',sent,end,digest,iteration<warmups,loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
             session_execute(control,'view.squareGrid')
             session_execute(control,'view.zoomFit')
         session_execute(control,'view.detail')
@@ -515,7 +608,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
                 exposure=session_execute(control,'develop.get',{'id':photo})['light']['exposure']
                 if exposure==before:
                     raise RuntimeError(f'slider step {step} had no effect: {exposure}')
-                session_sample(record,'exposure',sent,end,digest,step<warmups,step=step-warmups,exposure=exposure,loupe=state['loupe'],image_rect=state['imageRect'])
+                session_sample(record,'exposure',sent,end,digest,step<warmups,step=step-warmups,exposure=exposure,loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
             session_pointer(control,x+w*position,y+h*.5,'up')
         for iteration in range(warmups+repetitions):
             selected=ids[1+iteration%(len(ids)-1)]
@@ -523,7 +616,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             sent=control.last_sent_ns
             state=session_detail(control,selected)
             end,digest=session_frame(control,directory/f'switch-{iteration}.png')
-            session_sample(record,'switch',sent,end,digest,iteration<warmups,photo=selected,loupe=state['loupe'],image_rect=state['imageRect'])
+            session_sample(record,'switch',sent,end,digest,iteration<warmups,photo=selected,loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
         for iteration in range(warmups+repetitions):
             output=directory/f'export-{iteration}.jpg'
             result=session_execute(control,'app.export',{'path':str(output),'ids':[photo],'format':'jpeg','longEdge':2048,'quality':90,'background':True})
@@ -532,7 +625,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             end,digest=session_frame(control,directory/f'export-{iteration}.png')
             if max(jpeg_size(output))!=2048:
                 raise RuntimeError(f'invalid JPEG export: {result}, {state["export"]}')
-            session_sample(record,'export',sent,end,digest,iteration<warmups,jpeg_sha256=file_digest(output),dimensions=jpeg_size(output))
+            session_sample(record,'export',sent,end,digest,iteration<warmups,jpeg_sha256=file_digest(output),dimensions=jpeg_size(output),perf=state['perf'],capture=control.last_capture_proof)
         record['export_sample']=str(output)
         record['export_oracle']=str(directory/'export-oracle.png')
         control.call('ui.render',{'id':photo,'size':2048,'path':record['export_oracle']})
@@ -544,7 +637,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         render_preview(control,oracle,photo)
         record['oracle']=str(oracle)
         record['oracle_source']=file_digest(Path(paths[0]))
-        state=control.call('ui.inspect')
+        state=session_wait(control,lambda s:session_idle(s) and not s['activity'] and not s['tasks'] and s.get('unsaved') is None)
         record['gpu_adapter']=state['perf'].get('gpu')
         record['pre_quit_state']=state
         # No forced process termination is allowed to masquerade as a quit sample.
@@ -561,6 +654,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         ended,_=session_frame(control,directory/'startup-library.png')
         record['startup_library_ns']=ended-started
         record['startup_state']=control.call('ui.inspect')
+        session_wait(control,lambda s:session_idle(s) and not s['activity'] and not s['tasks'])
         stop(process,control)
         process=None
         for log in (log_path,directory/'startup.log'):
@@ -579,7 +673,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         control.stream.close()
 
 
-def session_quit_probe(binary, photo_path, directory, side, pair):
+def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=False, task="open"):
     """Diagnostic of the previous ui.render→quit path, never a session action claim."""
     directory.mkdir(parents=True,exist_ok=False)
     launched=time.perf_counter_ns()
@@ -587,14 +681,27 @@ def session_quit_probe(binary, photo_path, directory, side, pair):
     try:
         photo=wait_for_photo(control,process)
         opened=time.perf_counter_ns()
-        render_preview(control,directory/'render.png',photo['id'])
+        if task in ('edit','save'):
+            session_execute(control,'develop.set',{'values':{'light.exposure':0.7}})
+            render_preview(control,directory/'render.png',photo['id'])
+            exposure_identity(control,photo['id'],file_digest(photo_path),task)
+        elif task=='export':
+            session_execute(control,'app.export',{'path':str(directory/'export.jpg'),'ids':[photo['id']],'format':'jpeg','longEdge':2048,'quality':90,'background':False})
+            if max(jpeg_size(directory/'export.jpg'))!=2048:raise RuntimeError('quit probe export failed')
+        elif task=='open':
+            render_preview(control,directory/'render.png',photo['id'])
+        else:
+            raise ValueError('unknown legacy diagnostic action')
         rendered=time.perf_counter_ns()
         state=control.call('ui.inspect')
         control.call('engine.execute',{'command':'app.quit'})
         sent=control.last_sent_ns
+        if trace_quit:
+            with (directory/'quit-backtrace.txt').open('wb') as log:
+                subprocess.run(['sudo','-n','gdb','-q','-batch','-p',str(process.pid),'-ex','set pagination off','-ex','thread apply all bt 90','-ex','detach'],stdout=log,stderr=log,timeout=45)
         ended=session_wait_exit(process)
         if process.returncode!=0:raise RuntimeError(f'quit probe process exited {process.returncode}')
-        record=dict(side=side,pair=pair,launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
+        record=dict(side=side,pair=pair,task=task,profiled=trace_quit,launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
                     quit_request_ns=sent,exit_ns=ended,quit_ns=ended-sent,render_ns=rendered-opened,
                     process_ns=ended-launched,pre_quit_state=state,gpu_adapter=state['perf'].get('gpu'))
         (directory/'diagnostic.json').write_text(json.dumps(record,indent=2)+'\n')
@@ -615,8 +722,10 @@ def session_main(args):
     options.out.mkdir(parents=True,exist_ok=False)
     (options.out/'config.json').write_text(json.dumps(config,indent=2)+'\n')
     sessions=[]
-    report=dict(schema='lightcraft-session-v1',config=config,sessions=sessions,publishable=False,
+    report=dict(schema='lightcraft-session-v1',publish_scope='fork-point-to-fork-main',config=config,sessions=sessions,publishable=False,
                 statistics=dict(resamples=2000,seed=313,bootstrap_unit='paired-session',ratio='point/main',percentiles='linear'),
+                environment={key:os.environ.get(key) for key in ('DISPLAY','WGPU_BACKEND','LIGHTCRAFT_GPU_BACKEND','LIGHTCRAFT_GPU_ADAPTER','__GL_SHADER_DISK_CACHE_PATH','CRAFT_BENCH_ISOLATED')},
+                timing_scope='control send to first X11 capture proven pixel-identical to the native control PNG; mismatches fall back to the later native capture upper bound',
                 harness_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=Path(__file__).resolve().parents[3],text=True).strip(),
                 binary_sha256={side:file_digest(Path(rev['binary'])) for side,rev in config['revisions'].items()})
     def checkpoint():
@@ -627,13 +736,18 @@ def session_main(args):
         if config.get('quit_probe'):
             report['schema']='lightcraft-quit-diagnostic-v1'
             report['diagnostic']=[]
-            for pair in range(config.get('sessions',10)):
-                order=('point','main','upstream') if pair%2==0 else ('upstream','main','point')
-                for side in order:
-                    print(f'quit probe pair {pair} {side}',flush=True)
-                    record=session_quit_probe(Path(config['revisions'][side]['binary']),Path(config['quit_probe']),options.out/f'probe-{pair}-{side}',side,pair)
-                    report['diagnostic'].append(record)
-                    checkpoint()
+            report['diagnostic_only']=True
+            report['input_sha256']=file_digest(Path(config['quit_probe']))
+            for task in config.get('quit_tasks',['open']):
+                for pair in range(config.get('sessions',10)):
+                    order=('point','main','upstream') if pair%2==0 else ('upstream','main','point')
+                    for side in order:
+                        print(f'quit probe {task} pair {pair} {side}',flush=True)
+                        record=session_quit_probe(Path(config['revisions'][side]['binary']),Path(config['quit_probe']),options.out/f'probe-{task}-{pair}-{side}',side,pair,task=task)
+                        report['diagnostic'].append(record)
+                        checkpoint()
+            report['gpu_adapters']=sorted({r['gpu_adapter'] for r in report['diagnostic'] if r['gpu_adapter']})
+            checkpoint()
             return 0
         # ABC/CBA blocks keep the primary comparison adjacent, reverse order on alternate pairs.
         for tier,payload in config['payloads'].items():
@@ -648,6 +762,9 @@ def session_main(args):
         from lightcraft_session_report import check_pixels
         report['pixel_checks']=check_pixels(sessions)
         report['rows']=summarize(sessions)
+        report['secondary_pixel_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream')
+        for row in report['rows']:
+            row['upstream_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream' and c['tier']==row['tier'])
         report['gpu_adapters']=sorted({s['gpu_adapter'] for s in sessions})
         report['output_checked']=True
         # The Rust entry point attaches craft-bench's guard/fingerprint and decides publication.

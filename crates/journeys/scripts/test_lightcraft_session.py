@@ -19,6 +19,33 @@ class Boundaries(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_session(s)
 
+    def test_early_frame_requires_exact_later_pixel_proof(self):
+        s=fixture()
+        proof=dict(method='verified-x11',frame_ns=40,verified_ns=50,rgb_sha256='abc',width=10,height=10,
+                   candidates=[dict(ns=40,width=10,height=10,rgb_sha256='old-frame')])
+        s['samples'][0]['evidence']={'capture':proof}
+        with self.assertRaisesRegex(ValueError,'pixel proof'):validate_session(s)
+        proof['candidates'].append(dict(ns=40,width=10,height=10,rgb_sha256='abc'))
+        validate_session(s)
+        proof['verified_ns']=151
+        with self.assertRaises(ValueError):validate_session(s)
+
+    def test_tiers_cannot_be_inside_a_pruned_corpus_root(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from lightcraft_session_corpus import main
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            manifest=root/'manifest.toml'
+            manifest.write_text('[[file]]\npath = "photo.arw"\n')
+            tiers=root/'tiers.json'
+            tiers.write_text(json.dumps({'typical':['photo.arw']}))
+            argv=['corpus',str(manifest),str(root/'download'),str(tiers),'--out',str(root/'download/tiers')]
+            with patch('sys.argv',argv), self.assertRaisesRegex(ValueError,'outside'):
+                main()
+
     def test_empty_texture_queue_shape_is_a_list(self):
         from lightcraft_real_app import session_idle
         self.assertTrue(session_idle({'perf':{'renderQueue':0,'rendersInFlight':0,'pendingSlots':[]}}))

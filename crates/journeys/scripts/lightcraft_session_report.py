@@ -21,6 +21,19 @@ def validate_session(session):
             raise ValueError('duration includes work outside input-to-frame boundary')
         if not action['checked'] or not action['frame_sha256']:
             raise ValueError('unchecked output')
+        proof=action.get('evidence',{}).get('capture')
+        if proof is not None:
+            if proof['frame_ns']!=action['frame_ns'] or not action['frame_ns']<=proof['verified_ns']<=session['quit_request_ns']:
+                raise ValueError('capture verification overlaps a different lifecycle interval')
+            if proof['rgb_sha256']!=action['frame_sha256']:
+                raise ValueError('capture output hash differs from sample')
+            if proof['method']=='verified-x11':
+                matching=[c['ns'] for c in proof['candidates'] if c['ns']<=proof['verified_ns'] and c['rgb_sha256']==proof['rgb_sha256'] and (c['width'],c['height'])==(proof['width'],proof['height'])]
+                if not matching or min(matching)!=action['frame_ns']:
+                    raise ValueError('early frame has no matching native-pixel proof')
+            elif proof['method']!='native-upper-bound' or action['frame_ns']!=proof['verified_ns']:
+                raise ValueError('invalid native capture endpoint')
+
 
 
 def percentile(xs, p):
@@ -78,7 +91,9 @@ def markdown(rows):
                 continue
             s = r['sides']
             cells = [f"{s[side]['median_ns']/1e6:.2f}/{s[side]['p95_ns']/1e6:.2f}" for side in ('point', 'main')]
-            lines.append(f"| {r['action']} | {cells[0]} | {cells[1]} | {r['speedup']:.3f} ({r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}) | {s['upstream']['median_ns']/1e6:.2f} | {r['verdict']} |")
+            lines.append(f"| {r['action']} | {cells[0]} | {cells[1]} | {r['speedup']:.3f} ({r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}) | {s['upstream']['median_ns']/1e6:.2f}{'†' if not r.get('upstream_equivalent',True) else ''} | {r['verdict']} |")
+    if any(not r.get('upstream_equivalent',True) for r in rows):
+        lines += ['', '† Upstream output exceeded the pixel-parity bound. Its medians are descriptive observations only; no upstream-relative speed claim is made.']
     return '\n'.join(lines) + '\n'
 
 
@@ -90,7 +105,11 @@ def check_pixels(sessions):
         for session in group.values():
             jpeg=Image.open(session['export_sample']).convert('RGB')
             expected=Image.open(session['export_oracle']).convert('RGB')
-            if jpeg.size!=expected.size:raise ValueError('JPEG output dimensions differ from requested source render')
+            if jpeg.size!=expected.size:
+                if max(abs(a-b) for a,b in zip(jpeg.size,expected.size))>1:
+                    raise ValueError('JPEG output dimensions differ from requested source render')
+                # Preview and export paths round the short edge differently (1366 vs 1365).
+                expected=expected.resize(jpeg.size,Image.Resampling.BILINEAR)
             mean=ImageStat.Stat(ImageChops.difference(jpeg,expected)).mean
             if max(mean)>8:raise ValueError(f'JPEG does not reproduce its photo/settings within lossy MAE 8: {mean}')
         for side in ('main','upstream'):
@@ -109,8 +128,8 @@ def check_pixels(sessions):
             jmax=[high for low,high in jdiff.getextrema()]
             jmean=ImageStat.Stat(jdiff).mean
             checks[-1].update(jpeg_max_rgb=jmax,jpeg_mean_rgb=jmean)
-            if max(jmax)>16 or max(jmean)>.5:
-                raise ValueError(f'JPEG exceeded inter-revision RGB max 16/MAE .5 bound: {checks[-1]}')
-            if max(maximum[:3])>1 or maximum[3]!=0:
-                raise ValueError(f'fixed +0.7 preview exceeded predeclared 1-code RGB/identical-alpha bound: {checks[-1]}')
+            equivalent=max(maximum[:3])<=1 and maximum[3]==0 and max(jmax)<=16 and max(jmean)<=.5
+            checks[-1]['equivalent']=equivalent
+            if side=='main' and not equivalent:
+                raise ValueError(f'primary output equivalence failed: {checks[-1]}')
     return checks
