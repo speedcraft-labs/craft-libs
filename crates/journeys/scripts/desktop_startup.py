@@ -68,8 +68,11 @@ def recv_line(stream) -> dict:
     return value
 
 
-def rpc(stream, method: str, params: dict, request_id: int) -> dict:
-    stream.write((json.dumps({"id": request_id, "method": method, "params": params}) + "\n").encode())
+def rpc(stream, method: str, params: dict, request_id: int, token: str | None = None) -> dict:
+    request = {"id": request_id, "method": method, "params": params}
+    if token is not None:
+        request["token"] = token
+    stream.write((json.dumps(request) + "\n").encode())
     stream.flush()
     try:
         reply = recv_line(stream)
@@ -84,6 +87,10 @@ def screenshot_ok(reply: dict, path: Path | None) -> bool:
     result = reply.get("result")
     if path is not None and path.is_file():
         return path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    if isinstance(result, dict) and isinstance(result.get("path"), str):
+        screenshot_path = Path(result["path"])
+        if screenshot_path.is_file() and screenshot_path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+            return True
     candidates = []
     if isinstance(result, str):
         candidates.append(result)
@@ -107,6 +114,12 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
         "XDG_DATA_HOME": str(profile / ".local/share"),
         "XDG_CACHE_HOME": str(profile / ".cache"),
     })
+    if app == "cadcraft":
+        runtime_dir = profile / ".runtime"
+        runtime_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        runtime_dir.chmod(0o700)
+        env["XDG_RUNTIME_DIR"] = str(runtime_dir)
+        env["CADCRAFT_CONFIG_DIR"] = str(profile / ".config" / "cadcraft")
     for key in ("PHOTOCRAFT_NO_PREFS", "PDFCRAFT_NO_PREFS", "GRIDCRAFT_NO_PREFS"):
         env.pop(key, None)
     control_file = profile / "control.json"
@@ -115,6 +128,10 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
     if app == "pdfcraft":
         command = [str(binary), "--control", str(control_file)]
         port = None
+    elif app == "cadcraft":
+        port = free_port()
+        command = [str(binary), "--control", str(port)]
+        token_file = profile / ".runtime" / f"cadcraft-control-{port}.token"
     else:
         port = free_port()
         command = [str(binary), "--control", str(port), "--control-token", token]
@@ -131,6 +148,15 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
                 time.sleep(0.01)
             endpoint = json.loads(control_file.read_text())
             port, token = int(endpoint["port"]), str(endpoint["token"])
+        elif app == "cadcraft":
+            token_deadline = min(deadline, time.monotonic() + 5)
+            while time.monotonic() < token_deadline and not token_file.is_file():
+                if proc.poll() is not None:
+                    raise RuntimeError(f"{app} exited before publishing its control token (status {proc.returncode})")
+                time.sleep(0.01)
+            if not token_file.is_file():
+                raise TimeoutError(f"{app} did not publish its control token")
+            token = token_file.read_text().strip()
         stream = None
         while time.monotonic() < deadline:
             if proc.poll() is not None:
@@ -145,7 +171,8 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
             try:
                 # The listener is bound before the window starts; a TCP connect can therefore
                 # reach its backlog before the UI callback starts the control server thread.
-                rpc(candidate, "auth", {"token": token}, 0)
+                if app != "cadcraft":
+                    rpc(candidate, "auth", {"token": token}, 0)
                 stream = candidate
                 break
             except RuntimeError as error:
@@ -158,15 +185,15 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
         if stream is None:
             raise TimeoutError(f"{app} control channel did not become available")
         try:
-            frame = rpc(stream, "ui.screenshot", {}, 1)
+            frame = rpc(stream, "ui.screenshot", {}, 1, token if app == "cadcraft" else None)
             elapsed = time.perf_counter_ns() - started
             if not screenshot_ok(frame, None):
                 raise RuntimeError(f"{app} screenshot reply did not contain a rendered PNG")
             # The frame capture runs on the UI thread; a subsequent inspection confirms the
             # window is accepting control requests. Its latency is deliberately outside the mark.
-            rpc(stream, "ui.inspect" if app != "pdfcraft" else "ui.state", {}, 2)
+            rpc(stream, "ui.inspect" if app != "pdfcraft" else "ui.state", {}, 2, token if app == "cadcraft" else None)
             try:
-                rpc(stream, "app.quit" if app != "pdfcraft" else "ui.quit", {}, 3)
+                rpc(stream, "app.quit" if app != "pdfcraft" else "ui.quit", {}, 3, token if app == "cadcraft" else None)
             except Exception:
                 pass
             return elapsed
@@ -197,7 +224,7 @@ def main() -> int:
         print("usage: desktop_startup.py APP BINARY cold|warm PROFILE", file=sys.stderr)
         return 2
     app, binary_text, mode, profile_text = sys.argv[1:]
-    if app not in {"photocraft", "pdfcraft", "gridcraft"} or mode not in {"cold", "warm"}:
+    if app not in {"photocraft", "pdfcraft", "gridcraft", "cadcraft"} or mode not in {"cold", "warm"}:
         print("invalid app or mode", file=sys.stderr)
         return 2
     binary, profile = Path(binary_text).resolve(), Path(profile_text).resolve()

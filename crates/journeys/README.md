@@ -160,3 +160,22 @@ This keeps the file and operation realistic while making the task repeatable on 
 The app-specific real-input adapters are part of the speedcraft-labs fork changes. `app_base_patch`
 applies the additive adapter code only in the temporary upstream checkout used by `prepare` or
 `compare`; it never changes or pushes to an upstream repository.
+
+## Real-world CADCraft
+
+The real-world catalog includes cold and warm desktop startup, opening a typical drawing, changing
+one entity's color, and saving the edited drawing with semantic output verification. The startup
+probe stops when the UI thread returns its first PNG frame and answers a follow-up control request.
+Task wall time is measured outside the one-shot adapter process.
+
+CADCraft uses the 7,777,818-byte State Open Band DWG, with 22k entities. It is the byte-size median
+among seven real drawings in the local corpus (1,790,450; 3,142,134; 3,807,987; 7,777,818;
+10,525,851; 39,931,761; and 47,844,432 bytes). The largest sample is a 985k-entity engineering
+drawing and is not the representative payload. The selected and two other public SDDOT DWGs are
+pinned in crates/corpus/manifests/cadcraft-real-drawings.toml; source-page terms do not explicitly
+grant redistribution.
+
+On the Agentbox, CADCraft startup needs a GPU-backed X11 display because its default Vulkan window
+path cannot start on the GLX-disabled Xvfb server. Start the Agentbox's RTX-backed Xorg server once
+before benchmarking, set DISPLAY for craft-journeys (for example DISPLAY=:116), and keep that server
+outside the timed app process. On Mac, the native desktop display is used.
