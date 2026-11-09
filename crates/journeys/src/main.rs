@@ -1144,6 +1144,7 @@ fn execute_session(args: &[String]) -> Result<bool, String> {
         && !guard.contended
         && report["config"]["sessions"].as_u64().is_some_and(|n| n >= 10)
         && report["output_checked"] == true
+        && report["gpu_process_checks_passed"] == true
         && report["gpu_adapters"].as_array().is_some_and(|a| !a.is_empty());
     report["fingerprint"] = serde_json::to_value(fingerprint).map_err(|e| e.to_string())?;
     report["guard"] = serde_json::to_value(guard).map_err(|e| e.to_string())?;
