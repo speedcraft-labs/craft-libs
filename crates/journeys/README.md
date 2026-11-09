@@ -80,6 +80,8 @@ target root so prepared builds can be reused.
 | `gridcraft.synthetic-workbook-open` | GridCraft | Open and recalculate a generated 1,000-row workbook |
 | `soundcraft.synthetic-mix-throughput` | SoundCraft | Mix 32 generated tracks over 4 seconds |
 | `filmcraft.synthetic-project-open` | FilmCraft | Open a generated project with the 360p clip fixture |
+| `filmcraft.real-world-play-scrub-export` | FilmCraft | Open a pinned 1080p NASA clip, play and scrub it, then export a 60-second H.264 cut |
+| `soundcraft.real-world-song-play-scrub-midi-bounce` | SoundCraft | Open a 3:06 CC0 song, play/scrub edited regions, convert an 8-second selection to notes, then bounce the song to WAV |
 
 Run and compare:
 
@@ -249,3 +251,24 @@ upstream and fork GPU paths produce non-identical pixels, so the output gate che
 photo/edit state and valid rendered output instead of requiring identical encoded bytes. Across the
 retained Agentbox renders, previews differed by at most one 8-bit RGB code value (alpha matched);
 the 2048 × 1640 JPEGs differed by at most 11, with mean absolute channel error below 0.5.
+
+## Real-world FilmCraft and SoundCraft
+
+FilmCraft uses the pinned NASA ISS red-camera clip (1920 × 1080, H.264, 133.28 seconds) and
+Monplaisir's 3:06.5 CC0 song. Before timing, the adapter stream-copies the first minute of video
+and muxes in the song's first minute as AAC at a fixed 192 kbit/s, making a small music-video
+project. It exercises the real frame scheduler for playback and scrubbing, opens the same video
+and audio on the headless timeline UI, waits for actual waveform peaks, and exports the minute to
+H.264 with hardware encoding and GPU rendering disabled. The output identity covers the exported
+file and stable timeline/waveform structure. Both source URLs, licenses, provenance and SHA-256
+hashes are recorded in `crates/corpus/manifests/real-av-media-2026.toml`; the timeline adapter is
+backported identically to upstream for the paired run. Fetch and verify both files with
+`cargo run -p craft-corpus -- fetch crates/corpus/manifests/real-av-media-2026.toml "$ARTCRAFT_CORPUS/real-av-media-2026"`
+and `craft-corpus verify "$ARTCRAFT_CORPUS/real-av-media-2026" --manifest crates/corpus/manifests/real-av-media-2026.toml`.
+
+SoundCraft uses the same 3:06.5 CC0 song from Wikimedia Commons. It decodes the real recording,
+lays it out as sixteen adjacent edited regions, renders device-sized blocks at five playback/scrub
+positions, runs the existing audio-to-MIDI pitch path over an eight-second selection, and bounces
+the full mix to WAV. The SHA-256 output marker covers the bounce and detected note list. The
+SoundCraft adapter is a benchmark-only example added to the fork journey branch; an identical
+patch is applied to the upstream checkout before building so both sides exercise the same path.

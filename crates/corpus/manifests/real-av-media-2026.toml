@@ -1,0 +1,18 @@
+name = "real-av-media-2026"
+description = "NASA public-domain 1080p ISS footage and a CC0 Wikimedia Commons music track for FilmCraft and SoundCraft journeys."
+
+[[file]]
+path = "iss-red-camera-2015-1080p.mp4"
+url = "https://svs.gsfc.nasa.gov/vis/a030000/a030600/a030623/iss_red_camera_2015_1080p.mp4"
+sha256 = "ff702bb4c184b93cf69ed8ec5ec4ff0d6b4bcb717be0c72675775d78e84d5965"
+licence = "U.S. government work; public domain (NASA)"
+provenance = "https://svs.gsfc.nasa.gov/30623/"
+tags = ["video", "h264", "1920x1080", "133.28s", "real-world"]
+
+[[file]]
+path = "monplaisir-free-to-use-3.ogg"
+url = "https://upload.wikimedia.org/wikipedia/commons/7/79/Monplaisir_-_03_-_Free_To_Use_3.ogg"
+sha256 = "e179f2c23bda0bb6dcec90bda9d856959724f75335951ca4d2228aff24aa44ea"
+licence = "CC0 1.0 Universal Public Domain Dedication"
+provenance = "https://commons.wikimedia.org/wiki/File:Monplaisir_-_03_-_Free_To_Use_3.ogg"
+tags = ["audio", "vorbis", "stereo", "44100hz", "186.5s", "real-world"]

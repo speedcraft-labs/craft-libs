@@ -637,6 +637,50 @@
           "path": "pdfcraft-public-domain/opm-sf85p-2017.pdf"
         }
       ]
+    },
+    {
+      "name": "filmcraft.real-world-play-scrub-export",
+      "app": "filmcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/filmcraft",
+      "app_locked_dependencies": true,
+    "app_base_patch": "crates/journeys/patches/filmcraft-real-world-timeline.patch",
+      "build": {
+        "program": "python3",
+        "args": ["{journey_repo}/crates/journeys/scripts/build_filmcraft_real_world.py", "{app_repo}"]
+      },
+      "run": {
+        "program": "python3",
+        "args": ["{journey_repo}/crates/journeys/scripts/filmcraft_real_world.py", "{input}", "{target_dir}"],
+        "output": "markers"
+      },
+      "inputs": [
+        {
+          "name": "nasa-iss-red-camera-1080p",
+          "path": "real-av-media-2026/iss-red-camera-2015-1080p.mp4"
+        }
+      ]
+    },
+    {
+      "name": "soundcraft.real-world-song-play-scrub-midi-bounce",
+      "app": "soundcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/soundcraft",
+      "app_locked_dependencies": true,
+      "app_base_patch": "crates/journeys/patches/soundcraft-real-world-song.patch",
+      "build": {
+        "program": "cargo",
+        "args": ["build", "--release", "-p", "soundcraft-mix", "--example", "real_world_song"]
+      },
+      "run": {
+        "program": "{target_dir}/release/examples/real_world_song",
+        "args": ["{input}", "{target_dir}/soundcraft-real-world-song.wav"],
+        "output": "markers"
+      },
+      "inputs": [
+        {
+          "name": "monplaisir-free-to-use-3",
+          "path": "real-av-media-2026/monplaisir-free-to-use-3.ogg"
+        }
+      ]
     }
   ]
 }
