@@ -322,23 +322,30 @@
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "filmcraft-ui-egui", "--example", "bench", "--", "--section", "project", "--cpu", "--hw", "off"], "env": { "FILMCRAFT_FIXTURES": "/jobs/work/speedcraft-labs/targets/craft-journeys/filmcraft-fixtures" }, "output": "filmcraft-project" }
     },
     {
-      "name": "materialcraft.orbit-material-preview",
+      "name": "materialcraft.open-edit-orbit-export",
       "app": "materialcraft",
+      "app_locked_dependencies": true,
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/materialcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "materialcraft"] },
       "run": {
         "program": "python3",
-        "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}"],
-        "env": { "MATERIALCRAFT_JOURNEY_METADATA_DIR": "{target_dir}/materialcraft-metadata" },
+        "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}", "{journey_repo}/crates/journeys/fixtures/materialcraft-atomic-sample.mcraft"],
+        "env": {
+          "MATERIALCRAFT_JOURNEY_METADATA_DIR": "{target_dir}/materialcraft-metadata",
+          "MATERIALCRAFT_FORCE_SOFTWARE": "1",
+          "WGPU_BACKEND": "vulkan",
+          "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/lvp_icd.json"
+        },
         "output": "markers"
       },
       "run_head": {
         "program": "python3",
-        "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}"],
+        "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}", "{journey_repo}/crates/journeys/fixtures/materialcraft-atomic-sample.mcraft"],
         "env": {
           "MATERIALCRAFT_JOURNEY_METADATA_DIR": "{target_dir}/materialcraft-metadata",
-          "MATERIALCRAFT_GPU_DIFF_CHECK": "1",
-          "MATERIALCRAFT_RECORD_GPU_TIMING": "1"
+          "MATERIALCRAFT_FORCE_SOFTWARE": "1",
+          "WGPU_BACKEND": "vulkan",
+          "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/lvp_icd.json"
         },
         "output": "markers"
       },

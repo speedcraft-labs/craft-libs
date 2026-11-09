@@ -80,6 +80,7 @@ target root so prepared builds can be reused.
 | `gridcraft.synthetic-workbook-open` | GridCraft | Open and recalculate a generated 1,000-row workbook |
 | `soundcraft.synthetic-mix-throughput` | SoundCraft | Mix 32 generated tracks over 4 seconds |
 | `filmcraft.synthetic-project-open` | FilmCraft | Open a generated project with the 360p clip fixture |
+| `materialcraft.open-edit-orbit-export` | MaterialCraft | Open a pinned procedural material graph, change a value input, orbit a CC0 model, and export its textures |
 
 Run and compare:
 

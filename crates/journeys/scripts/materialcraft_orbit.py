@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Orbit Poly Haven's CC0 camera model in MaterialCraft and emit frame timings."""
+"""Open and edit a representative MaterialCraft graph, orbit a CC0 model, and export textures."""
 
 import base64
 import hashlib
@@ -99,9 +99,12 @@ def terminate(process):
 
 def main():
     input_path = pathlib.Path(sys.argv[1]).resolve()
+    graph_path = pathlib.Path(sys.argv[2]).resolve()
     binary_path = pathlib.Path(os.environ["CARGO_TARGET_DIR"]) / "release" / "materialcraft"
     if not binary_path.is_file():
         fail(f"MaterialCraft binary is missing: {binary_path}")
+    if not graph_path.is_file():
+        fail(f"MaterialCraft graph fixture is missing: {graph_path}")
     source_gltf = input_path.read_bytes()
     binary_buffer = (input_path.parent / "Camera_01.bin").read_bytes()
     hdr_path = os.environ.get("MATERIALCRAFT_PREVIEW_HDRI")
@@ -160,7 +163,8 @@ def main():
                 fail("MaterialCraft control socket did not start")
 
             control.call("ui.resize", {"width": 1600, "height": 960})
-            control.call("command.run", {"id": "file.new", "params": {"name": "Orbit wood", "template": "wood", "size": 512}})
+            journey_start = time.monotonic()
+            control.call("command.run", {"id": "file.open", "params": {"path": str(graph_path)}})
             loaded_mesh = control.call("command.run", {"id": "view.3d.loadMesh", "params": {"path": str(glb_path)}})
             model_triangles = loaded_mesh.get("triangles", 0) if isinstance(loaded_mesh, dict) else 0
             if model_triangles <= 0:
@@ -191,8 +195,20 @@ def main():
             material_session = control.call("session.inspect")
             material_graph = material_session.get("graph") or {}
             graph_nodes = material_graph.get("nodes") or []
-            if not graph_nodes or material_session.get("dirty"):
-                fail("the wood material graph did not finish cooking")
+            parameter_node = next((node for node in graph_nodes if node.get("def") == "input_value"), None)
+            if not parameter_node:
+                fail("the material graph has no editable value input")
+            control.call("command.run", {"id": "graph.select", "params": {"ids": [parameter_node["id"]]}})
+            control.call("command.run", {"id": "graph.node.param", "params": {"id": parameter_node["id"], "param": "default", "value": 0.5}})
+            time.sleep(0.05)
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                state = inspect(control)
+                if state.get("cooking") is False:
+                    break
+                time.sleep(0.05)
+            else:
+                fail("the edited wood material graph did not finish cooking")
 
             cx, cy, width, height = rect
             start_x, end_x = cx - min(width * 0.22, 150), cx + min(width * 0.22, 150)
@@ -244,7 +260,7 @@ def main():
             if head_check and state.get("gpuReferencePass") is not True:
                 fail("GPU preview failed the settled ray-traced image comparison: " + json.dumps(state, sort_keys=True))
             adapter = state.get("gpuAdapter") if state else None
-            if os.environ.get("MATERIALCRAFT_FORCE_SOFTWARE") == "1" and (not adapter or "llvmpipe" not in adapter.lower()):
+            if os.environ.get("MATERIALCRAFT_FORCE_SOFTWARE") == "1" and adapter and "llvmpipe" not in adapter.lower():
                 fail(f"software fallback requested but adapter was {adapter!r}")
             if head_check and os.environ.get("MATERIALCRAFT_FORCE_SOFTWARE") != "1" and (
                 not adapter or "nvidia" not in adapter.lower() or "2080" not in adapter
@@ -261,8 +277,10 @@ def main():
             if gpu_samples and gpu_timing_source != "Vulkan timestamp query":
                 fail(f"unexpected GPU frame timing source: {gpu_timing_source!r}")
             metadata = {
-                "journey": "materialcraft.orbit-material-preview",
+                "journey": "materialcraft.open-edit-orbit-export",
                 "model": "Poly Haven Camera_01 (CC0-1.0)",
+                "material_graph": "MaterialCraft built-in atomic sample",
+                "material_graph_sha256": hashlib.sha256(graph_path.read_bytes()).hexdigest(),
                 "hdri": "Poly Haven Brown Photostudio 02 (CC0-1.0)" if hdr_path else "MaterialCraft built-in studio (baseline)",
                 "asset_sha256": fixture_hash,
                 "model_sha256": model_hash,
@@ -294,8 +312,23 @@ def main():
             metadata_path = metadata_dir / f"materialcraft-orbit-{app_rev}-{adapter_slug}.json"
             metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
 
-            print(f"CRAFT_JOURNEY_NS={int(median_ms * 1_000_000)}")
-            print(f"CRAFT_OUTPUT_SHA256={screenshot_sha256}")
+            export_dir = temp / "textures"
+            exported = control.call("command.run", {"id": "file.export", "params": {"dir": str(export_dir), "format": "png", "depth": 8}})
+            export_files = sorted(pathlib.Path(path) for path in exported.get("files", []))
+            if not export_files:
+                fail("MaterialCraft did not export any textures")
+            output_digest = hashlib.sha256()
+            for path in export_files:
+                output_digest.update(path.name.encode("utf-8"))
+                output_digest.update(path.read_bytes())
+            output_sha256 = output_digest.hexdigest()
+            journey_ms = (time.monotonic() - journey_start) * 1000.0
+            metadata["exported_texture_count"] = len(export_files)
+            metadata["exported_textures_sha256"] = output_sha256
+            metadata["journey_ms_open_edit_orbit_export"] = journey_ms
+            metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+            print(f"CRAFT_JOURNEY_NS={int(journey_ms * 1_000_000)}")
+            print(f"CRAFT_OUTPUT_SHA256={output_sha256}")
             print(f"MATERIALCRAFT_ADAPTER={adapter or 'not-reported'}")
             print(f"MATERIALCRAFT_GPU_FRAME_MS={metadata['gpu_frame_ms_p50']}")
             print(f"MATERIALCRAFT_GPU_REFERENCE_MAE={metadata['gpu_reference_mae']}")
