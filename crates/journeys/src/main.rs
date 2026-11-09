@@ -30,6 +30,10 @@ struct Journey {
     run: CommandSpec,
     #[serde(default)]
     run_head: Option<CommandSpec>,
+    /// Patch applied only to the upstream app checkout before building it. The fork is expected
+    /// to carry the same benchmark adapter in its own repository.
+    #[serde(default)]
+    app_base_patch: Option<PathBuf>,
     #[serde(default)]
     inputs: Vec<Input>,
 }
@@ -628,16 +632,17 @@ fn app_repo(path: &Path) -> Result<PathBuf, String> {
 struct AppCheckout {
     repo: PathBuf,
     path: PathBuf,
+    revision: String,
 }
 
 impl AppCheckout {
     fn alias(checkout: &Self) -> Self {
-        Self { repo: checkout.repo.clone(), path: checkout.path.clone() }
+        Self { repo: checkout.repo.clone(), path: checkout.path.clone(), revision: checkout.revision.clone() }
     }
 
     fn at(repo: &Path, rev: &str) -> Result<Self, String> {
         if rev == "working-tree" {
-            return Ok(Self { repo: repo.to_path_buf(), path: repo.to_path_buf() });
+            return Ok(Self { repo: repo.to_path_buf(), path: repo.to_path_buf(), revision: rev.to_string() });
         }
         let resolved = Command::new("git")
             .args(["rev-parse", "--verify"])
@@ -655,7 +660,7 @@ impl AppCheckout {
         if path.exists() {
             let current = Command::new("git").args(["rev-parse", "--verify", "HEAD"]).current_dir(&path).output();
             if current.is_ok_and(|output| output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == commit) {
-                return Ok(Self { repo: repo.to_path_buf(), path });
+                return Ok(Self { repo: repo.to_path_buf(), path, revision: commit });
             }
             let removed = Command::new("git")
                 .args(["worktree", "remove", "--force"])
@@ -679,7 +684,7 @@ impl AppCheckout {
         if !result.status.success() {
             return Err(format!("git worktree for {rev} failed ({}): {}", result.status, String::from_utf8_lossy(&result.stderr)));
         }
-        Ok(Self { repo: repo.to_path_buf(), path })
+        Ok(Self { repo: repo.to_path_buf(), path, revision: commit })
     }
 }
 
@@ -825,15 +830,57 @@ fn journey_context(journey: &Journey, old_rev: &str, new_rev: &str) -> Result<Jo
     if !repo.is_dir() {
         return Err(format!("app repo does not exist: {}", repo.display()));
     }
-    let app_base = std::env::var("CRAFT_JOURNEYS_APP_BASE_REV").unwrap_or_else(|_| "HEAD".into());
-    let app_head = std::env::var("CRAFT_JOURNEYS_APP_HEAD_REV").unwrap_or_else(|_| app_base.clone());
-    let app_old = AppCheckout::at(&repo, &app_base)?;
-    let app_new = if app_base == app_head { AppCheckout::alias(&app_old) } else { AppCheckout::at(&repo, &app_head)? };
+    let app_base_ref = std::env::var("CRAFT_JOURNEYS_APP_BASE_REV").unwrap_or_else(|_| "HEAD".into());
+    let app_head_ref = std::env::var("CRAFT_JOURNEYS_APP_HEAD_REV").unwrap_or_else(|_| app_base_ref.clone());
+    let app_old = AppCheckout::at(&repo, &app_base_ref)?;
+    if let Some(patch) = journey.app_base_patch.as_deref() {
+        apply_app_base_patch(&app_old.path, patch)?;
+    }
+    let app_new = if app_base_ref == app_head_ref { AppCheckout::alias(&app_old) } else { AppCheckout::at(&repo, &app_head_ref)? };
+    let app_base = app_old.revision.clone();
+    let app_head = app_new.revision.clone();
     let checkouts = [app_old, app_new];
     let lib_repo = craft_libs_repo()?;
     let libs_old = LibRevision::at(&lib_repo, old_rev)?;
     let libs_new = if old_rev == new_rev { LibRevision::alias(&libs_old) } else { LibRevision::at(&lib_repo, new_rev)? };
     Ok(JourneyContext { inputs, app_base, app_head, checkouts, revisions: [libs_old, libs_new] })
+}
+
+fn apply_app_base_patch(checkout: &Path, patch: &Path) -> Result<(), String> {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo = manifest_dir.ancestors().nth(2).ok_or("cannot locate craft-libs repo for app patch")?;
+    let patch_path = if patch.is_absolute() { patch.to_path_buf() } else { repo.join(patch) };
+    let check = |reverse: bool| {
+        let mut command = Command::new("git");
+        command.current_dir(checkout).arg("apply").arg("--check");
+        if reverse {
+            command.arg("--reverse");
+        }
+        command.arg(&patch_path).output()
+    };
+    let forward = check(false).map_err(|e| format!("check upstream adapter patch {}: {e}", patch_path.display()))?;
+    if forward.status.success() {
+        let applied = Command::new("git")
+            .current_dir(checkout)
+            .args(["apply"])
+            .arg(&patch_path)
+            .output()
+            .map_err(|e| format!("apply upstream adapter patch {}: {e}", patch_path.display()))?;
+        if !applied.status.success() {
+            return Err(format!("apply upstream adapter patch {} failed: {}", patch_path.display(), String::from_utf8_lossy(&applied.stderr)));
+        }
+        return Ok(());
+    }
+    let reverse = check(true).map_err(|e| format!("check already-applied adapter patch {}: {e}", patch_path.display()))?;
+    if reverse.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "upstream adapter patch {} applies neither forward nor in reverse: {}",
+            patch_path.display(),
+            String::from_utf8_lossy(&forward.stderr)
+        ))
+    }
 }
 
 fn build_app(journey: &Journey, rev: &str, app_rev: &str, input: &Input, checkout: &AppCheckout, libs: &LibRevision) -> Result<(), String> {
@@ -849,7 +896,7 @@ fn build_app(journey: &Journey, rev: &str, app_rev: &str, input: &Input, checkou
             command.args(["-n", "19", "cargo"]);
             command
         };
-        command.env("CARGO_BUILD_JOBS", "6");
+        command.env("CARGO_BUILD_JOBS", "8");
         command
     } else {
         Command::new(build_program)

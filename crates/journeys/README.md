@@ -97,8 +97,8 @@ craft-libs revisions. Each app build and run gets a target directory keyed by bo
 and revision worktrees plus Cargo patch files keep stable paths under the selected target root,
 so paired runs reuse their warmed binaries instead of rebuilding one side over the other.
 The PhotoCraft layer journeys run the prepared `perf_scenarios` executable by its `{target_dir}`
-path, so a locked measurement never invokes Cargo. Adapter builds use `nice -n 19` and six Cargo
-jobs.
+path, so a locked measurement never invokes Cargo. Adapter builds use `nice -n 19` and eight Cargo
+jobs, outside CPUs 22–27 reserved for measurement.
 Run `prepare` before acquiring the shared benchmark lock, then use `--no-build` with `run` or
 `compare` while the lock is held. Both commands return exit code 1 for a non-publishable report;
 errors return 2.
@@ -128,3 +128,35 @@ exercise format, validate, and calculate behavior. The IRS forms carry
 document-level scripts; their AcroForm fields have no `/AA` actions or `/CO`
 calculations. Every corpus entry pins its source URL and SHA-256 in the manifest.
 Each journey times one PdfCraft `Session` edit after open.
+
+### Real-world app journeys
+
+The first end-to-end set covers PhotoCraft, PdfCraft and GridCraft. Each app has fresh-profile
+(`startup-cold-first-frame`) and primed-profile (`startup-warm-first-frame`) starts. Startup timing
+comes from the external Python driver, from process launch until a screenshot request completes on
+the UI thread; a follow-up inspection confirms that the window accepts control requests. Cold
+means an empty app profile, not a flushed operating-system file cache. Task journeys use
+`wall_time: "process"`, so their primary time is measured outside the process through exit.
+
+| App | Typical payload | Tasks |
+| --- | --- | --- |
+| PhotoCraft | `quote-card-misty-beach.psd`, 5,919,438 bytes; 1000×1000, 4 layers | open, Gaussian Blur, save PSD |
+| PdfCraft | IRS 2023 Form 990, 800,253 bytes; 12 pages, 1,075 fields | open, edit a form field, save edited PDF |
+| GridCraft | 2024 AIES estimates workbook, 14,050 bytes; 1 sheet, 62 rows, 485 stored cells | open, edit A3, save XLSX |
+
+The local corpus medians are 32,738 bytes for 431 PSD files, 11,256 bytes for 993 XLSX files, and
+3,312,310 bytes for six PDFs; those sets are mostly compatibility fixtures. For the PSD payload,
+six layered CC0 examples from Innerscene were measured by file size: the median is 5,879,306 bytes,
+and the selected quote card is 0.7% above it. The five public-domain government PDF examples in
+the existing journey corpus have a median of about 800 KB, matching the selected IRS form. The
+official AIES workbook is 25% above the XLSX corpus median and is a real supporting spreadsheet,
+not a test case. The manifest pins source URLs, licenses and SHA-256 hashes.
+
+Startup journeys launch the real desktop app and stop at its first PNG frame, followed by a
+successful UI control request. The open/edit/save journeys use one-shot adapters over each app's
+real engine API; their primary duration is measured externally from process launch through exit.
+This keeps the file and operation realistic while making the task repeatable on both runners.
+
+The app-specific real-input adapters are part of the speedcraft-labs fork changes. `app_base_patch`
+applies the additive adapter code only in the temporary upstream checkout used by `prepare` or
+`compare`; it never changes or pushes to an upstream repository.
