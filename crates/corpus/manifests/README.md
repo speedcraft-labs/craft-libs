@@ -22,13 +22,14 @@ craft-corpus verify corpus/office-poi --manifest manifests/office-poi.toml
 | `cad-ezdxf.toml` | mozman/ezdxf @ c498560b | MIT | 103 | 0 |
 | `pdfcraft-fixtures.toml` | storytold/pdfcraft @ 15c505d1 | MIT OR Apache-2.0 | 1 | 0 |
 | `vectorcraft-fixtures.toml` | storytold/vectorcraft @ e2eed881 | MIT OR Apache-2.0 | 1 | 0 |
+| `gridcraft-budget-tracker-2026.toml` | jovialio/personal-finance-tracker-excel @ f5f19739 | MIT | 1 | 0 |
 | `conformance-h264.toml` | fate-suite.ffmpeg.org/h264-conformance (JVT H.264.1) | JVT conformance bitstreams | 195 | 0 |
 | `conformance-hevc.toml` | fate-suite.ffmpeg.org/hevc-conformance (JCT-VC H.265.1) | JCT-VC conformance bitstreams | 184 | MV-HEVC / SHVC |
 | `conformance-vp8.toml` | libvpx test vectors vp80-* (+ .md5) | BSD-3-Clause | 124 (62 vectors) | 0 |
 | `conformance-vp9.toml` | libvpx test vectors vp90..93-2-* (+ .md5) | BSD-3-Clause | 686 (343 vectors) | 19 tile vectors with no .md5 |
 | `conformance-av1.toml` | libaom test vectors av1-1-* (+ .md5) | BSD-2-Clause-Patent | 488 (244 vectors) | 0 |
 
-Office total: 6103 files (docx/xlsx/pptx/doc/xls/ppt plus macro-enabled docm/xlsm/pptm). DXF: 103. App journey fixtures: 1 PDF and 1 VectorCraft document.
+Office total: 6103 files (docx/xlsx/pptx/doc/xls/ppt plus macro-enabled docm/xlsm/pptm). DXF: 103. App journey fixtures: 1 PDF, 1 VectorCraft document, and 1 real GridCraft budget workbook.
 
 ## Extensions
 
