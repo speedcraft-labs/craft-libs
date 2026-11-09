@@ -313,6 +313,22 @@ def verify_output(task: str, input_path: Path, target_dir: Path) -> int:
     return 0
 
 
+def session_wait_exit(process, timeout=150):
+    # Popen.wait(timeout=...) polls with up to 50 ms sleeps on POSIX. A pidfd gives
+    # an event-driven exit observation on Agentbox, without quantizing short quits.
+    import select
+    if not hasattr(os, 'pidfd_open'):
+        raise RuntimeError('session exit timing requires Linux pidfd support')
+    descriptor=os.pidfd_open(process.pid)
+    try:
+        if not select.select([descriptor],[],[],timeout)[0]:
+            raise TimeoutError('quit did not exit before the deadline')
+        process.wait()
+        return time.perf_counter_ns()
+    finally:
+        os.close(descriptor)
+
+
 def session_execute(control, command, params=None):
     return control.call('engine.execute', {'command': command, 'params': params or {}})
 
@@ -517,8 +533,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         # No forced process termination is allowed to masquerade as a quit sample.
         control.call('engine.execute',{'command':'app.quit'})
         record['quit_request_ns']=control.last_sent_ns
-        process.wait(timeout=150)
-        record['exit_ns']=time.perf_counter_ns()
+        record['exit_ns']=session_wait_exit(process)
         if process.returncode!=0:
             raise RuntimeError(f'quit failed: {process.returncode}')
         control.stream.close()
@@ -560,8 +575,7 @@ def session_quit_probe(binary, photo_path, directory, side, pair):
         state=control.call('ui.inspect')
         control.call('engine.execute',{'command':'app.quit'})
         sent=control.last_sent_ns
-        process.wait(timeout=150)
-        ended=time.perf_counter_ns()
+        ended=session_wait_exit(process)
         if process.returncode!=0:raise RuntimeError(f'quit probe process exited {process.returncode}')
         record=dict(side=side,pair=pair,launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
                     quit_request_ns=sent,exit_ns=ended,quit_ns=ended-sent,render_ns=rendered-opened,
@@ -585,6 +599,7 @@ def session_main(args):
     (options.out/'config.json').write_text(json.dumps(config,indent=2)+'\n')
     sessions=[]
     report=dict(schema='lightcraft-session-v1',config=config,sessions=sessions,publishable=False,
+                statistics=dict(resamples=2000,seed=313,bootstrap_unit='paired-session',ratio='point/main',percentiles='linear'),
                 harness_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=Path(__file__).resolve().parents[3],text=True).strip(),
                 binary_sha256={side:file_digest(Path(rev['binary'])) for side,rev in config['revisions'].items()})
     def checkpoint():
