@@ -16,9 +16,9 @@ pub fn box_blur_cpu(src: &[f32], width: usize, height: usize, channels: usize, r
             let start = (group * 256) as isize - radius as isize;
             let mut scan = vec![Vec4::ZERO; tile_size];
             let mut sums = [0.0f32; 3];
-            for item in 0..tile_size {
+            for (item, slot) in scan.iter_mut().enumerate() {
                 let x = (start + item as isize).clamp(0, width as isize - 1) as usize;
-                scan[item] = Vec4::new(sums[0], sums[1], sums[2], 0.0);
+                *slot = Vec4::new(sums[0], sums[1], sums[2], 0.0);
                 for channel in 0..channels {
                     sums[channel] += src[row + x * channels + channel];
                 }

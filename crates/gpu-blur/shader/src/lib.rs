@@ -55,7 +55,7 @@ pub fn box_h_scan(
         while i < count {
             let right = (i + 1) * 2 * stride - 1;
             let left = right - stride;
-            scan[right as usize] = scan[right as usize] + scan[left as usize];
+            scan[right as usize] += scan[left as usize];
             i += 256;
         }
         spirv_std::arch::workgroup_memory_barrier_with_group_sync();
@@ -75,7 +75,7 @@ pub fn box_h_scan(
             let left = right - stride;
             let value = scan[left as usize];
             scan[left as usize] = scan[right as usize];
-            scan[right as usize] = scan[right as usize] + value;
+            scan[right as usize] += value;
             i += 256;
         }
         spirv_std::arch::workgroup_memory_barrier_with_group_sync();
