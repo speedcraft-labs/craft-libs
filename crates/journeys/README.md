@@ -62,6 +62,8 @@ target root so prepared builds can be reused.
 | `deckcraft.open-typical-pptx`, `deckcraft.navigate-typical-pptx`, `deckcraft.edit-title-typical-pptx`, `deckcraft.save-typical-pptx`, `deckcraft.export-typical-pptx` | DeckCraft | Open, navigate, edit text, save and export a public median-sized 26-slide PPTX |
 | `lightcraft.startup-cold-first-frame`, `lightcraft.startup-warm-first-frame` | LightCraft | Cold and warm desktop start with a prepared photo library through the first photo frame |
 | `lightcraft.open-typical-photo`, `lightcraft.edit-exposure-typical-photo`, `lightcraft.save-typical-photo`, `lightcraft.export-typical-photo` | LightCraft | Open, adjust exposure, save, and export a representative public-domain photograph |
+| `vectorcraft.startup-cold-first-frame`, `vectorcraft.startup-warm-first-frame` | VectorCraft | Cold and warm desktop start to first interactive canvas frame |
+| `vectorcraft.real-world-open`, `vectorcraft.real-world-zoom`, `vectorcraft.real-world-edit`, `vectorcraft.real-world-save`, `vectorcraft.real-world-export` | VectorCraft | Open a public SVG map, zoom, recolor a path, save SVG, and export PNG |
 | `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
 | `deckcraft.drag-shape.heavy-slide` | DeckCraft | Drag a picture shape across the pinned, picture-rich 24th slide of the Apache-2.0 licensed HowWeRefactor deck through the editor canvas texture path; records every CPU frame |
 | `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
@@ -249,3 +251,10 @@ upstream and fork GPU paths produce non-identical pixels, so the output gate che
 photo/edit state and valid rendered output instead of requiring identical encoded bytes. Across the
 retained Agentbox renders, previews differed by at most one 8-bit RGB code value (alpha matched);
 the 2048 × 1640 JPEGs differed by at most 11, with mean absolute channel error below 0.5.
+
+
+## Real-world VectorCraft
+
+VectorCraft's seven journeys measure cold and warm startup to the first interactive canvas frame, then open, zoom, recolor a path, save the edited SVG, and export a PNG. Each task starts the desktop app and opens the selected map before the action; task times are process wall time from the outside runner and include startup and import. The map is the public-domain US county map with territories from Wikimedia Commons. It is 1,166,315 bytes, has a 990×627 view box and 3,159 SVG paths.
+
+The payload set contains four real SVG county, district and public-domain US maps at 211,292, 1,131,040, 1,166,315 and 1,410,294 bytes; the median is 1,148,677.5 bytes, so the selected file is 1.5% above it. Licenses, source links and SHA-256 pins are in `crates/corpus/manifests/vectorcraft-real-world-2026.toml`. Each app revision uses its own Cargo.lock.

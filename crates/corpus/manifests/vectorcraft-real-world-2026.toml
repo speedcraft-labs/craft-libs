@@ -1,0 +1,38 @@
+name = "vectorcraft-real-world-2026"
+description = "Four real public US maps in SVG format from Wikimedia Commons, with the county map selected near the sample median."
+
+[[file]]
+path = "us-public-domain-map.svg"
+url = "https://upload.wikimedia.org/wikipedia/commons/3/38/United_States_Public_Domain_Map.svg"
+sha256 = "6210cf0d594db067d7565c3e70208f284ac4fbb3f9b17d0df3d16e0e584358e2"
+licence = "Public domain, U.S. Department of Justice work"
+provenance = "https://commons.wikimedia.org/wiki/File:United_States_Public_Domain_Map.svg"
+tags = ["vectorcraft", "svg", "real-public-map", "2124x1263"]
+redistributable = true
+
+[[file]]
+path = "us-congressional-districts.svg"
+url = "https://upload.wikimedia.org/wikipedia/commons/2/24/US_Congressional_districts.svg"
+sha256 = "e6c9a1c15aad3beaf95dee03eaf0b62b1e85ad3f061cff021a839d4d7f01d012"
+licence = "CC BY-SA 2.5"
+provenance = "https://commons.wikimedia.org/wiki/File:US_Congressional_districts.svg"
+tags = ["vectorcraft", "svg", "real-public-map", "2583x1557"]
+redistributable = true
+
+[[file]]
+path = "us-county-map-territories.svg"
+url = "https://upload.wikimedia.org/wikipedia/commons/4/44/US_county_map%2C_blank%2C_w_territories.svg"
+sha256 = "2292c501380dc46560a69a5703698774e441f3531e308c5ac3b18e8968d328b6"
+licence = "Public domain, dedicated by the author"
+provenance = "https://commons.wikimedia.org/wiki/File:US_county_map,_blank,_w_territories.svg"
+tags = ["vectorcraft", "svg", "real-public-map", "990x627", "counties"]
+redistributable = true
+
+[[file]]
+path = "usa-counties-fips.svg"
+url = "https://upload.wikimedia.org/wikipedia/commons/a/a1/USA_counties_FIPS_text_addressable.svg"
+sha256 = "4d65a93f46b8b7fe0f14bf9e33fe688ef6e8d56ea14282f7ff074cbc159499c6"
+licence = "Public domain, dedicated by the author"
+provenance = "https://commons.wikimedia.org/wiki/File:USA_counties_FIPS_text_addressable.svg"
+tags = ["vectorcraft", "svg", "real-public-map", "555x352", "counties"]
+redistributable = true

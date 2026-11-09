@@ -22,7 +22,18 @@ def free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def ensure_display() -> subprocess.Popen | None:
+def vectorcraft_adapter(profile: Path) -> str | None:
+    log = profile / "vectorcraft-config" / "logs" / "vectorcraft.log"
+    if not log.is_file():
+        return None
+    for line in reversed(log.read_text(errors="replace").splitlines()):
+        marker = " rendering with "
+        if marker in line:
+            return line.split(marker, 1)[1].split(" (", 1)[0].strip() or None
+    return None
+
+
+def ensure_display(*, require_glx: bool = False) -> subprocess.Popen | None:
     if sys.platform != "linux" or os.environ.get("DISPLAY"):
         return None
     executable = shutil.which("Xvfb")
@@ -36,8 +47,19 @@ def ensure_display() -> subprocess.Popen | None:
         if endpoint.exists():
             continue
         display = f":{number}"
+        command = [executable, display, "-screen", "0", "1280x800x24", "-nolisten", "tcp"]
+        if not require_glx:
+            command.extend(["-extension", "GLX"])
+        server_env = os.environ.copy()
+        mesa_egl = Path("/usr/share/glvnd/egl_vendor.d/50_mesa.json")
+        if require_glx and mesa_egl.is_file():
+            # Xvfb's GLX server must use Mesa here; loading the host NVIDIA EGL vendor
+            # crashes this Xvfb build before it can advertise GLX. VectorCraft itself
+            # uses Vulkan on Linux, so its application renderer remains on the RTX GPU.
+            server_env["__EGL_VENDOR_LIBRARY_FILENAMES"] = str(mesa_egl)
         process = subprocess.Popen(
-            [executable, display, "-screen", "0", "1280x800x24", "-nolisten", "tcp", "-extension", "GLX"],
+            command,
+            env=server_env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -132,7 +154,11 @@ def launch(
         env["WORDCRAFT_PROFILE_DIR"] = str(profile)
     if app == "lightcraft":
         env["LIGHTCRAFT_CONFIG_DIR"] = str(profile / "lightcraft-config")
-    for key in ("PHOTOCRAFT_NO_PREFS", "PDFCRAFT_NO_PREFS", "GRIDCRAFT_NO_PREFS", "WORDCRAFT_NO_PREFS"):
+    if app == "vectorcraft":
+        env["VECTORCRAFT_CONFIG_DIR"] = str(profile / "vectorcraft-config")
+        if sys.platform == "linux":
+            env["WGPU_BACKEND"] = "vulkan"
+    for key in ("PHOTOCRAFT_NO_PREFS", "PDFCRAFT_NO_PREFS", "GRIDCRAFT_NO_PREFS", "WORDCRAFT_NO_PREFS", "VECTORCRAFT_NO_PREFS"):
         env.pop(key, None)
     control_file = profile / "control.json"
     control_file.unlink(missing_ok=True)
@@ -158,6 +184,9 @@ def launch(
     elif app == "deckcraft":
         port = free_port()
         command = [str(binary), "--control", str(port)]
+    elif app == "vectorcraft":
+        port = free_port()
+        command = [str(binary), "--control", str(port), "--new-instance"]
     else:
         port = free_port()
         command = [str(binary), "--control", str(port), "--control-token", token]
@@ -208,7 +237,7 @@ def launch(
                 # reach its backlog before the UI callback starts the control server thread.
                 if app == "wordcraft":
                     rpc(candidate, "auth", {}, 0, token, "key")
-                elif app not in {"cadcraft", "deckcraft", "lightcraft"}:
+                elif app not in {"cadcraft", "deckcraft", "lightcraft", "vectorcraft"}:
                     rpc(candidate, "auth", {"token": token}, 0)
                 stream = candidate
                 break
@@ -250,9 +279,16 @@ def launch(
                 return elapsed
             secret_field = "key" if app == "wordcraft" else "token"
             secret = token if app in {"cadcraft", "wordcraft"} else None
-            frame = rpc(stream, "ui.screenshot", {}, 1, secret, secret_field)
+            if app == "vectorcraft":
+                frame_path = profile / "first-frame.png"
+                frame_path.unlink(missing_ok=True)
+                frame = rpc(stream, "ui.screenshot", {"path": str(frame_path)}, 1)
+                screenshot_path = frame_path
+            else:
+                frame = rpc(stream, "ui.screenshot", {}, 1, secret, secret_field)
+                screenshot_path = None
             elapsed = time.perf_counter_ns() - started
-            if not screenshot_ok(frame, None):
+            if not screenshot_ok(frame, screenshot_path):
                 raise RuntimeError(f"{app} screenshot reply did not contain a rendered PNG")
             # The frame capture runs on the UI thread; a subsequent inspection confirms the
             # window is accepting control requests. Its latency is deliberately outside the mark.
@@ -290,14 +326,14 @@ def main() -> int:
         return 2
     app, binary_text, mode, profile_text = sys.argv[1:5]
     input_path = Path(sys.argv[5]).resolve() if len(sys.argv) == 6 else None
-    if app not in {"photocraft", "pdfcraft", "gridcraft", "cadcraft", "wordcraft", "deckcraft", "lightcraft"} or mode not in {"cold", "warm"}:
+    if app not in {"photocraft", "pdfcraft", "gridcraft", "cadcraft", "wordcraft", "deckcraft", "lightcraft", "vectorcraft"} or mode not in {"cold", "warm"}:
         print("invalid app or mode", file=sys.stderr)
         return 2
     binary, profile = Path(binary_text).resolve(), Path(profile_text).resolve()
     if not binary.is_file():
         print(f"app binary not found: {binary}", file=sys.stderr)
         return 2
-    display = ensure_display()
+    display = ensure_display(require_glx=(app == "vectorcraft"))
     try:
         library_path = None
         if app == "lightcraft":
@@ -316,6 +352,11 @@ def main() -> int:
             launch(app, binary, profile, library_path=library_path)
             (profile / ".startup-seeded").touch()
         elapsed = launch(app, binary, profile, library_path=library_path)
+        if app == "vectorcraft":
+            adapter = vectorcraft_adapter(profile)
+            if not adapter:
+                raise RuntimeError("VectorCraft did not log its selected graphics adapter")
+            print(f"CRAFT_GPU_ADAPTER={adapter}")
         digest = hashlib.sha256(f"{app}|{mode}|first-interactive-frame".encode()).hexdigest()
         print(f"CRAFT_JOURNEY_NS={elapsed}")
         print(f"CRAFT_OUTPUT_SHA256={digest}")
