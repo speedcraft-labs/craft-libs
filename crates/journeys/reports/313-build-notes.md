@@ -23,3 +23,12 @@ next revision. Never clean while another app build is using this target. Build
 outside the bench lock and CPU set, with `taskset -c 0-21 nice -n 19` and
 `CARGO_BUILD_JOBS=8`. No app source or dependency lockfiles are changed by this
 recipe. Record binary SHA-256 and app revision with every run.
+
+
+The initial corpus helper also put tier hard links under the stamped download
+root. That would make craft-corpus prune the tiers as unlisted files. The in-flight
+fetch was stopped before pruning; tiers now use a sibling root and the helper
+rejects a destination inside the stamped source. No RAW content was lost. Initial
+500-file membership, the six ignored extensions and failed preflight logs are
+preserved with the raw evidence. The corrected selected manifest has 518 unique
+files: 31 in the single-camera tier and 500 in the mixed tier, with 13 shared files.

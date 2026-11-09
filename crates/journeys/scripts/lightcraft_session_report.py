@@ -87,6 +87,12 @@ def check_pixels(sessions):
     checks=[]
     for tier,pair in sorted({(s['tier'],s['pair']) for s in sessions}):
         group={s['side']:s for s in sessions if s['tier']==tier and s['pair']==pair}
+        for session in group.values():
+            jpeg=Image.open(session['export_sample']).convert('RGB')
+            expected=Image.open(session['export_oracle']).convert('RGB')
+            if jpeg.size!=expected.size:raise ValueError('JPEG output dimensions differ from requested source render')
+            mean=ImageStat.Stat(ImageChops.difference(jpeg,expected)).mean
+            if max(mean)>8:raise ValueError(f'JPEG does not reproduce its photo/settings within lossy MAE 8: {mean}')
         for side in ('main','upstream'):
             a,b=group['point'],group[side]
             if a['oracle_source']!=b['oracle_source']:
@@ -97,6 +103,14 @@ def check_pixels(sessions):
             maximum=[high for low,high in diff.getextrema()]
             mean=ImageStat.Stat(diff).mean
             checks.append(dict(tier=tier,pair=pair,side=side,max_rgba=maximum,mean_rgba=mean))
+            jold,jnew=(Image.open(s['export_sample']).convert('RGB') for s in (a,b))
+            if jold.size!=jnew.size:raise ValueError('JPEG dimensions differ between revisions')
+            jdiff=ImageChops.difference(jold,jnew)
+            jmax=[high for low,high in jdiff.getextrema()]
+            jmean=ImageStat.Stat(jdiff).mean
+            checks[-1].update(jpeg_max_rgb=jmax,jpeg_mean_rgb=jmean)
+            if max(jmax)>16 or max(jmean)>.5:
+                raise ValueError(f'JPEG exceeded inter-revision RGB max 16/MAE .5 bound: {checks[-1]}')
             if max(maximum[:3])>1 or maximum[3]!=0:
                 raise ValueError(f'fixed +0.7 preview exceeded predeclared 1-code RGB/identical-alpha bound: {checks[-1]}')
     return checks

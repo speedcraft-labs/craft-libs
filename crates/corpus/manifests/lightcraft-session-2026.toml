@@ -1186,14 +1186,6 @@ provenance = "https://raw.pixls.us/"
 tags = ["raw", "session", "sony-ilce-7rm3"]
 
 [[file]]
-path = "pixls-3255.arq"
-url = "https://raw.pixls.us/getfile.php/3255/nice/Sony%20-%20ILCE-7RM3%20-%2014bit%2014bit%20uncompressed%20%283:2%29.ARQ"
-sha256 = "67af1f9f4cff82bd182f3fc48e95d39ae7d8352595e3c72f3386c9dee114f27d"
-licence = "CC0-1.0"
-provenance = "https://raw.pixls.us/"
-tags = ["raw", "session", "sony-ilce-7rm3"]
-
-[[file]]
 path = "pixls-3329.cr2"
 url = "https://raw.pixls.us/getfile.php/3329/nice/Canon%20-%20EOS%20Rebel%20T7%20-%20RAW%20%283:2%29.CR2"
 sha256 = "f32fe3e691b6bddf7ecef23050bb197c64c3b5c6811e5c24201d76244ae20e81"
@@ -1938,14 +1930,6 @@ provenance = "https://raw.pixls.us/"
 tags = ["raw", "session", "fujifilm-x-e4"]
 
 [[file]]
-path = "pixls-4483.gpr"
-url = "https://raw.pixls.us/getfile.php/4483/nice/GoPro%20-%20HERO9%20Black%20-%2016bit%20%284:3%29.GPR"
-sha256 = "bf6f67d0c7096f347b864310f6d58be35237c3d0e715b47a1b30e650e9d785b1"
-licence = "CC0-1.0"
-provenance = "https://raw.pixls.us/"
-tags = ["raw", "session", "gopro-hero9-black"]
-
-[[file]]
 path = "pixls-4515.cr3"
 url = "https://raw.pixls.us/getfile.php/4515/nice/Canon%20-%20EOS%20R%20-%203:2.CR3"
 sha256 = "89bd55532b0cceb5efa360e97827ba35c2076bce0de4675f3a4413a883dac880"
@@ -2104,22 +2088,6 @@ sha256 = "c6e781a58fdbe97fac5b99deb878a8568904aba48de0e4c31076b4d3887e2c91"
 licence = "CC0-1.0"
 provenance = "https://raw.pixls.us/"
 tags = ["raw", "session", "canon-eos-850d"]
-
-[[file]]
-path = "pixls-4883.gpr"
-url = "https://raw.pixls.us/getfile.php/4883/nice/GoPro%20-%20HERO10%20Black%20-%2016bit%20%284:3%29.GPR"
-sha256 = "f462ea1e695a0491960a496e3998c8806a2a02a2830c9c696c7067c0039a437c"
-licence = "CC0-1.0"
-provenance = "https://raw.pixls.us/"
-tags = ["raw", "session", "gopro-hero10-black"]
-
-[[file]]
-path = "pixls-4894.gpr"
-url = "https://raw.pixls.us/getfile.php/4894/nice/GoPro%20-%20HERO10%20Black%20-%2016bit%20%284:3%29.GPR"
-sha256 = "92a47ef8a30b9e22440b0eb71c519e271e66e64c51765415b9de644c902b358f"
-licence = "CC0-1.0"
-provenance = "https://raw.pixls.us/"
-tags = ["raw", "session", "gopro-hero10-black"]
 
 [[file]]
 path = "pixls-5051.cr3"
@@ -2746,14 +2714,6 @@ provenance = "https://raw.pixls.us/"
 tags = ["raw", "session", "sony-ilce-7m4"]
 
 [[file]]
-path = "pixls-6942.sti"
-url = "https://raw.pixls.us/getfile.php/6942/nice/Sinarback%20-%20Sinarback%20eVolution%2075%2C%20Sinar%20p3%20/%20f3%20-%2016bit%20%284:3%29.sti"
-sha256 = "b249f3f2362a79808029b2f69170afec60d0485521f4ea296cecd596cee7fae0"
-licence = "CC0-1.0"
-provenance = "https://raw.pixls.us/"
-tags = ["raw", "session", "sinarback-sinarback-evolution-75-sinar-p3-f3"]
-
-[[file]]
 path = "pixls-6999.rw2"
 url = "https://raw.pixls.us/getfile.php/6999/nice/Panasonic%20-%20DC-G9M2%20-%204:3.RW2"
 sha256 = "dd4bc19ed6cf6625608a1ff14ce1a9d16692e1bf1d50993a3fc076e18905b662"
@@ -2920,14 +2880,6 @@ sha256 = "7f19c7c5914542b91829ac2e41c8d4c10e414b28b0f7a793001e1a979c8c6056"
 licence = "CC0-1.0"
 provenance = "https://raw.pixls.us/"
 tags = ["raw", "session", "fujifilm-x100vi"]
-
-[[file]]
-path = "pixls-7319.gpr"
-url = "https://raw.pixls.us/getfile.php/7319/nice/GoPro%20-%20HERO11%20Black%20-%2016bit%20%285:4%29.GPR"
-sha256 = "d7a6be163c847cb8456e6858a99aef3b85dc3d8836bca1da1b8886effe0d43e1"
-licence = "CC0-1.0"
-provenance = "https://raw.pixls.us/"
-tags = ["raw", "session", "gopro-hero11-black"]
 
 [[file]]
 path = "pixls-7360.arw"
@@ -3994,6 +3946,22 @@ provenance = "https://www.signatureedits.com/free-raw-license-terms/"
 tags = ["raw", "session", "ilce-7m3"]
 
 [[file]]
+path = "signature-1aMV7dT2YdiYE2qrmMaTrRHrIhIA75FdF.arw"
+url = "https://drive.usercontent.google.com/download?id=1aMV7dT2YdiYE2qrmMaTrRHrIhIA75FdF&export=download"
+sha256 = "9faef389e44fa9e22f8acf259ed4b9e47ad875aa6f89459fa080feeaff9fd336"
+licence = "Signature Edits free RAW license"
+provenance = "https://www.signatureedits.com/free-raw-license-terms/"
+tags = ["raw", "session", "ilce-7rm3"]
+
+[[file]]
+path = "signature-1b-QNNF2Aq397FEhv5u34Xq5r7RONRi7V.arw"
+url = "https://drive.usercontent.google.com/download?id=1b-QNNF2Aq397FEhv5u34Xq5r7RONRi7V&export=download"
+sha256 = "b1031139c46f547487e58165e3c3fb9e9907dde21cf19e842f8cee5cce6ea988"
+licence = "Signature Edits free RAW license"
+provenance = "https://www.signatureedits.com/free-raw-license-terms/"
+tags = ["raw", "session", "ilce-7m4"]
+
+[[file]]
 path = "signature-1eF3RCckA95ncm84CteIy-PBqNxwj57oN.arw"
 url = "https://drive.usercontent.google.com/download?id=1eF3RCckA95ncm84CteIy-PBqNxwj57oN&export=download"
 sha256 = "edb01121d79ff7dc3be80b02f7e4bcd2bc63a85ff5bac543bac74a164593d86d"
@@ -4080,6 +4048,14 @@ sha256 = "f1a2f83a9955111c806348f9e4ecf5d278403e43bbfa49e1e419a4e4964e66d2"
 licence = "Signature Edits free RAW license"
 provenance = "https://www.signatureedits.com/free-raw-license-terms/"
 tags = ["raw", "session", "ilce-7m3"]
+
+[[file]]
+path = "signature-1q42Q2PueCeEe_IwsdN6uDhfyMfiHElf5.arw"
+url = "https://drive.usercontent.google.com/download?id=1q42Q2PueCeEe_IwsdN6uDhfyMfiHElf5&export=download"
+sha256 = "294f8e178ca5c8f2a78e5e359a97fae3e60818600e56c9b3fee6ea06096c9146"
+licence = "Signature Edits free RAW license"
+provenance = "https://www.signatureedits.com/free-raw-license-terms/"
+tags = ["raw", "session", "ilce-7m4"]
 
 [[file]]
 path = "signature-1qgsksHVFkYGsJBFf4ij3wSWjo5KzF8WH.arw"

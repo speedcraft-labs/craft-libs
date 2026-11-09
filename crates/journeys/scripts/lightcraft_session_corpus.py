@@ -12,12 +12,16 @@ def main():
     parser.add_argument('manifest',type=Path)
     parser.add_argument('root',type=Path)
     parser.add_argument('tiers',type=Path)
+    parser.add_argument('--out',type=Path,required=True,help='Tier root OUTSIDE the stamped download root')
     args=parser.parse_args()
     manifest=tomllib.loads(args.manifest.read_text())
     tiers=json.loads(args.tiers.read_text())
     entries={f['path']:f for f in manifest['file']}
+    if args.out.resolve().is_relative_to(args.root.resolve()):
+        raise ValueError('tier folders must be outside the stamped corpus tree')
+    args.out.mkdir(parents=True,exist_ok=True)
     for tier,names in tiers.items():
-        directory=args.root/tier
+        directory=args.out/tier
         directory.mkdir(exist_ok=True)
         for name in names:
             source=args.root/name

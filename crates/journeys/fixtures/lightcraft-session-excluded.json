@@ -1,0 +1,68 @@
+[
+  {
+    "path": "pixls-3255.arq",
+    "url": "https://raw.pixls.us/getfile.php/3255/nice/Sony%20-%20ILCE-7RM3%20-%2014bit%2014bit%20uncompressed%20%283:2%29.ARQ",
+    "sha256": "67af1f9f4cff82bd182f3fc48e95d39ae7d8352595e3c72f3386c9dee114f27d",
+    "licence": "CC0-1.0",
+    "provenance": "https://raw.pixls.us/",
+    "camera": "Sony ILCE-7RM3",
+    "megapixels": 42.56,
+    "bytes": 340873216,
+    "reason": "Extension is ignored by the fork-point import scanner; no candidate returned"
+  },
+  {
+    "path": "pixls-4483.gpr",
+    "url": "https://raw.pixls.us/getfile.php/4483/nice/GoPro%20-%20HERO9%20Black%20-%2016bit%20%284:3%29.GPR",
+    "sha256": "bf6f67d0c7096f347b864310f6d58be35237c3d0e715b47a1b30e650e9d785b1",
+    "licence": "CC0-1.0",
+    "provenance": "https://raw.pixls.us/",
+    "camera": "GoPro HERO9 Black",
+    "megapixels": 23.25,
+    "bytes": 8055720,
+    "reason": "Extension is ignored by the fork-point import scanner; no candidate returned"
+  },
+  {
+    "path": "pixls-4883.gpr",
+    "url": "https://raw.pixls.us/getfile.php/4883/nice/GoPro%20-%20HERO10%20Black%20-%2016bit%20%284:3%29.GPR",
+    "sha256": "f462ea1e695a0491960a496e3998c8806a2a02a2830c9c696c7067c0039a437c",
+    "licence": "CC0-1.0",
+    "provenance": "https://raw.pixls.us/",
+    "camera": "GoPro HERO10 Black",
+    "megapixels": 23.25,
+    "bytes": 6069216,
+    "reason": "Extension is ignored by the fork-point import scanner; no candidate returned"
+  },
+  {
+    "path": "pixls-4894.gpr",
+    "url": "https://raw.pixls.us/getfile.php/4894/nice/GoPro%20-%20HERO10%20Black%20-%2016bit%20%284:3%29.GPR",
+    "sha256": "92a47ef8a30b9e22440b0eb71c519e271e66e64c51765415b9de644c902b358f",
+    "licence": "CC0-1.0",
+    "provenance": "https://raw.pixls.us/",
+    "camera": "GoPro HERO10 Black",
+    "megapixels": 23.25,
+    "bytes": 8705046,
+    "reason": "Extension is ignored by the fork-point import scanner; no candidate returned"
+  },
+  {
+    "path": "pixls-6942.sti",
+    "url": "https://raw.pixls.us/getfile.php/6942/nice/Sinarback%20-%20Sinarback%20eVolution%2075%2C%20Sinar%20p3%20/%20f3%20-%2016bit%20%284:3%29.sti",
+    "sha256": "b249f3f2362a79808029b2f69170afec60d0485521f4ea296cecd596cee7fae0",
+    "licence": "CC0-1.0",
+    "provenance": "https://raw.pixls.us/",
+    "camera": "Sinarback Sinarback eVolution 75, Sinar p3 / f3",
+    "megapixels": 33.29,
+    "bytes": 71632961,
+    "reason": "Extension is ignored by the fork-point import scanner; no candidate returned"
+  },
+  {
+    "path": "pixls-7319.gpr",
+    "url": "https://raw.pixls.us/getfile.php/7319/nice/GoPro%20-%20HERO11%20Black%20-%2016bit%20%285:4%29.GPR",
+    "sha256": "d7a6be163c847cb8456e6858a99aef3b85dc3d8836bca1da1b8886effe0d43e1",
+    "licence": "CC0-1.0",
+    "provenance": "https://raw.pixls.us/",
+    "camera": "GoPro HERO11 Black",
+    "megapixels": 27.13,
+    "bytes": 13920706,
+    "reason": "Extension is ignored by the fork-point import scanner; no candidate returned"
+  }
+]
