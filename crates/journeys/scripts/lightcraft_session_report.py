@@ -104,9 +104,40 @@ def markdown(rows):
     return '\n'.join(lines) + '\n'
 
 
+def check_photo_frames(session):
+    """Verify exposure changed the photo pixels inside each accepted native frame."""
+    import hashlib
+    from PIL import Image
+    ppp=session['pre_quit_state']['pixelsPerPoint']
+    previous=None
+    checks=[]
+    for index,sample in enumerate(session['samples']):
+        if sample['action']!='exposure':continue
+        evidence=sample['evidence']
+        image=Image.open(evidence['capture']['reference_png']).convert('RGB')
+        x,y,w,h=evidence['image_rect']
+        box=tuple(round(value*ppp) for value in (x+w*.2,y+h*.2,x+w*.8,y+h*.8))
+        if not 0<=box[0]<box[2]<=image.width or not 0<=box[1]<box[3]<=image.height:
+            raise ValueError('photo output-check region is outside the native frame')
+        digest=hashlib.sha256(image.crop(box).tobytes()).hexdigest()
+        if not sample['warmup']:
+            if previous is None:raise ValueError('exposure output checks require a warm-up frame')
+            verify_photo_change(previous,digest)
+            checks.append(dict(sample=index,step=evidence['step'],sha256=digest,previous_sha256=previous,box=box))
+        previous=digest
+    return checks
+
+
+def verify_photo_change(previous,current):
+    if not previous or not current or previous==current:
+        raise ValueError('exposure result photo pixels did not change')
+
+
 def check_pixels(sessions):
     from PIL import Image, ImageChops, ImageStat
     checks=[]
+    for session in sessions:
+        session['photo_output_checks']=check_photo_frames(session)
     for tier,pair in sorted({(s['tier'],s['pair']) for s in sessions}):
         group={s['side']:s for s in sessions if s['tier']==tier and s['pair']==pair}
         for session in group.values():

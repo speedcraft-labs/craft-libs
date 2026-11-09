@@ -409,3 +409,20 @@ result with a monotonic timestamp. Any foreign PID rejects publication. The
 initial GPU-sharing pilots are marked provisional and excluded, even if the CPU
 guard passed; the published matrix is re-measured under the exclusive GPU lock.
 The cold quit diagnostic records the same process snapshots outside its clocks.
+
+
+Before accepting the completed matrix, the output verifier also hashes the inner
+60% of the actual displayed photo rectangle in every measured exposure frame and
+requires it to differ from the preceding warm-up/step frame. The slider sits
+outside this region. The report retains each crop box and current/previous photo
+hash; a changing control label alone cannot pass this output check. This is an
+untimed verification of retained native PNGs and changes no input or frame clock.
+At least one exposure warm-up supplies the initial photo frame.
+
+The legacy cold-quit diagnostic retains nonzero process exits with `exit_code`,
+`success` and `forced_termination: false`; it continues through all planned
+attempts and reports the failure list. Its time-to-exit statistics include crashes
+and must be read with those failure counts, rather than as graceful-quit timings.
+The mature session mode still rejects an abnormal process exit. An early clean-GPU
+cold diagnostic observed SIGSEGV in fork main while quitting during initialization;
+that failure is retained and linked to the shutdown follow-up.

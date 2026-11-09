@@ -47,3 +47,19 @@ gate; the heavy tier was rejected before launch (foreign PID 2666189), and a sec
 quit attempt saw foreign PID 2698448. Those reports remain not publishable and their
 raw GPU CSVs/logs are backed up. The rejected quit iteration now also saves its
 complete timing record before returning the GPU-isolation error.
+
+
+A later clean-GPU cold quit attempt (`quit-diagnostic-exclusive-04`) observed
+fork-main SIGSEGV on open pair 3 after three successful main attempts. The earlier
+controller stopped before saving nonzero-exit clocks; the retained failed record
+explicitly says those exact timestamps are unavailable. The diagnostic now keeps
+every observed exit code and time, continues its planned attempts, and reports
+failures alongside time-to-exit statistics. No crash is silently discarded or
+called a successful quit. Mature session mode continues to reject abnormal exits.
+
+The first `paired-typical-50-exclusive-03` attempt was canceled after its lock
+wrappers had begun running; it is excluded and will be re-measured with intact
+lock ownership. The final verifier additionally checks actual exposure photo-region
+pixels in retained PNGs, outside all action clocks. The gate was calibrated on
+retained pilot images: all 60 measured typical-tier exposure steps changed photo
+pixels, and the 500-file pilot's steps also changed the photo region.
