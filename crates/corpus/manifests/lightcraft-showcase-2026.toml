@@ -1,0 +1,34 @@
+name = "lightcraft-showcase-2026"
+description = "Public-domain photographs from LightCraft's own showcase set, used for real-world photo-library journeys."
+
+[[file]]
+path = "tetons.jpg"
+url = "https://commons.wikimedia.org/wiki/Special:Redirect/file/Adams_The_Tetons_and_the_Snake_River.jpg"
+sha256 = "3fc19ea53b7556e772a5106bc5a7b3bf7774259a4089dcabdf88f5deaecde83b"
+licence = "Public domain, U.S. federal government work"
+provenance = "https://commons.wikimedia.org/wiki/File:Adams_The_Tetons_and_the_Snake_River.jpg"
+tags = ["photo", "lightcraft", "public-domain", "3000x2402"]
+
+[[file]]
+path = "migrant-mother.jpg"
+url = "https://commons.wikimedia.org/wiki/Special:Redirect/file/Lange-MigrantMother02.jpg"
+sha256 = "bf7f77f366bd714735a3a7ec54df56caab0e11e9bd8ed6df2afa7147a94fbac7"
+licence = "Public domain, U.S. federal government work"
+provenance = "https://commons.wikimedia.org/wiki/File:Lange-MigrantMother02.jpg"
+tags = ["photo", "lightcraft", "public-domain", "6205x8066"]
+
+[[file]]
+path = "earthrise.jpg"
+url = "https://commons.wikimedia.org/wiki/Special:Redirect/file/NASA-Apollo8-Dec24-Earthrise.jpg"
+sha256 = "24fd2a4f833534ca6741ed96d03b028ac1d8fda2cd129ded4d208535f541d4da"
+licence = "Public domain, NASA"
+provenance = "https://commons.wikimedia.org/wiki/File:NASA-Apollo8-Dec24-Earthrise.jpg"
+tags = ["photo", "lightcraft", "public-domain", "2400x2400"]
+
+[[file]]
+path = "blue-marble.jpg"
+url = "https://commons.wikimedia.org/wiki/Special:Redirect/file/The_Earth_seen_from_Apollo_17.jpg"
+sha256 = "51049ed4e34514880bfbe39d34e2dd2c56e31f55919e7f4f0b34ef1698cb9f50"
+licence = "Public domain, NASA"
+provenance = "https://commons.wikimedia.org/wiki/File:The_Earth_seen_from_Apollo_17.jpg"
+tags = ["photo", "lightcraft", "public-domain", "3000x3002"]

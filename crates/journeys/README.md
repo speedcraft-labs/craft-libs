@@ -60,6 +60,8 @@ target root so prepared builds can be reused.
 | `wordcraft.open-typical-docx`, `wordcraft.scroll-typical-docx`, `wordcraft.edit-typical-docx`, `wordcraft.save-typical-docx` | WordCraft | Open, scroll, edit and save a public median-sized DOCX; save output is reopened and checked outside the timed process |
 | `deckcraft.startup-cold-first-frame`, `deckcraft.startup-warm-first-frame` | DeckCraft | Cold and warm start through the first interactive presentation frame |
 | `deckcraft.open-typical-pptx`, `deckcraft.navigate-typical-pptx`, `deckcraft.edit-title-typical-pptx`, `deckcraft.save-typical-pptx`, `deckcraft.export-typical-pptx` | DeckCraft | Open, navigate, edit text, save and export a public median-sized 26-slide PPTX |
+| `lightcraft.startup-cold-first-frame`, `lightcraft.startup-warm-first-frame` | LightCraft | Cold and warm desktop start with a prepared photo library through the first photo frame |
+| `lightcraft.open-typical-photo`, `lightcraft.edit-exposure-typical-photo`, `lightcraft.save-typical-photo`, `lightcraft.export-typical-photo` | LightCraft | Open, adjust exposure, save, and export a representative public-domain photograph |
 | `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
 | `deckcraft.drag-shape.heavy-slide` | DeckCraft | Drag a picture shape across the pinned, picture-rich 24th slide of the Apache-2.0 licensed HowWeRefactor deck through the editor canvas texture path; records every CPU frame |
 | `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
@@ -148,6 +150,8 @@ means an empty app profile, not a flushed operating-system file cache. Task jour
 | GridCraft | 2024 AIES estimates workbook, 14,050 bytes; 1 sheet, 62 rows, 485 stored cells | open, edit A3, save XLSX |
 | CADCraft | State Open Band DWG, 7,777,818 bytes; about 22k entities | open, edit entity color, save DWG |
 | WordCraft | Autism Commission 2019 DOCX, 302,427 bytes; 316 paragraphs and 1 table | open, scroll, edit text, save DOCX |
+| DeckCraft | MDAR Unit 3 Spanish PPTX, 8,541,624 bytes; 26 slides | open, navigate, edit title, save, export PDF |
+| LightCraft | Tetons and Snake River JPEG, 1,865,607 bytes; 3,000×2,402, 7.2 MP | open, adjust exposure, save, export JPEG |
 
 The local corpus medians are 32,738 bytes for 431 PSD files, 11,256 bytes for 993 XLSX files, and
 3,312,310 bytes for six PDFs; those sets are mostly compatibility fixtures. For the PSD payload,
@@ -220,3 +224,28 @@ lists six course presentations sized 9.93, 6.90, 8.15, 29.6, 6.60 and 7.81 MB; t
 median is 7.98 MB. Unit 3 at 8.15 MB is the nearest listed file. It has 26 slides at 960×540 pt and
 contains 4,140,408 bytes of embedded media. The source does not state redistribution terms, so the
 corpus entry is fetched on demand and marked non-redistributable.
+
+## Real-world LightCraft
+
+The LightCraft extension measures cold and warm startup through the first rendered photo frame,
+then opens a photo, adjusts exposure, saves the edit and exports a JPEG. The desktop app's localhost
+control channel drives the actions; task wall time is measured by the outer journey runner from
+adapter launch through app exit. Save is reopened and its rendered preview is checked outside the
+timed process.
+
+The payload is Ansel Adams' *The Tetons and the Snake River*, a 3,000 × 2,402, 1,865,607-byte JPEG.
+It is selected from the four public-domain images LightCraft uses in its own showcase. Their sorted
+sizes are 311,263, 1,865,607, 5,835,684 and 6,511,067 bytes; the byte-size median is 3,850,645.5
+bytes. The selected image is the lower of the two central files and is a manageable 7.2 MP photo.
+The companion NASA and Library of Congress images and all provenance are pinned in
+`crates/corpus/manifests/lightcraft-showcase-2026.toml`; no regression fixture is used.
+LightCraft's upstream and fork main pin different craft-libs revisions per crate, so each build
+uses the Cargo.lock from its own app checkout.
+
+Every task opens the source photo in a fresh one-shot app, so wall time includes launch and import.
+Open, edit and save render a 1024-pixel preview; edit checks exposure at +0.7, and save reopens the
+library to verify the edit persisted. Export verifies a JPEG with a 2048-pixel long edge. The
+upstream and fork GPU paths produce non-identical pixels, so the output gate checks the requested
+photo/edit state and valid rendered output instead of requiring identical encoded bytes. Across the
+retained Agentbox renders, previews differed by at most one 8-bit RGB code value (alpha matched);
+the 2048 × 1640 JPEGs differed by at most 11, with mean absolute channel error below 0.5.

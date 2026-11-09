@@ -105,7 +105,15 @@ def screenshot_ok(reply: dict, path: Path | None) -> bool:
     return False
 
 
-def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> int:
+def launch(
+    app: str,
+    binary: Path,
+    profile: Path,
+    timeout_s: float = 45.0,
+    *,
+    input_path: Path | None = None,
+    library_path: Path | None = None,
+) -> int:
     profile.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env.update({
@@ -122,6 +130,8 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
         env["CADCRAFT_CONFIG_DIR"] = str(profile / ".config" / "cadcraft")
     if app == "wordcraft":
         env["WORDCRAFT_PROFILE_DIR"] = str(profile)
+    if app == "lightcraft":
+        env["LIGHTCRAFT_CONFIG_DIR"] = str(profile / "lightcraft-config")
     for key in ("PHOTOCRAFT_NO_PREFS", "PDFCRAFT_NO_PREFS", "GRIDCRAFT_NO_PREFS", "WORDCRAFT_NO_PREFS"):
         env.pop(key, None)
     control_file = profile / "control.json"
@@ -130,6 +140,13 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
     if app == "pdfcraft":
         command = [str(binary), "--control", str(control_file)]
         port = None
+    elif app == "lightcraft":
+        if library_path is None:
+            raise RuntimeError("LightCraft startup requires a prepared library path")
+        port = free_port()
+        command = [str(binary), "--library", str(library_path), "--no-demo", "--control", str(port)]
+        if input_path is not None:
+            command.append(str(input_path))
     elif app == "wordcraft":
         port = free_port()
         command = [str(binary), "--control", str(port)]
@@ -191,7 +208,7 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
                 # reach its backlog before the UI callback starts the control server thread.
                 if app == "wordcraft":
                     rpc(candidate, "auth", {}, 0, token, "key")
-                elif app not in {"cadcraft", "deckcraft"}:
+                elif app not in {"cadcraft", "deckcraft", "lightcraft"}:
                     rpc(candidate, "auth", {"token": token}, 0)
                 stream = candidate
                 break
@@ -205,6 +222,32 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
         if stream is None:
             raise TimeoutError(f"{app} control channel did not become available")
         try:
+            if app == "lightcraft":
+                # The selected photo is the first useful content in this app: wait until the
+                # image imported from the representative payload is visible before starting the
+                # first-frame clock. This is still a UI-thread request, like the screenshot below.
+                ready = False
+                while time.monotonic() < deadline:
+                    photo = rpc(stream, "engine.execute", {"command": "photo.inspect"}, 1)
+                    result = photo.get("result")
+                    if isinstance(result, dict) and result.get("id") is not None:
+                        ready = True
+                        break
+                    time.sleep(0.02)
+                if not ready:
+                    raise TimeoutError("LightCraft did not activate the imported photo")
+                frame_path = profile / "first-frame.png"
+                frame_path.unlink(missing_ok=True)
+                frame = rpc(stream, "ui.screenshot", {"path": str(frame_path)}, 2)
+                elapsed = time.perf_counter_ns() - started
+                if not screenshot_ok(frame, frame_path):
+                    raise RuntimeError("LightCraft screenshot reply did not contain a rendered PNG")
+                rpc(stream, "ui.inspect", {}, 3)
+                try:
+                    rpc(stream, "engine.execute", {"command": "app.quit"}, 4)
+                except Exception:
+                    pass
+                return elapsed
             secret_field = "key" if app == "wordcraft" else "token"
             secret = token if app in {"cadcraft", "wordcraft"} else None
             frame = rpc(stream, "ui.screenshot", {}, 1, secret, secret_field)
@@ -242,11 +285,12 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
 
 
 def main() -> int:
-    if len(sys.argv) != 5:
-        print("usage: desktop_startup.py APP BINARY cold|warm PROFILE", file=sys.stderr)
+    if len(sys.argv) not in {5, 6}:
+        print("usage: desktop_startup.py APP BINARY cold|warm PROFILE [INPUT]", file=sys.stderr)
         return 2
-    app, binary_text, mode, profile_text = sys.argv[1:]
-    if app not in {"photocraft", "pdfcraft", "gridcraft", "cadcraft", "wordcraft", "deckcraft"} or mode not in {"cold", "warm"}:
+    app, binary_text, mode, profile_text = sys.argv[1:5]
+    input_path = Path(sys.argv[5]).resolve() if len(sys.argv) == 6 else None
+    if app not in {"photocraft", "pdfcraft", "gridcraft", "cadcraft", "wordcraft", "deckcraft", "lightcraft"} or mode not in {"cold", "warm"}:
         print("invalid app or mode", file=sys.stderr)
         return 2
     binary, profile = Path(binary_text).resolve(), Path(profile_text).resolve()
@@ -255,12 +299,23 @@ def main() -> int:
         return 2
     display = ensure_display()
     try:
+        library_path = None
+        if app == "lightcraft":
+            if input_path is None or not input_path.is_file():
+                raise RuntimeError("LightCraft startup requires an existing photo payload")
+            library_path = profile.parent / "lightcraft-library"
+            ready_marker = profile.parent / "lightcraft-library.ready"
+            if not ready_marker.exists():
+                seed_profile = profile.parent / "lightcraft-seed-profile"
+                shutil.rmtree(seed_profile, ignore_errors=True)
+                launch(app, binary, seed_profile, input_path=input_path, library_path=library_path)
+                ready_marker.touch()
         if mode == "cold":
             shutil.rmtree(profile, ignore_errors=True)
         elif not (profile / ".startup-seeded").exists():
-            launch(app, binary, profile)
+            launch(app, binary, profile, library_path=library_path)
             (profile / ".startup-seeded").touch()
-        elapsed = launch(app, binary, profile)
+        elapsed = launch(app, binary, profile, library_path=library_path)
         digest = hashlib.sha256(f"{app}|{mode}|first-interactive-frame".encode()).hexdigest()
         print(f"CRAFT_JOURNEY_NS={elapsed}")
         print(f"CRAFT_OUTPUT_SHA256={digest}")
