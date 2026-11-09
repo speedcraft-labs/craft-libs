@@ -138,6 +138,9 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
         port = free_port()
         command = [str(binary), "--control", str(port)]
         token_file = profile / ".runtime" / f"cadcraft-control-{port}.token"
+    elif app == "deckcraft":
+        port = free_port()
+        command = [str(binary), "--control", str(port)]
     else:
         port = free_port()
         command = [str(binary), "--control", str(port), "--control-token", token]
@@ -188,7 +191,7 @@ def launch(app: str, binary: Path, profile: Path, timeout_s: float = 45.0) -> in
                 # reach its backlog before the UI callback starts the control server thread.
                 if app == "wordcraft":
                     rpc(candidate, "auth", {}, 0, token, "key")
-                elif app != "cadcraft":
+                elif app not in {"cadcraft", "deckcraft"}:
                     rpc(candidate, "auth", {"token": token}, 0)
                 stream = candidate
                 break
@@ -243,7 +246,7 @@ def main() -> int:
         print("usage: desktop_startup.py APP BINARY cold|warm PROFILE", file=sys.stderr)
         return 2
     app, binary_text, mode, profile_text = sys.argv[1:]
-    if app not in {"photocraft", "pdfcraft", "gridcraft", "cadcraft", "wordcraft"} or mode not in {"cold", "warm"}:
+    if app not in {"photocraft", "pdfcraft", "gridcraft", "cadcraft", "wordcraft", "deckcraft"} or mode not in {"cold", "warm"}:
         print("invalid app or mode", file=sys.stderr)
         return 2
     binary, profile = Path(binary_text).resolve(), Path(profile_text).resolve()
