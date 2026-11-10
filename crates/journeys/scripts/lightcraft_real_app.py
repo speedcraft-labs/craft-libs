@@ -718,7 +718,7 @@ def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,ru
 
 
 def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False):
-    from lightcraft_session_report import validate_session
+    from lightcraft_session_report import validate_session, check_export_pixels
     directory.mkdir(parents=True,exist_ok=False)
     library,profile = directory/'library',directory/'profile'
     log_path=directory/'app.log'
@@ -825,7 +825,15 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             session_sample(record,'export',sent,end,digest,iteration<warmups,jpeg_sha256=file_digest(output),dimensions=jpeg_size(output),perf=state['perf'],capture=control.last_capture_proof)
         record['export_sample']=str(output)
         record['export_oracle']=str(directory/'export-oracle.png')
-        control.call('ui.render',{'id':photo,'size':2048,'path':record['export_oracle']})
+        # Preview rounding and resampling differ from export (1366 vs1365 pixels).
+        # A noisy RAW cannot be compared pixelwise after stretching the preview.
+        # Keep the JPEG bound fixed and use the lossless export before its codec.
+        record['export_oracle_method']='png-export-same-geometry'
+        session_execute(control,'app.export',{'path':record['export_oracle'],'ids':[photo],'format':'png','longEdge':2048,'colorSpace':'srgb','bitDepth':8,'background':True})
+        session_wait(control,lambda s:not (s.get('export') or {}).get('running'))
+        if png_size(Path(record['export_oracle']))!=jpeg_size(output):
+            raise RuntimeError('JPEG and lossless PNG export geometry differ')
+        record['export_output_check']=check_export_pixels(record)
         # A fixed-state pixel oracle outside every action clock; use identical source/settings.
         session_execute(control,'library.select',{'ids':[photo]})
         session_execute(control,'develop.set',{'values':{'light.exposure':0.7}})

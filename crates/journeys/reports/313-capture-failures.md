@@ -78,11 +78,25 @@ and require `abs(offset) < 1`; a regression test covers both retained offsets.
 The wheel-based heavy preflight (`paired-heavy-500-resilient-v2`) completed point
 and main, then all 74 upstream action samples and both oracle outputs. Its
 untimed idle drain hit the fixed 180-second timeout while upstream was actively
-preparing previews: 125/500 after about198 seconds, with no pending foreground
+preparing previews: 125/500 after about 198 seconds, with no pending foreground
 renders. This is normal extra upstream background work, not proof of a hang. The
 failed approach is preserved as `failed/313-upstream-prep-timeout`; its two
 completed sessions and the failed upstream record are excluded from the new
 heavy matrix. Untimed background drains now allow 30 minutes and retain/log
-progress every30 seconds. No timed action endpoint or background default is
-changed. The completed typical50 table remains valid because its idle drains
+progress every 30 seconds. No timed action endpoint or background default is
+changed. The completed typical 50 table remains valid because its idle drains
 finished within the old limit.
+
+
+An output-only audit of that excluded heavy trial found the point/main PNGs and
+JPEGs were pixel-identical, but their own JPEG/preview check had blue-channel MAE
+11.164 (>8). The preview reference was 2048×1366 while export was 2048×1365; a
+one-pixel stretch changes high-frequency noise in this ISO 25600 Canon RAW. Its
+JPEG uses 4:4:4 and the expected quality 90 quantization. Independent JPEG 90
+compression of the preview produces blue MAE 5.443, consistent with the fixed
+lossy bound; stretching then comparing the different raster is not a codec check.
+Keep this rejected method on `failed/313-preview-geometry-oracle`. New runs use
+an untimed8-bit sRGB lossless PNG export with exactly the JPEG's geometry and
+source/settings. The MAE 8, primary PNG 1/alpha 0 and cross-JPEG 16/0.5 bounds are
+unchanged, and the same noisy RAW remains the heavy preview/export source.
+Completed legacy reports keep their original preview-based checks and evidence.

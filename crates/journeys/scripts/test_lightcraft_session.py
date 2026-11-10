@@ -1,4 +1,5 @@
 import copy
+import importlib.util
 import unittest
 from lightcraft_session_report import validate_session, summarize
 
@@ -127,6 +128,26 @@ class Boundaries(unittest.TestCase):
         with self.assertRaises(ValueError): validate_session(s)
         s=fixture(); s['samples'][0]['checked']=False
         with self.assertRaises(ValueError): validate_session(s)
+
+    @unittest.skipUnless(importlib.util.find_spec('PIL'), 'Pillow is required for real-app pixel checks')
+    def test_noisy_jpeg_uses_lossless_export_at_identical_geometry(self):
+        import random,tempfile
+        from pathlib import Path
+        from PIL import Image
+        from lightcraft_session_report import check_export_pixels
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=Image.frombytes('RGB',(256,171),random.Random(313).randbytes(256*171*3))
+            source.save(root/'source.png');source.save(root/'actual.jpg',quality=90,subsampling=0)
+            session={'export_sample':str(root/'actual.jpg'),'export_oracle':str(root/'source.png'),'export_oracle_method':'png-export-same-geometry'}
+            self.assertLess(max(check_export_pixels(session)['mean_rgb']),8)
+            source.resize((256,172),Image.Resampling.BILINEAR).save(root/'wrong-geometry.png')
+            session['export_oracle']=str(root/'wrong-geometry.png')
+            with self.assertRaisesRegex(ValueError,'geometry'):check_export_pixels(session)
+            session.pop('export_oracle_method')
+            with self.assertRaisesRegex(ValueError,'MAE 8'):check_export_pixels(session)
+            Image.new('RGB',source.size,(0,255,0)).save(root/'wrong-photo.png')
+            session.update(export_oracle=str(root/'wrong-photo.png'),export_oracle_method='png-export-same-geometry')
+            with self.assertRaisesRegex(ValueError,'MAE 8'):check_export_pixels(session)
 
     def test_exposure_requires_changed_photo_pixels(self):
         from lightcraft_session_report import verify_photo_change
