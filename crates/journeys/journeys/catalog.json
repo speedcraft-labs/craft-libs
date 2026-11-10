@@ -245,6 +245,7 @@
     {
       "name": "effectcraft.typical-cold-start",
       "app": "effectcraft",
+      "app_locked_dependencies": true,
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft"] },
       "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/effectcraft_real_app.py", "{target_dir}/release/effectcraft", "{input}", "cold-start", "{target_dir}/effectcraft-profile"], "output": "markers" },
@@ -253,6 +254,7 @@
     {
       "name": "effectcraft.typical-open",
       "app": "effectcraft",
+      "app_locked_dependencies": true,
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft"] },
       "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/effectcraft_real_app.py", "{target_dir}/release/effectcraft", "{input}", "open", "{target_dir}/effectcraft-profile"], "output": "markers" },
@@ -261,6 +263,7 @@
     {
       "name": "effectcraft.typical-first-frame",
       "app": "effectcraft",
+      "app_locked_dependencies": true,
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft"] },
       "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/effectcraft_real_app.py", "{target_dir}/release/effectcraft", "{input}", "first-frame", "{target_dir}/effectcraft-profile"], "output": "markers" },
@@ -269,6 +272,7 @@
     {
       "name": "effectcraft.typical-scrub",
       "app": "effectcraft",
+      "app_locked_dependencies": true,
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft"] },
       "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/effectcraft_real_app.py", "{target_dir}/release/effectcraft", "{input}", "scrub", "{target_dir}/effectcraft-profile"], "output": "markers" },
@@ -277,6 +281,7 @@
     {
       "name": "effectcraft.typical-short-export",
       "app": "effectcraft",
+      "app_locked_dependencies": true,
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft"] },
       "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/effectcraft_real_app.py", "{target_dir}/release/effectcraft", "{input}", "export", "{target_dir}/effectcraft-profile"], "output": "markers" },
