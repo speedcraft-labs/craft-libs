@@ -655,11 +655,13 @@ def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,ru
             watcher.stop()
         after=session_gpu_processes()
         record.setdefault('gpu_processes_before',admitted)
+        driver_after=record.get('gpu_processes_after')
         record.update(directory=str(attempt_dir),side=side,tier=tier,pair=pair,attempt=attempt,
                       gpu_processes_after=after,gpu_poll_snapshots=watcher.samples,
+                      gpu_processes_driver_after=driver_after,
                       gpu_admission_snapshot=admitted,gpu_wait_cycle_started_ns=cycle_started,
                       gpu_provisional=provisional)
-        foreign=session_gpu_foreign([admitted,record['gpu_processes_before'],after,*watcher.samples],record.get('process_ids',[]),binary)
+        foreign=session_gpu_foreign([admitted,record['gpu_processes_before'],driver_after,after,*watcher.samples],record.get('process_ids',[]),binary)
         record['gpu_foreign_processes']=foreign
         if error is not None:record['application_error']=str(error)
         if watcher.errors:record['gpu_inspection_errors']=watcher.errors

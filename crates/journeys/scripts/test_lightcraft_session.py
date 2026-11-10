@@ -159,6 +159,28 @@ class Boundaries(unittest.TestCase):
             self.assertEqual(accepted['gpu_status'],'clean')
             self.assertTrue((calls[0][0]/'discarded-session.json').exists())
 
+    def test_transient_foreign_process_in_driver_after_snapshot_is_retained(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from lightcraft_real_app import session_guarded_attempt
+        clean={'processes':[]};foreign={'processes':[{'pid':456,'name':'short-unlocked-test'}]}
+        class Watch:
+            samples=[clean];errors=[]
+            def start(self):pass
+            def stop(self):pass
+        with tempfile.TemporaryDirectory() as tmp:
+            report={};calls=[]
+            def run(directory,provisional):
+                calls.append(directory);directory.mkdir()
+                return {'process_ids':[123],'gpu_processes_after':foreign if len(calls)==1 else clean}
+            with patch('lightcraft_real_app.session_gpu_admit',return_value=(clean,False)), patch('lightcraft_real_app.SessionGpuWatch',Watch), patch('lightcraft_real_app.session_gpu_processes',return_value=clean):
+                accepted=session_guarded_attempt(report,lambda:None,Path('/our-app'),Path(tmp)/'session','typical','main',0,run)
+            discarded=report['discarded_sessions'][0]
+            self.assertEqual(discarded['gpu_processes_driver_after'],foreign)
+            self.assertEqual(discarded['gpu_foreign_processes'],foreign['processes'])
+            self.assertEqual(accepted['gpu_status'],'clean')
+
     def test_shared_gpu_fallback_remains_labeled_provisional(self):
         import tempfile
         from pathlib import Path

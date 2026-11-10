@@ -13,7 +13,7 @@ def validate_session(session):
     if not session['gpu_adapter']:
         raise ValueError('empty GPU adapter')
     own=set(session.get('process_ids',[]))
-    snapshots=[session.get(field) for field in ('gpu_admission_snapshot','gpu_processes_before','gpu_processes_after')]
+    snapshots=[session.get(field) for field in ('gpu_admission_snapshot','gpu_processes_before','gpu_processes_driver_after','gpu_processes_after')]
     snapshots+=session.get('gpu_poll_snapshots',[])
     for snapshot in snapshots:
         if not session.get('gpu_provisional') and snapshot is not None and any(p['pid'] not in own for p in snapshot['processes']):
