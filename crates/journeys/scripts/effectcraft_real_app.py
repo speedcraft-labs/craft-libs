@@ -47,7 +47,7 @@ def connect(port: int, process: subprocess.Popen, deadline: float):
     raise TimeoutError("EffectCraft control channel did not start")
 
 
-def start(binary: Path, profile: Path, timeout_s: float = 60.0):
+def start(binary: Path, profile: Path, input_path: Path | None = None, timeout_s: float = 60.0):
     profile.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env.update({
@@ -57,8 +57,11 @@ def start(binary: Path, profile: Path, timeout_s: float = 60.0):
         "XDG_CACHE_HOME": str(profile / ".cache"),
     })
     port = free_port()
+    command = [str(binary)]
+    command.append(str(input_path.resolve()) if input_path is not None else "--empty")
+    command.extend(["--control", str(port)])
     started = time.perf_counter_ns()
-    process = subprocess.Popen([str(binary), "--empty", "--control", str(port)], cwd=profile, env=env,
+    process = subprocess.Popen(command, cwd=profile, env=env,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     stream = connect(port, process, time.monotonic() + timeout_s)
     frame = profile / "startup.png"
@@ -118,11 +121,18 @@ def main() -> int:
         display = ensure_display()
     process = stream = None
     try:
-        process, stream, startup_ns = start(binary.resolve(), profile, timeout_s=60)
-        if stage == "cold-start":
+        if stage == "first-frame":
+            process, stream, duration_ns = start(binary.resolve(), profile, project, timeout_s=120)
+            opened_identity = opened_project_identity(stream)
+            if not opened_identity:
+                raise RuntimeError("project did not open before the first visible frame")
+            identity = frame(stream, profile, 0.0, 31)
+        elif stage == "cold-start":
+            process, stream, startup_ns = start(binary.resolve(), profile, timeout_s=60)
             duration_ns = startup_ns
             identity = hashlib.sha256(b"effectcraft-first-interactive-frame").hexdigest()
         else:
+            process, stream, _startup_ns = start(binary.resolve(), profile, timeout_s=60)
             opened = time.perf_counter_ns()
             rpc(stream, "engine.execute", {"command": "file.open", "params": {"path": str(project.resolve())}}, 2)
             open_ns = time.perf_counter_ns() - opened
@@ -130,10 +140,6 @@ def main() -> int:
             if stage == "open":
                 duration_ns = open_ns
                 identity = opened_identity
-            elif stage == "first-frame":
-                t0 = time.perf_counter_ns()
-                identity = frame(stream, profile, 0.0, 3)
-                duration_ns = time.perf_counter_ns() - t0
             elif stage == "scrub":
                 t0 = time.perf_counter_ns()
                 hashes = []
