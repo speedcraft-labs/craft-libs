@@ -100,6 +100,23 @@ class Boundaries(unittest.TestCase):
             self.assertFalse(session_grid_at_top({'scroll':{'grid':offset}}))
         self.assertTrue(session_grid_at_top({'scroll':{'grid':0.0}}))
 
+    def test_long_background_prep_drains_without_changing_action_samples(self):
+        from unittest.mock import patch
+        from lightcraft_real_app import session_drain
+        clock=[0];calls=[];record={'samples':copy.deepcopy(fixture()['samples'])}
+        original=copy.deepcopy(record['samples'])
+        observations=iter([(181,125),(600,400),(900,500)])
+        class Control:
+            def call(self,method):
+                calls.append(method);clock[0],done=next(observations)
+                return {'perf':{'renderQueue':0,'rendersInFlight':0,'pendingSlots':[]},'activity':[] if done==500 else [{'done':done,'total':500}],'tasks':[],'unsaved':None}
+        with patch('lightcraft_real_app.time.monotonic',side_effect=lambda:clock[0]), patch('lightcraft_real_app.time.perf_counter_ns',side_effect=lambda:clock[0]*1_000_000_000), patch('lightcraft_real_app.time.sleep'):
+            session_drain(Control(),record,'before-idle-quit',require_saved=True)
+        self.assertEqual(record['samples'],original)
+        self.assertEqual(record['background_drains'][0]['end_ns'],900_000_000_000)
+        self.assertEqual(len(record['background_drains'][0]['progress']),2)
+        self.assertEqual(calls,['ui.inspect']*3)
+
     def test_empty_texture_queue_shape_is_a_list(self):
         from lightcraft_real_app import session_idle
         self.assertTrue(session_idle({'perf':{'renderQueue':0,'rendersInFlight':0,'pendingSlots':[]}}))

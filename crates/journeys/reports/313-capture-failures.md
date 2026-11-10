@@ -73,3 +73,16 @@ trackpad gesture never ended, and `offset < 1` wrongly accepted any negative
 overscroll as the top. Both datasets are excluded. The failed approach is kept
 on `failed/313-grid-overscroll`. Use clamped wheel-point input for grid traversal
 and require `abs(offset) < 1`; a regression test covers both retained offsets.
+
+
+The wheel-based heavy preflight (`paired-heavy-500-resilient-v2`) completed point
+and main, then all 74 upstream action samples and both oracle outputs. Its
+untimed idle drain hit the fixed 180-second timeout while upstream was actively
+preparing previews: 125/500 after about198 seconds, with no pending foreground
+renders. This is normal extra upstream background work, not proof of a hang. The
+failed approach is preserved as `failed/313-upstream-prep-timeout`; its two
+completed sessions and the failed upstream record are excluded from the new
+heavy matrix. Untimed background drains now allow 30 minutes and retain/log
+progress every30 seconds. No timed action endpoint or background default is
+changed. The completed typical50 table remains valid because its idle drains
+finished within the old limit.
