@@ -243,6 +243,46 @@
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--measure", "firstFrame", "--layers", "5000", "--scale", "1.0", "--json"], "output": "effectcraft-ops", "measure": "firstFrame" }
     },
     {
+      "name": "effectcraft.typical-cold-start",
+      "app": "effectcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft"] },
+      "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/effectcraft_real_app.py", "{target_dir}/release/effectcraft", "{input}", "cold-start", "{target_dir}/effectcraft-profile"], "output": "markers" },
+      "inputs": [{ "name": "typical-1080p-30-layer", "path": ".journey-fixtures/effectcraft-typical/typical-1080p.ecproj" }]
+    },
+    {
+      "name": "effectcraft.typical-open",
+      "app": "effectcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft"] },
+      "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/effectcraft_real_app.py", "{target_dir}/release/effectcraft", "{input}", "open", "{target_dir}/effectcraft-profile"], "output": "markers" },
+      "inputs": [{ "name": "typical-1080p-30-layer", "path": ".journey-fixtures/effectcraft-typical/typical-1080p.ecproj" }]
+    },
+    {
+      "name": "effectcraft.typical-first-frame",
+      "app": "effectcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft"] },
+      "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/effectcraft_real_app.py", "{target_dir}/release/effectcraft", "{input}", "first-frame", "{target_dir}/effectcraft-profile"], "output": "markers" },
+      "inputs": [{ "name": "typical-1080p-30-layer", "path": ".journey-fixtures/effectcraft-typical/typical-1080p.ecproj" }]
+    },
+    {
+      "name": "effectcraft.typical-scrub",
+      "app": "effectcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft"] },
+      "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/effectcraft_real_app.py", "{target_dir}/release/effectcraft", "{input}", "scrub", "{target_dir}/effectcraft-profile"], "output": "markers" },
+      "inputs": [{ "name": "typical-1080p-30-layer", "path": ".journey-fixtures/effectcraft-typical/typical-1080p.ecproj" }]
+    },
+    {
+      "name": "effectcraft.typical-short-export",
+      "app": "effectcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft"] },
+      "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/effectcraft_real_app.py", "{target_dir}/release/effectcraft", "{input}", "export", "{target_dir}/effectcraft-profile"], "output": "markers" },
+      "inputs": [{ "name": "typical-1080p-30-layer", "path": ".journey-fixtures/effectcraft-typical/typical-1080p.ecproj" }]
+    },
+    {
       "name": "photocraft.synthetic-image-open",
       "app": "photocraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
