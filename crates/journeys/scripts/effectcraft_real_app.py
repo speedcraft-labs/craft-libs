@@ -77,11 +77,30 @@ def start(binary: Path, profile: Path, input_path: Path | None = None, timeout_s
                     raise TimeoutError("EffectCraft did not load the project before its first frame")
                 time.sleep(0.02)
     frame = profile / "startup.png"
-    reply = rpc(stream, "ui.screenshot", {"path": str(frame)}, 1)
-    result = reply.get("result")
-    path = Path(result["path"]) if isinstance(result, dict) and isinstance(result.get("path"), str) else frame
-    if not path.is_file() or not path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
-        raise RuntimeError("EffectCraft did not produce its first interactive frame")
+    deadline = time.monotonic() + timeout_s
+    request_id = 1
+    while True:
+        try:
+            reply = rpc(stream, "ui.screenshot", {"path": str(frame)}, request_id)
+        except RuntimeError as error:
+            if "window geometry is not known yet" not in str(error):
+                raise
+            screenshot_error = str(error)
+        else:
+            result = reply.get("result")
+            if isinstance(result, dict) and result.get("ok") is False:
+                screenshot_error = str(result.get("error", "screenshot not ready"))
+                if "window geometry is not known yet" not in screenshot_error:
+                    raise RuntimeError(f"EffectCraft screenshot failed: {screenshot_error}")
+            else:
+                path = Path(result["path"]) if isinstance(result, dict) and isinstance(result.get("path"), str) else frame
+                if path.is_file() and path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+                    break
+                raise RuntimeError("EffectCraft did not produce its first interactive frame")
+        if time.monotonic() >= deadline:
+            raise TimeoutError(f"EffectCraft did not produce its first interactive frame: {screenshot_error}")
+        request_id += 1
+        time.sleep(0.02)
     startup_ns = time.perf_counter_ns() - started
     return process, stream, startup_ns
 
