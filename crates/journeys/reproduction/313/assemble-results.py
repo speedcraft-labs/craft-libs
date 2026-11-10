@@ -14,13 +14,13 @@ if args.slowdown:
  lines+=['',f"Deliberate slowdown: requested {delays[0]['requested_ms']:.3f} ms (10% of calibrated warm switch); actual median queued delay {statistics.median(d['actual_delay_ns'] for d in delays)/1e6:.3f} ms. Ratio {r['speedup']:.3f}, CI {r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}: **{r['verdict']}**."]
 for report in reports:
  for tier in sorted({r['tier'] for r in report['rows']}):
-  lines+=['',f'LightCraft: {tier}. Upstream is descriptive only.', '', '| Action / state | Point median/p95 | Main median/p95 | Ratio (95% CI) | Minimum detectable effect % | Upstream median/p95 | Verdict |','|---|---:|---:|---:|---:|---:|---|']
+  lines+=['',f'LightCraft: {tier}. Upstream is descriptive only. MDE cells show A/A calibration / current-comparison approximate MDE; a noisier comparison is not assigned the calibration precision.', '', '| Action / state | Point median/p95 | Main median/p95 | Ratio (95% CI) | Minimum detectable effect % (AA/current) | Upstream median/p95 | Verdict |','|---|---:|---:|---:|---:|---:|---|']
   for r in report['rows']:
    if r['tier']!=tier:continue
    def cell(side):
     s=r['sides'].get(side);return f"{s['median_ns']/1e6:.2f}/{s['p95_ns']/1e6:.2f}" if s else 'not measured'
-   lines.append(f"| {r['action']} / {r['phase']} | {cell('point')} | {cell('main')} | {r['speedup']:.3f} ({r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}) | {fmt(r['minimum_detectable_effect_pct'])} | {cell('upstream')} | {r['verdict']} |")
-variance=subprocess.check_output(['python3',str(k/'analyze-variance.py'),str(k.parent/'paired-typical-50-resilient-v2/report.json'),str(args.aa)],text=True)
+   lines.append(f"| {r['action']} / {r['phase']} | {cell('point')} | {cell('main')} | {r['speedup']:.3f} ({r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}) | {fmt(r['minimum_detectable_effect_pct'])}/{fmt(r['estimated_mde_pct'])} | {cell('upstream')} | {r['verdict']} |")
+variance=subprocess.check_output(['python3',str(k/'analyze-variance.py'),str(k.parent/'paired-typical-50-resilient-v2/report.json'),str(k/'aa-v4-control-continuation-2-2/report.json'),str(args.aa)],text=True)
 lines+=['',variance,'','Validation: `cargo test -p craft-journeys` (see exact current log); earlier full local workspace run: 3,835 passed, 127 ignored, zero failures. Post-rebase run hit H.264 reset and proof timing assertions; both baseline comparisons and exact logs are reported separately. Three strict lints reproduce on integration in untouched files. No trimming; failed/rejected attempts remain retained.','', 'Payload limit: import-1262 is 1,262 distinct CC0 camera originals. It approximates the count in #367, not its camera/storage distribution. #832 is a different Lightroom-catalog / 1.1 TB USB/exFAT workflow with 38,545 photos and ~25 minutes; it is out of scope.']
 lines += ['', (k/'validation-summary.md').read_text()]
 (k/'final-tables.md').write_text('\n'.join(lines)+'\n')

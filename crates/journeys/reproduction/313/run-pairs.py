@@ -23,7 +23,11 @@ for pair in range(config['sessions']):
  report=json.load(open(out/'report.json'))
  if report.get('failure') or report.get('guard',{}).get('contended') is not False:
   raise RuntimeError(f'{label} {pair} failed: '+str(report.get('failure',code)))
- if not all(any(s['pair']==pair and s['side']==side for s in report['sessions']) for side in expected):raise RuntimeError('missing completed session')
+ if not all(any(s['pair']==pair and s['side']==side for s in report['sessions']) for side in expected):
+  if out.with_suffix('.deferred.json').exists():
+   print('counterpart deferred; guarded checkpoint retained',out/'report.json',flush=True)
+   sys.exit(75)
+  raise RuntimeError('missing completed session')
  prior=str(out/'report.json');(k/f'{label}-latest.txt').write_text(prior)
  print('finished',label,pair,'sessions',len(report['sessions']),flush=True)
 print('COMPLETE',label,prior,flush=True)
