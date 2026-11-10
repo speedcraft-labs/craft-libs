@@ -3,19 +3,59 @@
 
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import time
 from pathlib import Path
+from xml.etree import ElementTree
 
-import pymupdf
+
+_SVG_TOKEN = re.compile(r"[A-Za-z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?")
 
 
-def pixel_digest(path: Path) -> tuple[str, int, int]:
-    """Hash the rendered pixels, so equivalent SVG path serializations compare equal."""
-    document = pymupdf.open(stream=path.read_bytes(), filetype="svg")
-    pixmap = document[0].get_pixmap(alpha=True)
-    return hashlib.sha256(pixmap.samples).hexdigest(), pixmap.width, pixmap.height
+def canonical_closed_cubic(data: str) -> str:
+    """Normalize only the start point of a closed path made entirely of cubic segments."""
+    matches = list(_SVG_TOKEN.finditer(data))
+    cursor = 0
+    for match in matches:
+        if data[cursor : match.start()].strip(" ,\t\r\n"):
+            return data
+        cursor = match.end()
+    if data[cursor:].strip(" ,\t\r\n"):
+        return data
+    tokens = [match.group() for match in matches]
+    if not tokens or tokens[0] != "M":
+        return data
+    index = 1
+    if index + 1 >= len(tokens):
+        return data
+    start = tokens[index : index + 2]
+    index += 2
+    segments = []
+    while index < len(tokens):
+        if tokens[index] != "C" or index + 6 >= len(tokens):
+            return data
+        segments.append(tokens[index + 1 : index + 7])
+        index += 7
+    if len(segments) < 2 or segments[-1][4:6] != start:
+        return data
+
+    candidates = []
+    for rotation in range(len(segments)):
+        move = start if rotation == 0 else segments[rotation - 1][4:6]
+        rotated = segments[rotation:] + segments[:rotation]
+        candidates.append("M" + " ".join(move) + "".join("C" + " ".join(segment) for segment in rotated))
+    return min(candidates)
+
+
+def canonical_svg(path: Path) -> bytes:
+    """Hash SVG structure after closed-cubic cyclic-start normalization."""
+    root = ElementTree.parse(path).getroot()
+    for element in root.iter():
+        if element.tag.rsplit("}", 1)[-1] == "path" and "d" in element.attrib:
+            element.set("d", canonical_closed_cubic(element.attrib["d"]))
+    return ElementTree.tostring(root, encoding="utf-8")
 
 
 def main() -> int:
@@ -125,9 +165,9 @@ def main() -> int:
             child.wait()
 
     journey_ns = time.perf_counter_ns() - started
-    pixels_digest, width, height = pixel_digest(output_file)
+    identity_digest = hashlib.sha256(canonical_svg(output_file)).hexdigest()
     print(f"CRAFT_JOURNEY_NS={journey_ns}")
-    print(f"CRAFT_OUTPUT_SHA256={pixels_digest}")
+    print(f"CRAFT_OUTPUT_SHA256={identity_digest}")
     print(f"CRAFT_OUTPUT_BYTES_SHA256={svg_digest}")
     print(f"POINTER_SELECT_ROUNDTRIP_NS={select_elapsed}")
     print(f"SMART_GUIDE_DRAG_ROUNDTRIP_NS={drag_elapsed}")
@@ -139,10 +179,8 @@ def main() -> int:
                     "smart_guide_drag_roundtrip_ns": drag_elapsed,
                     "svg_bytes": svg_bytes,
                     "svg_sha256": svg_digest,
-                    "pixel_sha256": pixels_digest,
-                    "pixel_width": width,
-                    "pixel_height": height,
-                    "pixel_rasterizer": f"PyMuPDF {pymupdf.VersionBind}",
+                    "canonical_svg_sha256": identity_digest,
+                    "identity_normalization": "closed-cubic-cyclic-start",
                 }
             )
             + "\n"

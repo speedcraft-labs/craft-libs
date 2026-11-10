@@ -70,7 +70,7 @@ target root so prepared builds can be reused.
 | `pdfcraft.export-pdf.form-fixture` | PdfCraft | Export the pinned one-page form PDF to PNG |
 | `vectorcraft.export-svg.still-life` | VectorCraft | Export the pinned Still Life document to SVG |
 | `vectorcraft.select-drag-export.public-map` | VectorCraft | Open a public-domain map with 347 paths, select and drag a path through the pointer tool, and export SVG |
-| `figcraft.select-drag-export.ridgeline-app` | FigCraft | Open a 349-layer mobile app design, select and drag its Featured trail instance among eight siblings, and export SVG; the identity hash compares CPU-rasterized pixels while per-run metrics retain the raw SVG byte hash and size |
+| `figcraft.select-drag-export.ridgeline-app` | FigCraft | Open a 349-layer mobile app design, select and drag its Featured trail instance among eight siblings, and export SVG; the identity hash normalizes only cyclic starting points on closed cubic paths while per-run metrics retain the raw SVG byte hash and size |
 | `designcraft.synthetic-performance` | DesignCraft | Compose a deterministic synthetic document |
 | `effectcraft.synthetic-project-open` | EffectCraft | Open a generated project sized toward the surveyed 125 MB |
 | `effectcraft.first-frame-heavy-comp` | EffectCraft | Render a cold full-resolution (1,920×1,080) first frame of a generated 5,000-layer composition |
