@@ -70,6 +70,7 @@ target root so prepared builds can be reused.
 | `pdfcraft.export-pdf.form-fixture` | PdfCraft | Export the pinned one-page form PDF to PNG |
 | `vectorcraft.export-svg.still-life` | VectorCraft | Export the pinned Still Life document to SVG |
 | `vectorcraft.select-drag-export.public-map` | VectorCraft | Open a public-domain map with 347 paths, select and drag a path through the pointer tool, and export SVG |
+| `figcraft.select-drag-export.ridgeline-app` | FigCraft | Open a 349-layer mobile app design, select and drag its Featured trail instance among eight siblings, and export SVG |
 | `designcraft.synthetic-performance` | DesignCraft | Compose a deterministic synthetic document |
 | `effectcraft.synthetic-project-open` | EffectCraft | Open a generated project sized toward the surveyed 125 MB |
 | `effectcraft.first-frame-heavy-comp` | EffectCraft | Render a cold full-resolution (1,920×1,080) first frame of a generated 5,000-layer composition |
@@ -153,6 +154,7 @@ means an empty app profile, not a flushed operating-system file cache. Task jour
 | WordCraft | Autism Commission 2019 DOCX, 302,427 bytes; 316 paragraphs and 1 table | open, scroll, edit text, save DOCX |
 | DeckCraft | MDAR Unit 3 Spanish PPTX, 8,541,624 bytes; 26 slides | open, navigate, edit title, save, export PDF |
 | LightCraft | Tetons and Snake River JPEG, 1,865,607 bytes; 3,000×2,402, 7.2 MP | open, adjust exposure, save, export JPEG |
+| FigCraft | Ridgeline app `.figcraft`, 58,167 bytes; 349 layers across one page, largest sibling set 8 | open, select Featured instance, drag, export SVG |
 
 The local corpus medians are 32,738 bytes for 431 PSD files, 11,256 bytes for 993 XLSX files, and
 3,312,310 bytes for six PDFs; those sets are mostly compatibility fixtures. For the PSD payload,

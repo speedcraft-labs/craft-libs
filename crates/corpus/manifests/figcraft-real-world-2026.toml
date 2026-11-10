@@ -1,0 +1,16 @@
+name = "figcraft-real-world-2026"
+description = "A realistic FigCraft mobile app design used for select, drag, smart-guide and export journeys."
+
+[[git]]
+repo = "storytold/figcraft"
+commit = "a2e87433d8bda2b0c909587da08cb27c51e3b17e"
+paths = ["examples/ridgeline-app.figcraft"]
+licence = "MIT OR Apache-2.0"
+provenance = "https://github.com/storytold/figcraft/tree/a2e87433d8bda2b0c909587da08cb27c51e3b17e/examples/ridgeline-app.figcraft"
+tags = ["figcraft", "design"]
+redistributable = true
+
+[[git.file]]
+path = "examples/ridgeline-app.figcraft"
+sha256 = "d5118aa2d2e8b161c14753d1798e7e14329df578e94ee3d146160e88a2224950"
+dest = "ridgeline-app.figcraft"
