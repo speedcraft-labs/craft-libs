@@ -47,6 +47,39 @@ readback and background work were not separately timestamped in that method.
 The new pre-dispatch observer records presentation candidates independently of
 readiness polling, but still measures sampled displayed frames, not scanout.
 
+## Transport pilot: a measured instrumentation floor
+
+One diagnostic session with the pre-dispatch observer but original TCP transport
+completed on reserved CPUs with a clean guard/GPU. It is not an A/A acceptance run:
+its queued counterpart was stopped before launch after the trace exposed this
+problem. All raw data and 40 verified exposure photo changes remain retained.
+
+| Call | Count | Median RTT ms | p95 RTT ms | Fraction at 38–60 ms |
+|---|---:|---:|---:|---:|
+| ui.inspect | 3960 | 42.77 | 63.30 | 91.2% |
+| engine.execute | 314 | 43.93 | 75.57 | 59.9% |
+| ui.pointer | 90 | 65.07 | 88.60 | 30.0% |
+
+Preview varied 127.84–356.13 ms while the corresponding last renders were
+13.97/8.41 ms. Exposure varied 50.29–154.76 ms with 3.98/4.53 ms last renders.
+Switch varied 444.22–609.12 ms with 405.17/572.17 ms renders: this action also
+contains substantial real rendering variance and must not be corrected by
+subtracting a constant. The export lastRenderMs field describes the preceding
+switch, not JPEG encoding, so it cannot attribute export variance.
+
+The production server token-streams JSON with `writeln!(out, "{r}")` and leaves
+Nagle enabled; its own test connection disables Nagle on both sockets. This plus
+the 40 ms RTT concentration makes delayed ACK a concrete transport hypothesis.
+The session-only client now uses NODELAY and re-enables QUICKACK before and after
+each receive, including partial JSON. Protocol tests cover fragmented UTF-8 and
+buffered lines. The new A/A must verify the resulting precision; no fixed delay
+is subtracted and the launch-per-task transport is unchanged.
+
+The old X11 sampler also had median 20–28 ms / p95 78–187 ms observation gaps,
+despite a nominal 5 ms sleep. Its display server ran on CPUs 0–21. New acquisitions
+launch a private NVIDIA Xorg on the same reserved CPUs 22–27 as the app, record
+its affinity, and stop only that owned server before releasing the locks.
+
 ## Validation of prior failures
 
 Clean integration: `c67c32c6`. Commands, with one shared target directory and builds
@@ -59,7 +92,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo clippy -p craft-av1 --all-targets -- -D warnings
 ```
 
-Both HEVC tests pass on clean integration. This branch's
+The full required local workspace run now passes: **3,835 passed, 127 ignored,
+zero failures** across 295 reported suites including doctests. Targeted journeys
+tests pass (3 Rust tests including 29 Python tests). Both HEVC tests pass on clean integration. This branch's
 `cargo test -p craft-hevc conformance:: -- --nocapture` passes 43 tests, ignores 2.
 The old HEVC failures are currently **not reproducible**, not established baseline
 failures. Clippy reproduces the two shader assign-op errors (lines 58/78) and the
