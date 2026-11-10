@@ -1,0 +1,9 @@
+{
+  "pairs": 10,
+  "warmups": 2,
+  "repetitions": 2,
+  "exposure_steps": 4,
+  "single_side_acquisitions": true,
+  "reason": "Guarded pilot 385.803s per app; two nominal apps leave only 68.394s of an 840s lease. Existing 1.5x+30s counterpart reserve correctly declines that budget. Keep two warmups: import transitions 92.409s -> 41.755s -> measured 15.633/17.761s. Every build gets its own <=840s lease. A/A and real primary comparison use identical alternating AB/BA order and resource policy, all stress admissions require an empty bench queue, actual between-build gaps and achieved MDE floors are reported. Pilot is descriptive only and is not seeded into A/A. No numerical outlier trimming.",
+  "pilot": "heavy-aa-pilot-1259/point/report.json"
+}

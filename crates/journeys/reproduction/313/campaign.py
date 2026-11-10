@@ -69,7 +69,7 @@ for generation in range(start,10000):
  if fatal:
   if not all(retryable_control_failure(reason) for path,reason in fatal):
    raise RuntimeError('non-resource failure requires review: '+str(fatal))
-  failures=[dict(path=path,reason=reason,pair=int(Path(path).parents[1].name.rsplit('-',1)[1]),side=Path(path).parent.name) for path,reason in fatal]
+  failures=[dict(path=path,reason=reason,pair=int(json.load(open(path))['config']['pair']),side=Path(path).parent.name) for path,reason in fatal]
   (k/(prefix+'.invalid-automation.json')).write_text(json.dumps(dict(policy='no press delivered: reject whole pair; retry both in a fresh lease; never trim successful latency samples',failures=failures),indent=2))
   for failure in failures:
    previous=[json.load(open(path)) for path in k.glob(label+'-attempt-*.invalid-automation.json')]
