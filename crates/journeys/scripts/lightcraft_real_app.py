@@ -1091,6 +1091,7 @@ def session_main(args):
                 statistics=dict(resamples=2000,seed=313,bootstrap_unit='paired-session',ratio='point/main',percentiles='linear'),
                 environment={key:os.environ.get(key) for key in ('DISPLAY','WGPU_BACKEND','LIGHTCRAFT_GPU_BACKEND','LIGHTCRAFT_GPU_ADAPTER','__GL_SHADER_DISK_CACHE_PATH','CRAFT_BENCH_ISOLATED')},
                 timing_scope='control send to first X11 capture proven pixel-identical to the native control PNG; mismatches fall back to the later native capture upper bound',
+                driver_sha256=file_digest(Path(__file__)),
                 harness_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=Path(__file__).resolve().parents[3],text=True).strip(),
                 binary_sha256=binary_hashes,comparison_complete=False,prior_acquisitions_passed=True)
     if prior:
@@ -1150,6 +1151,7 @@ def session_main(args):
         report['pixel_checks']=check_pixels(paired) if paired else []
         # Keep hashes and measured evidence, not thousands of passing native PNGs.
         for accepted in paired:
+            if 'directory' not in accepted:continue
             protected={accepted['oracle'],accepted['export_sample'],accepted['export_oracle']}
             for image in Path(accepted['directory']).rglob('*.png'):
                 if str(image) not in protected and 'headless-attempt' not in image.name:
