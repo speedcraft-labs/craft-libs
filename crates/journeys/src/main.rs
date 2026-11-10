@@ -588,6 +588,9 @@ fn make_command(spec: &CommandSpec, context: &CommandContext<'_>, program: Strin
         let root = PathBuf::from(root);
         cmd.env("CRAFT_I18N_DIR", root.join("repos/libs/craft-i18n")).env("CRAFT_FONTS_DIR", root.join("repos/libs/craft-fonts"));
     }
+    if let Some(display) = std::env::var_os("DISPLAY") {
+        cmd.env("DISPLAY", display);
+    }
     for (key, value) in &spec.env {
         cmd.env(key, render(value, context.rev, context.input, context.app, context.cwd).replace("{target_dir}", context.target_dir));
     }

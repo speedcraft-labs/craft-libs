@@ -228,7 +228,16 @@ def launch(
                 # first-frame clock. This is still a UI-thread request, like the screenshot below.
                 ready = False
                 while time.monotonic() < deadline:
-                    photo = rpc(stream, "engine.execute", {"command": "photo.inspect"}, 1)
+                    try:
+                        photo = rpc(stream, "engine.execute", {"command": "photo.inspect"}, 1)
+                    except RuntimeError as error:
+                        # Launch imports are asynchronous after the first frame. Until the
+                        # selected photo is indexed, photo.inspect reports "no photo"; keep
+                        # polling instead of rejecting an otherwise successful startup.
+                        if "photo.inspect" not in str(error) or "no photo" not in str(error):
+                            raise
+                        time.sleep(0.02)
+                        continue
                     result = photo.get("result")
                     if isinstance(result, dict) and result.get("id") is not None:
                         ready = True
