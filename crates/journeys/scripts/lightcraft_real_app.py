@@ -494,6 +494,11 @@ def session_grid_settled(control):
     raise TimeoutError('grid did not settle')
 
 
+def session_grid_at_top(state):
+    offset=state.get('scroll',{}).get('grid')
+    return offset is not None and abs(offset)<1
+
+
 def session_grid(control, ids, directory):
     """Visit every grid thumbnail, retaining a native frame and checking actual image content."""
     from PIL import Image, ImageStat
@@ -505,12 +510,13 @@ def session_grid(control, ids, directory):
     session_execute(control,'library.select',{'ids':[first]})
     session_frame(control,directory/'grid-ready.png')
     # Import can reveal the active photo near the bottom of the date-sorted grid.
-    # Explicitly visit from the top; trackpad-point deltas avoid wheel-notch scaling.
+    # Wheel points clamp at the boundary. An unended trackpad gesture can hold a
+    # huge negative rubber-band offset and leave every thumbnail outside the view.
     view=next(w for w in control.call('ui.widgets',{'filter':'grid:scroll'}) if w['id']=='grid:scroll')
     vx,vy,vw,vh=view['rect']
     control.call('ui.move',{'x':vx+vw/2,'y':vy+vh/2})
-    control.call('ui.scroll',{'dy':100000,'source':'trackpad','unit':'point'})
-    session_wait(control,lambda s:s.get('scroll',{}).get('grid') is not None and s['scroll']['grid']<1)
+    control.call('ui.scroll',{'dy':100000,'source':'wheel','unit':'point'})
+    session_wait(control,session_grid_at_top)
     session_frame(control,directory/'grid-top.png')
     previous_scroll = None
     for page in range(len(ids) + 5):
@@ -553,7 +559,7 @@ def session_grid(control, ids, directory):
             raise RuntimeError(f'grid stopped before all thumbnails: {len(seen)}/{len(ids)}')
         previous_scroll = scroll
         control.call('ui.move', {'x': state['window'][0]/2, 'y': state['window'][1]/2})
-        control.call('ui.scroll', {'dy': -vh*.5,'source':'trackpad','unit':'point'})
+        control.call('ui.scroll', {'dy': -vh*.5,'source':'wheel','unit':'point'})
         session_wait(control,lambda s:s.get('scroll',{}).get('grid')!=scroll)
     raise RuntimeError(f'not all thumbnails shown: {len(seen)}/{len(ids)}')
 
