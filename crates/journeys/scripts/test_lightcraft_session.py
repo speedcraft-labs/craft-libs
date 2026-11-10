@@ -324,7 +324,7 @@ class Boundaries(unittest.TestCase):
             prior_sessions=[dict(fixture(),tier='typical',pair=0,side=s) for s in config['revisions']]
             prior=root/'prior.json';prior.write_text(json.dumps(dict(schema='lightcraft-session-v1',config=config,
                 sessions=prior_sessions,binary_sha256={s:file_digest(binary) for s in config['revisions']},
-                harness_revision='frozen',guard={'contended':False},fingerprint={'machine':'test'})))
+                harness_revision='frozen',driver_sha256=file_digest(Path(__file__).with_name('lightcraft_real_app.py')),guard={'contended':False},fingerprint={'machine':'test'})))
             config.update(pair=1,resume_report=str(prior))
             config_path=root/'config.json';config_path.write_text(json.dumps(config));calls=[]
             def guarded(report,checkpoint,binary,directory,tier,side,pair,run):
@@ -410,6 +410,26 @@ class Boundaries(unittest.TestCase):
         with patch('lightcraft_real_app.time.sleep') as sleep:
             session_execute(control,'library.select')
             sleep.assert_not_called()
+
+    def test_repeated_lifecycles_reject_overlap_and_false_durations(self):
+        s=fixture()
+        s['quit_samples']=[dict(sent_ns=100,exit_ns=150,duration_ns=50,exit_code=0),dict(sent_ns=250,exit_ns=300,duration_ns=50,exit_code=0)]
+        s['startup_samples']=[dict(sent_ns=170,frame_ns=200,duration_ns=30,capture=dict(frame_ns=200,verified_ns=220,native=True))]
+        validate_session(s)
+        s['startup_samples'][0]['duration_ns']=20
+        with self.assertRaisesRegex(ValueError,'duration'):validate_session(s)
+        s['startup_samples'][0]['duration_ns']=30
+        s['quit_samples'][1]['sent_ns']=210
+        with self.assertRaisesRegex(ValueError,'overlap'):validate_session(s)
+
+    def test_aa_rejects_different_commits_or_one_binary(self):
+        from lightcraft_real_app import session_calibration
+        config={'aa':True,'revisions':{'point':{'revision':'same','binary':'A'},'main':{'revision':'same','binary':'B'}}}
+        self.assertIsNone(session_calibration(config))
+        config['revisions']['main']['binary']='A'
+        with self.assertRaisesRegex(ValueError,'separately built'):session_calibration(config)
+        config['revisions']['main'].update(binary='B',revision='other')
+        with self.assertRaisesRegex(ValueError,'same app commit'):session_calibration(config)
 
 
 if __name__=='__main__': unittest.main()

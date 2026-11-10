@@ -974,8 +974,8 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         session_detail(control,photo)
         ended,_=session_result(control,directory/'startup-library.png',started)
         record['startup_library_ns']=ended-started
-        record['startup_samples']=[dict(duration_ns=ended-started,phase='cold')]
-        record['quit_samples']=[dict(duration_ns=record['exit_ns']-record['quit_request_ns'],phase='cold')]
+        record['startup_samples']=[dict(duration_ns=ended-started,phase='cold',sent_ns=started,frame_ns=ended,capture=control.last_capture_proof)]
+        record['quit_samples']=[dict(duration_ns=record['exit_ns']-record['quit_request_ns'],phase='cold',sent_ns=record['quit_request_ns'],exit_ns=record['exit_ns'],exit_code=0)]
         record['startup_capture']=control.last_capture_proof
         record['startup_state']=control.call('ui.inspect')
         session_drain(control,record,'after-startup-frame')
@@ -1069,6 +1069,8 @@ def session_resume(config, binary_hashes):
     def workload(c):return {k:v for k,v in c.items() if k not in ('pair','side','resume_report')}
     if prior.get('schema')!='lightcraft-session-v1' or workload(prior['config'])!=workload(config):
         raise ValueError('resume report workload/revisions differ')
+    if config.get('measurement_method')=='pre-dispatch-v2' and prior.get('driver_sha256')!=file_digest(Path(__file__)):
+        raise ValueError('resume driver differs; restart the matrix')
     if prior.get('binary_sha256')!=binary_hashes:
         raise ValueError('resume report binary hashes differ')
     from lightcraft_session_report import validate_session

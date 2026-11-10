@@ -18,6 +18,21 @@ def validate_session(session):
     for snapshot in snapshots:
         if not session.get('gpu_provisional') and snapshot is not None and any(p['pid'] not in own for p in snapshot['processes']):
             raise ValueError('foreign GPU process makes session not publishable')
+    if 'startup_samples' in session:
+        starts,quits=session['startup_samples'],session['quit_samples']
+        if len(quits)!=len(starts)+1 or quits[0]['exit_ns']!=session['exit_ns']:
+            raise ValueError('invalid repeated lifecycle count')
+        for index,start in enumerate(starts):
+            before,after=quits[index],quits[index+1]
+            if not before['exit_ns']<start['sent_ns']<start['frame_ns']<=start['capture']['verified_ns']<after['sent_ns']<after['exit_ns']:
+                raise ValueError('repeated startup/quit lifecycle overlap')
+            if start['duration_ns']!=start['frame_ns']-start['sent_ns'] or start['capture']['frame_ns']!=start['frame_ns']:
+                raise ValueError('repeated startup duration differs from frame clock')
+            if not start['capture'].get('native'):
+                raise ValueError('repeated startup lacks a native frame')
+        for quit in quits:
+            if quit['exit_code']!=0 or quit['duration_ns']!=quit['exit_ns']-quit['sent_ns']:
+                raise ValueError('repeated quit failure or fabricated duration')
     for action in session['samples']:
         if action['action'] not in ACTIONS:
             raise ValueError('unknown action')
