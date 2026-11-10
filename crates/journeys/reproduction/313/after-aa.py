@@ -15,6 +15,8 @@ print('A/A gates:',sum(bool(r['aa_pass']) for r in aa['rows']),'/',len(aa['rows'
 # Delay exactly 10% of the declared A/A control warm-quit median. The actual
 # sleep and its proportion of the independent control are reported separately.
 row=next(r for r in aa['rows'] if r['action']=='quit' and r['phase']=='warm')
+if not row['ci95'][0]<=1<=row['ci95'][1]:
+ raise RuntimeError('warm-quit A/A rejects unity; review another positive-control target before treatment')
 delay=round(row['sides']['main']['median_ns']*.1)
 lib=root/'targets/313-session-latency/quit-delay.so'
 assert lib.is_file()
@@ -35,6 +37,9 @@ real=json.load(open(k/'comparison-v6-template.json'));real['aa_report']=str(aa_p
 for cfg,label in [('quit-slowdown-v6-config.json','quit-slowdown-v6'),('comparison-v6-config.json','comparison-v6-primary')]:
  print('starting',label,flush=True)
  subprocess.run(['python3',str(k/'campaign.py'),str(k/cfg),label],check=True)
+ if label=='quit-slowdown-v6':
+  proof=json.load(open(k/'quit-slowdown-v6-complete.json'))['report']
+  subprocess.run(['python3',str(k/'validate-quit-slowdown.py'),proof],check=True)
 # Upstream is descriptive and collected only after the primary AB/BA blocks.
 completed=json.load(open(k/'comparison-v6-primary-complete.json'))
 real['resume_report']=completed['report'];real['acquisition_sides']=['upstream']
