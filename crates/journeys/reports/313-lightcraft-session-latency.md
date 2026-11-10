@@ -14,17 +14,26 @@ status-site files change.
 
 ## Original variance diagnosis
 
-Variance diagnostics; log SD ×100 is approximate relative SD (%). First use is excluded. No trimming. Old run includes the second warm-up because only one measured repetition exists; switch scene varies, so the old within/session split is descriptive and order-confounded. New run uses measured repeats only.
+Only measured repetitions are used. The original single measured samples cannot
+identify within-session variance for import, preview, switch, export or lifecycle
+rows; their across-session dispersion includes that unknown component. Exposure
+has 60 measured updates. The old warmup-plus-measurement proxy is retained in the
+raw diagnostic history but is not used as a variance-component estimate here.
 
-| Dataset / action | Sessions | Repeats/session | Between-session log SD % | Within-session log SD % |
+| Original action | Sessions | Measured repeats/session | Across-session log SD % | Within-session log SD % |
 |---|---:|---:|---:|---:|
-| paired-typical-50-resilient-v2 / import | 10 | 2 | 23.31 | 8.53 |
-| paired-typical-50-resilient-v2 / preview | 10 | 2 | 13.97 | 25.45 |
-| paired-typical-50-resilient-v2 / exposure | 10 | 61 | 30.76 | 24.06 |
-| paired-typical-50-resilient-v2 / switch | 10 | 2 | 30.28 | 9.76 |
-| paired-typical-50-resilient-v2 / export | 10 | 2 | 21.08 | 9.95 |
-| paired-typical-50-resilient-v2 / startup | 10 | 1 | 29.32 | not identifiable |
-| paired-typical-50-resilient-v2 / quit | 10 | 1 | 33.79 | not identifiable |
+| import | 10 | 1 | 21.11 | not identifiable |
+| preview | 10 | 1 | 30.99 | not identifiable |
+| exposure | 10 | 60 | 30.98 | 23.96 |
+| switch | 10 | 1 | 33.16 | not identifiable |
+| export | 10 | 1 | 22.90 | not identifiable |
+| startup | 10 | 1 | 29.32 | not identifiable |
+| quit | 10 | 1 | 33.79 | not identifiable |
+
+A separate frozen-driver three-repeat diagnostic pilot estimates within-session
+log SD at 4.93/20.52/11.06/32.05/9.23% for import/preview/exposure/switch/export.
+It has only one main session, no identifiable between-session component and no
+Rust publication guard; it is diagnostic, not A/A or performance evidence.
 
 Fast/slow retained measured action, fork main. lastRenderMs is the last render only, not the entire action.
 
@@ -36,7 +45,7 @@ Fast/slow retained measured action, fork main. lastRenderMs is the last render o
 | export | 319.09 / 108.52449 | 651.41 / 217.239949 |
 
 
-Warm-up/order effects confound this old split; startup/quit have no repeats. A
+The original one-sample actions cannot identify both variance components. A
 frozen-driver repeated pilot and the new interleaved A/A run are required to
 separate within-session noise without those assumptions. Shader initialization
 already finishes before these action clocks. Neither disk nor shader caches were
@@ -98,8 +107,11 @@ zero failures** across 295 reported suites including doctests. After rebasing on
 rapid reset exceeded 300 s and proof long-TRY took 11.281 s against a 10 s limit.
 Both fail on clean integration `cd0f22bc`: H.264 at 300.04 s; proof takes
 14.266 s against the same 10 s assertion. Neither file differs from integration.
-The latest reporting-guard workspace run passes again: 3,835 passed, 127 ignored,
-zero failures. All runs remain retained. Targeted journeys
+The reporting-guard workspace run passes again: 3,835 passed, 127 ignored,
+zero failures. The latest corpus-selection rerun has 3,834 passed, one failed,
+127 ignored: the font watcher times out after 10.01 s at tests.rs:359. The exact
+isolated font test fails identically on clean integration (10.00 s); that crate
+also has no PR changes. Both outputs remain retained. Targeted journeys
 tests pass (3 Rust tests including 38 Python tests). Both HEVC tests pass on clean integration. This branch's
 `cargo test -p craft-hevc conformance:: -- --nocapture` passes 43 tests, ignores 2.
 The old HEVC failures are currently **not reproducible**, not established baseline
@@ -111,7 +123,7 @@ single ticket keep directory's `sensitivity/` subdirectory.
 ## Payloads and pins
 
 50 distinct RawNIND A7C 24 MP files remain the typical tier (**CC BY-SA 4.0**).
-The import-heavy tier has 1,262 distinct, SHA-verified **CC0** camera originals,
+The import-heavy tier has 1,259 distinct, SHA-verified **CC0** camera originals,
 about the 1,300-photo count in upstream #367. Add-in-place checks `by_hash` when
 `!opts.local` in `engine/src/import/job.rs:330–367`, so renamed content repeats
 would be invalid. This tier uses no repeated contents. It mixes cameras, formats
@@ -126,8 +138,11 @@ Two separate clean builds of fork main have identical SHA-256
 Build recipes, logs and hashes are retained with the raw reports. Corpus URL/hash
 pins are committed; generated reports, per-run JSON and media stay off git.
 
-A/A, deliberate-slowdown and replacement comparison results are pending; this
-file currently makes no new latency or sensitivity claim.
+The completed replacement A/A passes 0/14 requested gates. Valid warm-action
+approximate MDEs span 12.79–44.36%; cold switch, warm startup and both quit
+controls exclude unity and cannot validate later comparison verdicts. The
+independent physical 10% check and real comparisons remain pending. No 5%
+sensitivity or new LightCraft performance claim is made.
 
 
 ## Retained v4 diagnostic protocol
@@ -195,5 +210,31 @@ one 840-second lease. No split pair enters this calibration. The action clocks,
 GPU condition, bootstrap and all successful numeric observations are unchanged.
 An A/A CI excluding 1 now rejects that action's later comparison verdict; a narrow
 interval alone cannot validate sensitivity. Wide unbiased controls retain their
-explicit, larger MDE floor. This report will be updated with the completed gate,
-independent physical 10% slowdown and both real payload matrices.
+explicit, larger MDE floor. The complete gate is retained at
+`sensitivity/aa-v6-paired-attempt-37-19/report.json` in the ticket keep root.
+Its 20 main sessions have between/within log SD (%): import 39.43/18.37, preview
+19.24/21.80, exposure 22.74/22.59, switch 24.33/14.90, export 21.04/6.07,
+startup 30.87/7.09 and quit 34.89/32.90. These commits and scenes differ from the
+old trial, so this is not a causal harness-only comparison.
+
+Median/max between-build gap fell from 465.30/1301.47 s to 27.72/181.94 s.
+A foreign GPU admission wait still delayed one counterpart inside its lease.
+Warm switch duration correlates 0.997 with the preview worker lastRenderMs.
+Coarse two-second CPU-steal observations correlate 0.766 with switch and 0.799
+with export; these are descriptive, not independent causal proof. Timed X11
+capture-gap p95 is 38–68 ms across rendered actions. The remaining variation
+cannot be reported as a proven 5% sensitivity.
+
+The known-delay pilot exposed a separate reference problem: a 97.999 ms delay
+from the hours-long A/A median would add 23.135% to its contemporaneous untreated
+423.593 ms control. That whole pair is retained as diagnostic. A fresh fixed
+20-pair physical check uses 42.35933825 ms (10% of that untreated pilot); it must
+report slower and realize 9–11% of its independent control median. Treatment CIs
+were not used to choose the dose or stop the pilot. No numeric sample is trimmed.
+
+The initial heavy pilot offered 1,259 of 1,262 files for import and was rejected
+before any accepted action sample. The three missing PowerShot CR2s have non-TIFF
+headers; official source SHA-256 matches, and two source descriptions identify
+CHDK. Their pins and failure evidence remain retained, while the measured tier
+uses the other 1,259 distinct files. This is a declared payload-compatibility
+exclusion before A/A, not latency trimming.

@@ -398,7 +398,7 @@ outside DOWNLOAD_ROOT (craft-corpus prunes unlisted files).
   Benoit Brummer and Christophe De Vleeschouwer, Université catholique de Louvain,
   https://doi.org/10.14428/DVN/DEQCIM, **CC BY-SA 4.0**, not CC0. One low-ISO
   ground-truth exposure per scene, first 50 full-size `_GT_` ARWs in filename order.
-* `import-1262`: 1,262 distinct **CC0-1.0** camera originals from raw.pixls.us,
+* `import-1259`: 1,259 distinct **CC0-1.0** camera originals from raw.pixls.us,
   frozen repository metadata, recognized CR2/NEF/ARW/ORF/RW2/PEF/SRW/RAF formats.
   This is an engineering camera/encoding/resolution mix, not 1,262 similar shots
   from one camera. DNG conversion/JPEG wrappers and non-CC0 entries are excluded.

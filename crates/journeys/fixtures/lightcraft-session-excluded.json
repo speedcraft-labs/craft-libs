@@ -64,5 +64,38 @@
     "megapixels": 27.13,
     "bytes": 13920706,
     "reason": "Extension is ignored by the fork-point import scanner; no candidate returned"
+  },
+  {
+    "path": "pixls-2664.cr2",
+    "url": "https://raw.pixls.us/getfile.php/2664/nice/Canon%20-%20SX150IS.CR2",
+    "sha256": "d1d7516b20058a6bcaad3161574cc39a38f712a4a121ebba48828023747c8ee2",
+    "licence": "CC0-1.0",
+    "provenance": "https://raw.pixls.us/",
+    "camera": "Canon SX150IS",
+    "megapixels": null,
+    "bytes": 21936096,
+    "reason": "Non-TIFF PowerShot CR2; not selected by LightCraft import review. Official source SHA-256 matches. Initial 1262-file pilot offered only 1259; no accepted action samples."
+  },
+  {
+    "path": "pixls-2813.cr2",
+    "url": "https://raw.pixls.us/getfile.php/2813/nice/Canon%20-%20PowerShot%20A480.CR2",
+    "sha256": "e428ca084aee67ea4b03aba412d3ddffa2dda2888e9e8a1c2e363274ddf0dfa9",
+    "licence": "CC0-1.0",
+    "provenance": "https://raw.pixls.us/",
+    "camera": "Canon PowerShot A480",
+    "megapixels": null,
+    "bytes": 15467760,
+    "reason": "Non-TIFF PowerShot CR2; not selected by LightCraft import review. Official source SHA-256 matches. Initial 1262-file pilot offered only 1259; no accepted action samples."
+  },
+  {
+    "path": "pixls-747.cr2",
+    "url": "https://raw.pixls.us/getfile.php/747/nice/Canon%20-%20PowerShot%20SX40%20HS.CR2",
+    "sha256": "dceb1c207067575f415b0da676723bcd9a0acd143eee8f200a1ef8a1c762ac23",
+    "licence": "CC0-1.0",
+    "provenance": "https://raw.pixls.us/",
+    "camera": "Canon PowerShot SX40 HS",
+    "megapixels": null,
+    "bytes": 19167840,
+    "reason": "Non-TIFF PowerShot CR2; not selected by LightCraft import review. Official source SHA-256 matches. Initial 1262-file pilot offered only 1259; no accepted action samples."
   }
 ]
