@@ -1,0 +1,71 @@
+{
+  "scope": "supplementary first-import/first-full-preview setup observations; GPU warmed, OS/shader cache not flushed; separate from planned post-warm-up table",
+  "rows": [
+    {
+      "tier": "typical-50",
+      "action": "import (first pass)",
+      "sides": {
+        "point": {
+          "n": 10,
+          "median_ns": 3283652606.5,
+          "p95_ns": 7388258393.549995,
+          "max_ns": 9486687864
+        },
+        "main": {
+          "n": 10,
+          "median_ns": 3580979375.5,
+          "p95_ns": 4931024485.349998,
+          "max_ns": 5491602255
+        },
+        "upstream": {
+          "n": 10,
+          "median_ns": 3464003966.0,
+          "p95_ns": 5963230853.649998,
+          "max_ns": 6723423793
+        }
+      },
+      "speedup": 0.9169705441382261,
+      "ci95": [
+        0.8531924238061426,
+        1.0885548425734424
+      ],
+      "verdict": "no measurable change",
+      "provisional": false,
+      "gpu_offenders": [],
+      "upstream_equivalent": false
+    },
+    {
+      "tier": "typical-50",
+      "action": "preview (first pass)",
+      "sides": {
+        "point": {
+          "n": 10,
+          "median_ns": 2795806011.0,
+          "p95_ns": 3909391511.1499996,
+          "max_ns": 4006614530
+        },
+        "main": {
+          "n": 10,
+          "median_ns": 2940164913.0,
+          "p95_ns": 3889821075.45,
+          "max_ns": 3989625054
+        },
+        "upstream": {
+          "n": 10,
+          "median_ns": 5579201293.0,
+          "p95_ns": 6929882617.249999,
+          "max_ns": 7205440295
+        }
+      },
+      "speedup": 0.950901086751388,
+      "ci95": [
+        0.8079301893018075,
+        1.2474000805838887
+      ],
+      "verdict": "no measurable change",
+      "provisional": false,
+      "gpu_offenders": [],
+      "upstream_equivalent": false
+    }
+  ]
+}
