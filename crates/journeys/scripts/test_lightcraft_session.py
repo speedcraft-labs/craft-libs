@@ -368,7 +368,7 @@ class Boundaries(unittest.TestCase):
         self.assertTrue(all(r['aa_pass'] for r in aa))
         calibrated=summarize(sessions,resamples=200,calibration={'rows':aa})
         self.assertEqual(calibrated[0]['verdict'],'no measurable change')
-        self.assertIn('MDE %',markdown(calibrated))
+        self.assertIn('Minimum detectable effect %',markdown(calibrated))
         calibrated[0]['minimum_detectable_effect_pct']=None
         with self.assertRaisesRegex(ValueError,'MDE'):markdown(calibrated)
         self.assertIsNone(variance_components([[1],[2]])['within_log_sd'])
@@ -389,6 +389,27 @@ class Boundaries(unittest.TestCase):
         with patch('lightcraft_real_app.session_frame',return_value=(20,'result')):
             self.assertEqual(session_result(control,Path('unused'),30,not_before=50),(60,'result'))
         self.assertEqual(proof['frame_ns'],60)
+
+    def test_slowdown_is_a_real_recorded_queue_delay_only_on_switch(self):
+        from lightcraft_real_app import session_execute
+        from unittest.mock import patch
+        class Control:
+            test_delay_ms=10
+            armed_action='switch'
+            last_sent_ns=0
+            def call(self,method,params):
+                self.last_sent_ns=41
+                return 'reply'
+        control=Control()
+        with patch('lightcraft_real_app.time.perf_counter_ns',return_value=30), patch('lightcraft_real_app.time.sleep') as sleep:
+            self.assertEqual(session_execute(control,'library.select'),'reply')
+            sleep.assert_called_once_with(.01)
+        self.assertEqual(control.last_sent_ns,30)
+        self.assertEqual(control.last_test_delay['actual_delay_ns'],11)
+        control.armed_action='import'
+        with patch('lightcraft_real_app.time.sleep') as sleep:
+            session_execute(control,'library.select')
+            sleep.assert_not_called()
 
 
 if __name__=='__main__': unittest.main()

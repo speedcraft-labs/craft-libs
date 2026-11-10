@@ -139,7 +139,7 @@ def markdown(rows):
         provisional=any(r.get('provisional') for r in selected)
         offenders=sorted({name for r in selected for name in r.get('gpu_offenders',[])})
         lines += ['', 'Payload: '+tier+(' — PROVISIONAL (shared GPU; '+', '.join(offenders)+')' if provisional else ''), '',
-            '| Action / state | Point median/p95 | Main median/p95 | Ratio (95% CI) | Half-width % | MDE % | Upstream median/p95 | Verdict / A/A gate |',
+            '| Action / state | Point median/p95 | Main median/p95 | Ratio (95% CI) | Half-width % | Minimum detectable effect % | Upstream median/p95 | Verdict / A/A gate |',
             '|---|---:|---:|---:|---:|---:|---:|---|']
         for r in selected:
             stats=r['sides']
