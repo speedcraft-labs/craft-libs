@@ -64,6 +64,18 @@ def start(binary: Path, profile: Path, input_path: Path | None = None, timeout_s
     process = subprocess.Popen(command, cwd=profile, env=env,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     stream = connect(port, process, time.monotonic() + timeout_s)
+    if input_path is not None:
+        # The first screenshot for a project launch must be after the project is loaded;
+        # otherwise the cold-start sample can stop on the empty workspace frame.
+        deadline = time.monotonic() + timeout_s
+        while True:
+            try:
+                opened_project_identity(stream)
+                break
+            except RuntimeError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("EffectCraft did not load the project before its first frame")
+                time.sleep(0.02)
     frame = profile / "startup.png"
     reply = rpc(stream, "ui.screenshot", {"path": str(frame)}, 1)
     result = reply.get("result")
@@ -122,15 +134,17 @@ def main() -> int:
     process = stream = None
     try:
         if stage == "first-frame":
+            started_ns = time.perf_counter_ns()
             process, stream, duration_ns = start(binary.resolve(), profile, project, timeout_s=120)
             opened_identity = opened_project_identity(stream)
             if not opened_identity:
                 raise RuntimeError("project did not open before the first visible frame")
             identity = frame(stream, profile, 0.0, 31)
+            duration_ns = time.perf_counter_ns() - started_ns
         elif stage == "cold-start":
-            process, stream, startup_ns = start(binary.resolve(), profile, timeout_s=60)
+            process, stream, startup_ns = start(binary.resolve(), profile, project, timeout_s=120)
             duration_ns = startup_ns
-            identity = hashlib.sha256(b"effectcraft-first-interactive-frame").hexdigest()
+            identity = opened_project_identity(stream)
         else:
             process, stream, _startup_ns = start(binary.resolve(), profile, timeout_s=60)
             opened = time.perf_counter_ns()
