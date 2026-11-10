@@ -63,3 +63,13 @@ lock ownership. The final verifier additionally checks actual exposure photo-reg
 pixels in retained PNGs, outside all action clocks. The gate was calibrated on
 retained pilot images: all 60 measured typical-tier exposure steps changed photo
 pixels, and the 500-file pilot's steps also changed the photo region.
+
+
+The first retry-aware matrix (`paired-typical-50-resilient`) accepted eight clean
+sessions, then failed during upstream import: the giant trackpad scroll left the
+grid at -2006.448 points with no visible thumbnails. The queued heavy run failed
+similarly on its second import at -3023.768 points. This was a driver defect: the
+trackpad gesture never ended, and `offset < 1` wrongly accepted any negative
+overscroll as the top. Both datasets are excluded. The failed approach is kept
+on `failed/313-grid-overscroll`. Use clamped wheel-point input for grid traversal
+and require `abs(offset) < 1`; a regression test covers both retained offsets.

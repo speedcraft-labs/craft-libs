@@ -94,6 +94,12 @@ class Boundaries(unittest.TestCase):
             with patch('sys.argv',argv), self.assertRaisesRegex(ValueError,'outside'):
                 main()
 
+    def test_grid_top_rejects_negative_rubber_band_offsets(self):
+        from lightcraft_real_app import session_grid_at_top
+        for offset in (None,-2006.448,-3023.768,100):
+            self.assertFalse(session_grid_at_top({'scroll':{'grid':offset}}))
+        self.assertTrue(session_grid_at_top({'scroll':{'grid':0.0}}))
+
     def test_empty_texture_queue_shape_is_a_list(self):
         from lightcraft_real_app import session_idle
         self.assertTrue(session_idle({'perf':{'renderQueue':0,'rendersInFlight':0,'pendingSlots':[]}}))
