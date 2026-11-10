@@ -238,6 +238,14 @@
       "inputs": [{ "name": "ridgeline-app", "path": "figcraft-real-world-2026/ridgeline-app.figcraft" }]
     },
     {
+      "name": "designcraft.select-drag-export.arts-program",
+      "app": "designcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/designcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "designcraft-cli"] },
+      "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/designcraft_real_app.py", "{target_dir}/release/designcraft-cli", "{input}", "{target_dir}/outputs/{input_name}.pdf"], "output": "markers", "wall_time": "process" },
+      "inputs": [{ "name": "arts-festival-program", "path": "designcraft-real-world-2026/arts-festival-program.designcraft" }]
+    },
+    {
       "name": "designcraft.synthetic-performance",
       "app": "designcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/designcraft",

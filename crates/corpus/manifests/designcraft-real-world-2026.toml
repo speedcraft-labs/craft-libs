@@ -1,0 +1,17 @@
+name = "designcraft-real-world-2026"
+description = "A deterministic, four-page editorial program with 240 editable text and graphic frames for DesignCraft select, drag and PDF export journeys."
+
+[[git]]
+repo = "speedcraft-labs/craft-libs"
+commit = "eaef5a4f00f35ddf9354c27b262af06a743bb16f"
+paths = ["crates/corpus/fixtures/designcraft-real-world-2026/arts-festival-program.designcraft"]
+licence = "MIT OR Apache-2.0"
+provenance = "https://github.com/speedcraft-labs/craft-libs/tree/eaef5a4f00f35ddf9354c27b262af06a743bb16f/crates/corpus/fixtures/designcraft-real-world-2026/arts-festival-program.designcraft"
+tags = ["designcraft", "editorial", "design"]
+redistributable = true
+
+[[git.file]]
+path = "crates/corpus/fixtures/designcraft-real-world-2026/arts-festival-program.designcraft"
+sha256 = "7e250c44362ee3917afccb9e29bffd4f358a24c8c0578e359b47fe3f8259431e"
+dest = "arts-festival-program.designcraft"
+tags = ["designcraft", "four-page", "240-items", "typical"]

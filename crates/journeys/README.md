@@ -35,8 +35,8 @@ copy.
 
 The checked-in catalog includes native parsers for CADCraft `perf FILE`, WordCraft's
 `perf_probe` JSON, DeckCraft `bench FILE --json`, LightCraft's slider latency table, PdfCraft's
-`export_bench` summary, VectorCraft's `export_bench` summary, and DesignCraft's deterministic
-synthetic `perf` channel, EffectCraft's generated-project operation benchmark, PhotoCraft's
+`export_bench` summary, VectorCraft's `export_bench` summary, DesignCraft's deterministic
+synthetic `perf` channel and its real select/drag/PDF journey, EffectCraft's generated-project operation benchmark, PhotoCraft's
 deterministic generated-image benchmark, FigCraft's synthetic viewport benchmark, and GridCraft's
 generated-workbook benchmark, SoundCraft's synthetic mix-throughput benchmark, and FilmCraft's
 generated-project open benchmark. These adapters extract the native measurement and a stable
@@ -64,6 +64,7 @@ target root so prepared builds can be reused.
 | `lightcraft.open-typical-photo`, `lightcraft.edit-exposure-typical-photo`, `lightcraft.save-typical-photo`, `lightcraft.export-typical-photo` | LightCraft | Open, adjust exposure, save, and export a representative public-domain photograph |
 | `deckcraft.open-office-pptx` | DeckCraft | Open the pinned chart PPTX |
 | `deckcraft.drag-shape.heavy-slide` | DeckCraft | Drag a picture shape across the pinned, picture-rich 24th slide of the Apache-2.0 licensed HowWeRefactor deck through the editor canvas texture path; records every CPU frame |
+| `designcraft.select-drag-export.arts-program` | DesignCraft | Open a four-page, 240-item editorial program, select and drag a graphic frame, and export PDF |
 | `lightcraft.slider-exposure-latency` | LightCraft | Apply exposure while dragging the slider |
 | `pdfcraft.edit-100k-pages` | PdfCraft | Add text to a generated 100,000-page document |
 | `pdfcraft.edit-acroform-3129` | PdfCraft | Edit one field in a generated 3,129-field AcroForm |
