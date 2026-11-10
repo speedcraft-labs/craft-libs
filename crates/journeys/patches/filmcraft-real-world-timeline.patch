@@ -2,18 +2,7 @@ diff --git a/crates/ui-egui/examples/bench/sections.rs b/crates/ui-egui/examples
 index ada15935..2e76a4ae 100644
 --- a/crates/ui-egui/examples/bench/sections.rs
 +++ b/crates/ui-egui/examples/bench/sections.rs
-@@ -29,10 +29,6 @@ fn gpu_export_frame_renderer_factory() -> Option<Box<dyn filmcraft_export::Frame
-         ) -> Option<filmcraft_render::Image> {
-             self.0.render(project, seq, t, opts, sources)
-         }
--
--        fn caps(&self) -> filmcraft_render::plan::DeviceCaps {
--            self.0.caps()
--        }
-     }
-     filmcraft_gpu::ExportRenderer::new().map(|r| Box::new(R(r)) as Box<dyn filmcraft_export::FrameRenderer>)
- }
-@@ -327,6 +323,44 @@ pub fn big_sequence(s: &mut Session, item: ItemId, name: &str, seed: u64) -> (It
+@@ -327,6 +327,44 @@ pub fn big_sequence(s: &mut Session, item: ItemId, name: &str, seed: u64) -> (It
      .expect("big sequence")
  }
  
@@ -58,7 +47,7 @@ index ada15935..2e76a4ae 100644
  // ------------------------------------------------------------------------------------ timeline UI
  
  struct Ui {
-@@ -360,7 +394,9 @@ impl Ui {
+@@ -360,7 +398,9 @@ impl Ui {
  /// `egui_kittest` (no window), per frame: app update (layout + painting), tessellation, and the
  /// wgpu render of the frame when a GPU adapter exists.
  pub fn timeline(o: &Opts) -> Vec<Value> {
@@ -69,7 +58,7 @@ index ada15935..2e76a4ae 100644
          eprintln!("timeline: skipped (fixture unavailable)");
          return Vec::new();
      };
-@@ -370,7 +406,7 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
+@@ -370,7 +410,7 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
      for _ in 0..o.repeat {
          let mut s = Session::default();
          let item = playback::import(&mut s, &path);
@@ -78,7 +67,7 @@ index ada15935..2e76a4ae 100644
          let (tx, rx) = std::sync::mpsc::channel();
          let app = filmcraft_ui_egui::FilmcraftApp::new(s).with_control(rx);
          let mut b = egui_kittest::Harness::builder().with_size(egui::vec2(1920.0, 1080.0)).with_max_steps(100_000);
-@@ -383,14 +419,32 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
+@@ -383,14 +423,32 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
              ui.frame();
          }
          ui.call("ui.set", json!({"timeline": {"videoTrackHeight": 34, "audioTrackHeight": 30}}));
@@ -115,7 +104,7 @@ index ada15935..2e76a4ae 100644
                  std::thread::sleep(Duration::from_millis(5));
              }
              let (mut upd, mut tess, mut rend, mut total) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
-@@ -438,6 +492,7 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
+@@ -438,6 +496,7 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
              eprintln!("timeline {view}: update p50 {:.2} ms, p95 {:.2} ms", pct(&upd, 0.5), pct(&upd, 0.95));
              rows.push(json!({
                  "view": view, "clips": clips, "frames": frames, "gpu": gpu,
