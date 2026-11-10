@@ -1,0 +1,3 @@
+{
+  "reason": "V5 pair2 first side completed, second side exceeded remaining shared840s lease. Incomplete side retained/excluded. Increase prestart forecast to1.5x preceding side+30s, rather than1x+15s. No action clock/statistics/reset changed; all future comparison acquisitions use same operator. Completed sessions stay valid; record lease/deferral counts in final report."
+}
