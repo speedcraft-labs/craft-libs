@@ -1,6 +1,6 @@
 # LightCraft session latency — hyper #291 / ticket 313
 
-**In progress:** the typical 50 cohort below is complete and verified. The heavy 500 cohort is queued; no heavy timing result is claimed here. The new source uses a matching-geometry PNG export oracle and longer/stable untimed drains; those changes do not alter the completed cohort's recorded action clocks.
+**Completed scope:** the typical 50-RAW comparison below is final. The coordinator stopped optional heavy-500 stress at 7/30 sessions to release the queue; it supplies no published latency table or speed claim.
 
 The old launch-per-task rows mixed interaction with process startup and shutdown. This additive mode keeps a desktop session alive for import, full-quality preview, exposure dragging, filmstrip selection and JPEG export. Populated-library startup and idle quit are separate rows. Existing journeys and published reports are unchanged.
 
@@ -8,13 +8,13 @@ The old launch-per-task rows mixed interaction with process startup and shutdown
 
 Agentbox only: AMD Ryzen 9 5900XT, reserved logical CPUs 22–27, NVIDIA GeForce RTX 2080 Ti / Vulkan, driver 550.163.01, private 1920×1080 X display `:118`, 1600×1000 app window. All binaries were built before acquiring `bench.lock`, then exclusive `gpu.lock`, then `scripts/bench-run`. Each app uses its own Cargo.lock.
 
-Pinned app revisions:
+Pinned app revisions (frozen from the initial fetched comparison setup, not later moving main tips):
 
 - Fork point: `fc97c728644d399843d8201f83d25ccf81b89669` (merge-base after fetching both remotes).
 - Fork main: `09eb4c56accd9dc0e405510d099fee10d6a68f55`.
 - Upstream main: `f6b57b0b59f45f3cfae1fb8d26a834e336be5a11`.
 
-Ten sessions per revision per tier, in ABC/CBA blocks; two warm-ups and one measured repetition of import/preview/switch/export per session. The exposure gesture has two warm-up moves and 60 measured backpressured moves. Thus each action has 10 measured observations per side, except exposure with 600. Every warm-up and measured sample is retained. This is not a 60 Hz drag.
+Ten sessions per revision for the completed typical tier, in ABC/CBA blocks; two warm-ups and one measured repetition of import/preview/switch/export per session. The exposure gesture has two warm-up moves and 60 measured backpressured moves. Thus each action has 10 measured observations per side, except exposure with 600. Every warm-up and measured sample is retained. This is not a 60 Hz drag.
 
 Action clocks start immediately before sending the control request. Their endpoints are observed visible X11 frames whose complete RGB pixels match a successful native screenshot; failed native captures are retained/retried without resetting the action clock. Without an earlier exact match, native capture completion supplies a labeled upper bound. These instrumented observations include control, ready-state polling and capture overhead; they do not measure OS input delivery or scanout, and do not establish the unobserved first presentation time. Launch and exit never enter an action clock. The lifecycle test rejects both overlaps and fabricated durations.
 
@@ -75,7 +75,7 @@ Maximum observed latency (ms):
 
 The GPU lock is advisory. Admission polls the exact NVIDIA PID/name CSV every 30 seconds if a foreign process exists; a two-second watcher covers each attempt, with before/after snapshots retained. Observed contention discards and repeats the attempt. A 30-minute clean-session budget labels the whole tier provisional with offender names, and prevents publication. The supplemental five-second ledger is audited over accepted session windows. Sampling cannot observe a process that starts and exits entirely between polls. Shared-GPU and failed pilots remain excluded and retained with status sidecars; see [failed approaches](313-capture-failures.md).
 
-Full reports, native PNGs, candidate hashes/timestamps, GPU CSVs, logs, profiles and analysis scripts: `wormhole:/mnt/bulk/backups/speedcraft-labs/tickets/313-session-latency/20261110T032735Z/`. No build output or reproducible pinned RAW download cache is stored there. The [summary JSON](313-lightcraft-summary.json) records original report SHA-256, binary SHA-256, fingerprints, guards, parity metrics, p95/max and CIs. The [per-session timing projection](313-lightcraft-sessions.jsonl) retains every action sample and warm-up; full pixel proofs remain in the NAS source reports.
+Full reports, native PNGs, candidate hashes/timestamps, GPU CSVs, logs, profiles and analysis scripts: `wormhole:/mnt/bulk/backups/speedcraft-labs/tickets/313-session-latency/20261110T060949Z/313-session-latency/`. No build output or reproducible pinned RAW download cache is stored there. The [summary JSON](313-lightcraft-summary.json) records original report SHA-256, binary SHA-256, fingerprints, guards, parity metrics, p95/max and CIs. The [per-session timing projection](313-lightcraft-sessions.jsonl) retains every action sample and warm-up; full pixel proofs remain in the NAS source reports.
 
 ## Quit-time hypothesis
 
@@ -90,16 +90,22 @@ Cold legacy-path diagnostic, ms. Deltas are paired fork-main minus fork-point ob
 | save | 142.1/244.8 | 2249.8/2470.8 | 2005.2 | 2112.0 | -76.0 (-155.1–-0.6) |
 | export | 110.1/347.9 | 2212.7/2616.3 | 1997.8 | 2096.5 | -123.9 (-194.1–-41.6) |
 
-The two seconds are a timeout while `lc-gpu-window` / `lc-gpu-kernels` remain inside NVIDIA shader compilation. Fork main eagerly builds 48 unused radius-specific median pipelines (87 kernels total versus 38 at the fork point). One cold profiled initialization took 111,952 ms; a warm shader cache reduced it to 853 ms. These are separate diagnostic observations, not session action statistics. The host shutdown deadline is two seconds; the last-resort atexit guard is installed only after GPU initialization completes. Deferring unused compilation or improving cancellation is fixable but exceeds a few lines. Removing exit protection risks the crash it prevents. No app code is changed here. See [hyper #317](https://github.com/speedcraft-labs/hyper/issues/317) and the existing #309 fix work.
+The two seconds are a timeout while `lc-gpu-window` / `lc-gpu-kernels` remain inside NVIDIA shader compilation. Fork main eagerly builds 48 unused radius-specific median pipelines (87 kernels total versus 38 at the fork point). One cold profiled initialization took 111,952 ms; a warm shader cache reduced it to 853 ms. These are separate diagnostic observations, not session action statistics. The host shutdown deadline is two seconds; the last-resort atexit guard is installed only after GPU initialization completes. Deferring unused compilation or improving cancellation is fixable but exceeds a few lines. Removing exit protection risks the crash it prevents. No app code is changed here. See [hyper #317](https://github.com/speedcraft-labs/hyper/issues/317) and the existing #309 fix work. As of the final report, #309 has a separate proposed exit-drain fix (`0218fd9d`) and both tracker issues remain open; this report evaluates only the frozen revisions above.
 
 A separate clean-GPU cold attempt observed SIGSEGV; its exact exit time was unavailable in the old controller and is explicitly retained as such. The complete 120-attempt rerun had zero failures; that does not erase the earlier crash. Diagnostic records now retain all exit statuses and never substitute forced termination for quit. Cold fork-main rendering may use CPU fallback while GPU initialization is pending, so no interactive GPU-speed claim follows from the cold process diagnostic. All 40 primary diagnostic output comparisons pass; upstream JPEG MAE 0.629 exceeds its preset 0.5 bound, so that secondary export observation is descriptive.
+
+## Optional stress and lock scheduling
+
+Heavy-500 v4 retained seven completed sessions: fork point 3, fork main 2, upstream 2. There are only two complete pairs, no final acquisition CPU guard, and no ten-pair inference. Its raw report and 510 supplemental GPU snapshots are retained; no foreign process was observed in those accepted windows. The coordinator stopped the almost-90-minute acquisition with 13 benchmarks waiting. The first upstream untimed background drain took 801 seconds. No heavy ratio or verdict is published.
+
+Future commands run one pair per acquisition, resume through `resume_report` into a fresh directory, and retain every acquisition guard. Missing or contended guards prevent publication. Use the README timeout inside both locks to cap each acquisition at 15 minutes; release between pairs. Heavy stress is optional and runs only without queued workers. The interrupted monolithic approach is preserved on `failed/313-monolithic-stress-lock`.
 
 ## Follow-ups and validation
 
 
-`cargo test -p craft-journeys` passes (three Rust tests including 20 Python evidence/statistics tests); formatting and targeted journeys clippy pass. Required workspace validation is not green: the latest full run fails unchanged HEVC conformance::bframes and conformance::draft_mode_changes_only_flagged_non_reference_pictures; both reproduce in isolation (Y mismatch 151 versus 147, max 66, 20460 samples in bframes). Workspace clippy reports two unchanged GPU-blur shader assign-op lints and an unchanged AV1 test sort lint. Earlier H.264 rapid-reset runs exceeded 300 seconds, but that test passed in the latest full run. An initial low-priority craft-diff timing test failed at 38 s; its isolated normal-priority retry passed at 16.9 s. Those results and failed cleanup experiments are retained. No unrelated codec/shader edits are included. The PR must remain open unless the required checks and reviews become green.
+`cargo test -p craft-journeys` passes (three Rust tests including 23 Python evidence/statistics tests); formatting and targeted journeys clippy pass. Required workspace validation is not green: the latest full run fails unchanged HEVC conformance::bframes and conformance::draft_mode_changes_only_flagged_non_reference_pictures; both reproduce in isolation (Y mismatch 151 versus 147, max 66, 20460 samples in bframes). Workspace clippy reports two unchanged GPU-blur shader assign-op lints and an unchanged AV1 test sort lint. Earlier H.264 rapid-reset runs exceeded 300 seconds, but that test passed in the latest full run. An initial low-priority craft-diff timing test failed at 38 s; its isolated normal-priority retry passed at 16.9 s. Those results and failed cleanup experiments are retained. No unrelated codec/shader edits are included. The PR must remain open unless the required checks and reviews become green.
 
-Pushed branches: `algo/313-session-latency`, `wip/313-session-latency`, and `failed/313-{shared-target-cache,corpus-layout,native-capture-pilot,retry-frame-bound,shared-gpu-matrix,gpu-lock-rejections,workspace-lint-attempt,cold-quit-segv,grid-overscroll,upstream-prep-timeout,preview-geometry-oracle}`. [Build failures](313-build-notes.md) and [capture/traversal failures](313-capture-failures.md) explain why those approaches were dropped.
+Pushed branches: `algo/313-session-latency`, `wip/313-session-latency`, and `failed/313-{shared-target-cache,corpus-layout,native-capture-pilot,retry-frame-bound,shared-gpu-matrix,gpu-lock-rejections,workspace-lint-attempt,cold-quit-segv,grid-overscroll,upstream-prep-timeout,preview-geometry-oracle,monolithic-stress-lock}`. [Build failures](313-build-notes.md) and [capture/traversal failures](313-capture-failures.md) explain why those approaches were dropped.
 
 Reproduce every timing statistic from the committed projection (full pixel proofs
 remain in NAS):
