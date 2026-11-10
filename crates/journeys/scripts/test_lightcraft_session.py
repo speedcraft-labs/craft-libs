@@ -446,5 +446,17 @@ class Boundaries(unittest.TestCase):
                     self.assertEqual(json.loads(control.read_reply())['id'],2)
                     control.reader.close()
 
+    def test_incomplete_pair_count_cannot_claim_zero_mde_or_a_change(self):
+        from lightcraft_session_report import ACTIONS
+        sessions=[]
+        for side,factor in [('point',2),('main',1)]:
+            s=fixture();s.update(side=side,tier='test',pair=0,startup_library_ns=factor*10)
+            s['samples']=[dict(copy.deepcopy(s['samples'][0]),action=a,frame_ns=30+factor*10,duration_ns=factor*10) for a in ACTIONS]
+            sessions.append(s)
+        row=summarize(sessions,resamples=20,aa=True)[0]
+        self.assertEqual(row['verdict'],'insufficient paired sessions')
+        self.assertIsNone(row['minimum_detectable_effect_pct'])
+        self.assertFalse(row['aa_pass'])
+
 
 if __name__=='__main__': unittest.main()
