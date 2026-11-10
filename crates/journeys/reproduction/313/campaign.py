@@ -13,12 +13,16 @@ def heartbeat():
   os.utime(root/'targets/313-session-latency',None)
   time.sleep(30)
 threading.Thread(target=heartbeat,daemon=True).start()
-for generation in range(10000):
+scan_history=True
+previous=[int(p.stem.rsplit('-',1)[1]) for p in k.glob(label+'-generation-*.json')]
+start=max(previous,default=-1)+1
+for generation in range(start,10000):
  if hashlib.sha256(driver.read_bytes()).hexdigest()!=frozen:
   raise RuntimeError('driver changed; review before resuming')
  paths=[Path(config['resume_report'])] if config.get('resume_report') else []
- for folder in k.glob(label+'-attempt-*'):
-  if folder.is_dir():paths+=list(folder.glob('report.json'))+list(folder.glob('*/report.json'))
+ if scan_history:
+  for folder in k.glob(label+'-attempt-*'):
+   if folder.is_dir():paths+=list(folder.glob('report.json'))+list(folder.glob('*/report.json'))
  candidates=[]
  for path in paths:
   try:report=json.load(open(path))
@@ -27,6 +31,11 @@ for generation in range(10000):
       and report.get('guard',{}).get('contended') is False
       and report.get('prior_acquisitions_passed') and report.get('gpu_process_checks_passed')
       and report.get('output_checked') and not report.get('failure')):
+   if config.get('require_contiguous_pair'):
+    masks={}
+    for sample in report['sessions']:
+     masks.setdefault((sample['tier'],sample['pair']),set()).add(sample['side'])
+    if any(mask.intersection({'point','main'}) not in (set(),{'point','main'}) for mask in masks.values()):continue
    info=dict(actual={(s['tier'],s['pair'],s['side']) for s in report['sessions']},publishable=report.get('publishable'),comparison_complete=report.get('comparison_complete'))
    candidates.append((len(report['sessions']),path.stat().st_mtime,path,info))
  report=None  # Do not retain megabytes of every cumulative report while benchmarking.
@@ -60,4 +69,9 @@ for generation in range(10000):
   splits=list(k.glob(prefix+'-*.deferred.json'))+list(k.glob(prefix+'-*.lease-expired.json'))
   if splits:raise RuntimeError('contiguous-pair protocol interrupted; preserve whole acquisition for review: '+str(splits))
  print('attempt ended',code,'completed sides retained',flush=True)
+ if code==0:
+  # A successful run-pairs selection is complete; validate its final guarded
+  # report once rather than parsing every cumulative ancestor again.
+  config['resume_report']=(k/(prefix+'-latest.txt')).read_text().strip()
+  scan_history=False
 else:raise RuntimeError('campaign retry limit reached')

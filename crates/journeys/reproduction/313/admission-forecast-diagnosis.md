@@ -1,0 +1,5 @@
+The second v6 acquisition spent 496.179 s under the GPU condition. Its accepted main session took 181.333 s from app launch through last quit; last quit to release was 7.077 s. About 307.769 s preceded the accepted launch. The log explicitly records a discarded attempt and GPU waits for `/jobs/work/speedcraft-labs/targets/359-effectcraft/debug/deps/effectcraft_gpu-5e143e90eb7d853c`, which appeared despite our exclusive GPU lock. No such attempt is included as a latency observation.
+
+The forecast incorrectly used 494.128 s (all admission + accepted work), requiring 771.192 s for the counterpart when only 344.709 s remained. It now uses accepted launch through validation/cleanup, retaining the same 1.5 multiplier and 30 s reserve. The actual action clocks and bootstrap are unchanged. The 840 s controller deadline remains unchanged.
+
+Resume v6 from its complete first pair only. The lone accepted main session from split pair 1 is retained as resource-rejected diagnostic data, not paired with a later acquisition. Candidate selection now enforces this complete-primary-pair invariant and never overwrites prior generation configs on restart.
