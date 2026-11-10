@@ -13,9 +13,10 @@ def validate_session(session):
     if not session['gpu_adapter']:
         raise ValueError('empty GPU adapter')
     own=set(session.get('process_ids',[]))
-    for field in ('gpu_processes_before','gpu_processes_after'):
-        snapshot=session.get(field)
-        if snapshot is not None and any(p['pid'] not in own for p in snapshot['processes']):
+    snapshots=[session.get(field) for field in ('gpu_admission_snapshot','gpu_processes_before','gpu_processes_after')]
+    snapshots+=session.get('gpu_poll_snapshots',[])
+    for snapshot in snapshots:
+        if not session.get('gpu_provisional') and snapshot is not None and any(p['pid'] not in own for p in snapshot['processes']):
             raise ValueError('foreign GPU process makes session not publishable')
     for action in session['samples']:
         if action['action'] not in ACTIONS:
@@ -84,7 +85,7 @@ def summarize(sessions, resamples=2000):
                 med = {side: statistics.median(x for i in indices for x in group[i]) for side, group in clusters.items()}
                 ratios.append(med['point'] / med['main'])
             ci = [percentile(ratios, .025), percentile(ratios, .975)]
-            rows.append(dict(tier=tier, action=action, sides=stats, speedup=stats['point']['median_ns']/stats['main']['median_ns'], ci95=ci,
+            rows.append(dict(tier=tier, action=action, provisional=any(s.get('gpu_provisional') for group in groups.values() for s in group), gpu_offenders=sorted({p['name'] for group in groups.values() for s in group for p in s.get('gpu_foreign_processes',[])}), sides=stats, speedup=stats['point']['median_ns']/stats['main']['median_ns'], ci95=ci,
                              verdict='faster' if ci[0] > 1 else 'slower' if ci[1] < 1 else 'no measurable change'))
     return rows
 
@@ -92,7 +93,10 @@ def summarize(sessions, resamples=2000):
 def markdown(rows):
     lines = ['Ratio = fork point / fork main; >1 favors fork main. Times in ms. CI resamples whole paired sessions, not individual slider steps.']
     for tier in sorted({r['tier'] for r in rows}):
-        lines += ['', f'Payload: {tier}', '', '| Action | Fork point median/p95 | Fork main median/p95 | Ratio (95% CI) | Upstream median | Verdict |', '|---|---:|---:|---:|---:|---|']
+        provisional=any(r.get('provisional') for r in rows if r['tier']==tier)
+        offenders=sorted({name for r in rows if r['tier']==tier for name in r.get('gpu_offenders',[])})
+        label=f'Payload: {tier}'+(' — PROVISIONAL (shared GPU; '+', '.join(offenders)+')' if provisional else '')
+        lines += ['', label, '', '| Action | Fork point median/p95 | Fork main median/p95 | Ratio (95% CI) | Upstream median | Verdict |', '|---|---:|---:|---:|---:|---|']
         for r in rows:
             if r['tier'] != tier:
                 continue

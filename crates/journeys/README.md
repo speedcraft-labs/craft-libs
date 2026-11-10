@@ -413,10 +413,20 @@ GPU isolation is mandatory on Agentbox: acquire `bench.lock`, then **exclusive**
 `gpu.lock`, then invoke `bench-run`. Other GPU tests take the GPU lock shared.
 Before launch and after the populated-library startup process has exited, every
 session records the complete `nvidia-smi --query-compute-apps=pid,name --format=csv`
-result with a monotonic timestamp. Any foreign PID rejects publication. The
-initial GPU-sharing pilots are marked provisional and excluded, even if the CPU
-guard passed; the published matrix is re-measured under the exclusive GPU lock.
-The cold quit diagnostic records the same process snapshots outside its clocks.
+result with a monotonic timestamp. A watcher also records it every two seconds
+throughout each session, including populated-library startup. Before each attempt,
+a foreign process causes a 30-second admission poll. A contaminated attempt is
+retained under `discarded_sessions` with process names and repeated in a fresh
+directory. Waiting and discarded attempts share a 30-minute budget per requested
+session. If that budget expires, the next fresh attempt proceeds and the entire
+tier is labeled **provisional**, with offending process names. Remaining sessions
+in that tier retain the same label. Such a report cannot pass the publication
+gate; its table is explicitly a shared-GPU observation. Clean accepted attempts
+alone enter the primary table; discarded attempts never enter its bootstrap.
+This fallback implements the benchmark operator's explicit shared-GPU policy.
+The initial GPU-sharing pilots remain excluded. The cold quit diagnostic records
+the same process snapshots outside its clocks. Polling detects observed foreign
+processes; a process that starts and exits entirely between polls can escape it.
 
 
 Before accepting the completed matrix, the output verifier also hashes the inner

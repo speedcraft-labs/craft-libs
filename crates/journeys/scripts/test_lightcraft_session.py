@@ -119,6 +119,68 @@ class Boundaries(unittest.TestCase):
         s['gpu_processes_after']['processes'].append({'pid':456,'name':'other GPU test'})
         with self.assertRaisesRegex(ValueError,'foreign GPU'):validate_session(s)
 
+    def test_gpu_admission_waits_in_30_second_polls_and_has_a_deadline(self):
+        from lightcraft_real_app import session_gpu_admit
+        foreign={'processes':[{'pid':456,'name':'unlocked-test'}]}
+        clean={'processes':[]}
+        clock=[0];sleeps=[];waits=[]
+        def pause(seconds):sleeps.append(seconds);clock[0]+=seconds
+        observations=iter([foreign,foreign,clean])
+        admitted,provisional=session_gpu_admit(1800,observe=lambda:next(observations),pause=pause,now=lambda:clock[0],on_wait=waits.append)
+        self.assertEqual((admitted,provisional),(clean,False))
+        self.assertEqual(sleeps,[30,30])
+        clock[0]=0;sleeps.clear()
+        admitted,provisional=session_gpu_admit(1800,observe=lambda:foreign,pause=pause,now=lambda:clock[0])
+        self.assertEqual((clock[0],len(sleeps),provisional),(1800,60,True))
+        self.assertEqual(admitted,foreign)
+
+    def test_gpu_contamination_discards_then_repeats_the_session(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from lightcraft_real_app import session_guarded_attempt
+        clean={'processes':[]};foreign={'processes':[{'pid':456,'name':'unlocked-test'}]}
+        class Watch:
+            count=0
+            def __init__(self):
+                self.samples=[foreign if Watch.count==0 else clean];self.errors=[];Watch.count+=1
+            def start(self):pass
+            def stop(self):pass
+        with tempfile.TemporaryDirectory() as tmp:
+            report={};calls=[]
+            def run(directory,provisional):
+                calls.append((directory,provisional));directory.mkdir()
+                return {'process_ids':[123]}
+            with patch('lightcraft_real_app.session_gpu_admit',return_value=(clean,False)), patch('lightcraft_real_app.SessionGpuWatch',Watch), patch('lightcraft_real_app.session_gpu_processes',return_value=clean):
+                accepted=session_guarded_attempt(report,lambda:None,Path('/our-app'),Path(tmp)/'session','typical','main',0,run)
+            self.assertEqual(len(calls),2)
+            self.assertNotEqual(calls[0][0],calls[1][0])
+            self.assertEqual(report['discarded_sessions'][0]['gpu_foreign_processes'],foreign['processes'])
+            self.assertEqual(accepted['gpu_status'],'clean')
+            self.assertTrue((calls[0][0]/'discarded-session.json').exists())
+
+    def test_shared_gpu_fallback_remains_labeled_provisional(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from lightcraft_real_app import session_guarded_attempt
+        foreign={'processes':[{'pid':456,'name':'unlocked-test'}]}
+        class Watch:
+            samples=[foreign];errors=[]
+            def start(self):pass
+            def stop(self):pass
+        with tempfile.TemporaryDirectory() as tmp:
+            report={}
+            def run(directory,provisional):
+                self.assertTrue(provisional);directory.mkdir();return fixture()
+            with patch('lightcraft_real_app.session_gpu_admit',return_value=(foreign,True)), patch('lightcraft_real_app.SessionGpuWatch',Watch), patch('lightcraft_real_app.session_gpu_processes',return_value=foreign):
+                accepted=session_guarded_attempt(report,lambda:None,Path('/our-app'),Path(tmp)/'session','typical','main',0,run)
+            self.assertEqual(report['provisional_tiers'],{'typical':['unlocked-test']})
+            self.assertEqual(accepted['gpu_status'],'shared-provisional')
+            validate_session(accepted)
+            accepted['gpu_provisional']=False
+            with self.assertRaisesRegex(ValueError,'foreign GPU'):validate_session(accepted)
+
     def test_stable_ratio_resamples_sessions(self):
         from lightcraft_session_report import ACTIONS
         sessions=[]
