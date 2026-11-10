@@ -1,0 +1,7 @@
+The v5 fixed-GPU A/A repeated each action 10 times in each of 10 app sessions per build, with 2 warmups and 4 exposure steps. Graphics/memory clocks were 1350/7000 MHz. The timed driver remains unchanged.
+
+The lease controller correctly released before starting a side that would predictably overrun 840 seconds, but that broke adjacent pairing. The first eight complete pairs had between-side gaps of 9.9, 16.7, 789.2, 61.2, 114.0, 304.8, 653.2, and 625.8 seconds. Warm-switch interim half-width was 13.2%; import 13.5%; quit 4.5%. All builds are the same app commit 5f816e195b9b23febef83f6c3687e7c049f9c93d; source hashes and raw reports are in the ticket keep directory. These eight-pair values are diagnostic, not a completed acceptance gate.
+
+Complete and retain the original ten-pair run. Independently test 20 paired sessions with 4 repetitions per action, unchanged 2 warmups and 4 exposure steps. Require both sides to complete under one lease. Any resource split stops the campaign for review, rather than silently resuming an isolated side. No original samples enter the replacement A/A. This changes time coupling and the balance of between/within-session sampling; it does not trim latency outliers or change the clock/statistic.
+
+Raw checkpoint: /jobs/work/speedcraft-labs/keep/313-session-latency/sensitivity/aa-v5-fixed-attempt-37-8/report.json. New protocol: sensitivity/v6-protocol-predeclared.json.

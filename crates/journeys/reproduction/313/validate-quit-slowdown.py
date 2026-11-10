@@ -1,10 +1,10 @@
 """Validate the real shutdown delay inside each measured PID lifetime."""
 import json,statistics as st,sys
 from pathlib import Path
-k=Path(__file__).parent;report=json.load(open(sys.argv[1]));p=json.load(open(k/'quit-slowdown-v5-provenance.json'))
+k=Path(__file__).parent;report=json.load(open(sys.argv[1]));p=json.load(open(k/('quit-slowdown-v6-provenance.json' if report['config'].get('require_contiguous_pair') else 'quit-slowdown-v5-provenance.json')))
 assert report['comparison_complete'] and report['output_checked'] and report['gpu_process_checks_passed']
 assert report['guard']['contended'] is False and report['prior_acquisitions_passed']
-assert len(report['sessions'])==20
+assert len(report['sessions'])==2*report['config']['sessions']
 rows=[]
 for s in report['sessions']:
  logs=[json.loads(x) for x in (Path(s['directory'])/'profile/test-quit-delay.jsonl').read_text().splitlines()]

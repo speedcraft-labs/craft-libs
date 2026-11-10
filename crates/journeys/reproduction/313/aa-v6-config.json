@@ -1,0 +1,34 @@
+{
+  "revisions": {
+    "point": {
+      "revision": "5f816e195b9b23febef83f6c3687e7c049f9c93d",
+      "binary": "/jobs/work/speedcraft-labs/targets/313-session-latency/binaries/lightcraft-main-current-a"
+    },
+    "main": {
+      "revision": "5f816e195b9b23febef83f6c3687e7c049f9c93d",
+      "binary": "/jobs/work/speedcraft-labs/targets/313-session-latency/binaries/lightcraft-main-aa-b"
+    }
+  },
+  "payloads": {
+    "typical-50": "/jobs/work/speedcraft-labs/hyper/corpus/lightcraft-session-tiers-2026/typical-50"
+  },
+  "sessions": 20,
+  "warmups": 2,
+  "repetitions": 4,
+  "exposure_steps": 4,
+  "sides": [
+    "point",
+    "main"
+  ],
+  "aa": true,
+  "measurement_method": "first-grid-quickack-fixed-gpu-v5",
+  "acquisition": "contiguous-AB-BA-one-pair-per-lease",
+  "import_endpoint": "first-usable-grid-after-all-catalog-entries",
+  "statistic": "paired-session-median-log-ratio-stratified-by-order",
+  "gpu_state": {
+    "graphics_mhz": 1350,
+    "memory_mhz": 7000,
+    "power_mizer_mode": 1
+  },
+  "require_contiguous_pair": true
+}

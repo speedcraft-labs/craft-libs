@@ -1,0 +1,10 @@
+{
+  "reason": "V5 8 complete pairs had between-side gaps 9.9,16.7,789.2,61.2,114.0,304.8,653.2,625.8 seconds because two long app sessions did not reliably fit one lease. Complete v5 then independently collect shorter contiguous pairs.",
+  "sessions": 20,
+  "repetitions": 4,
+  "warmups": 2,
+  "exposure_steps": 4,
+  "no_numeric_trimming": true,
+  "resource_split_policy": "Stop and review; never silently resume one side under contiguous-pair protocol.",
+  "action_driver_unchanged": true
+}

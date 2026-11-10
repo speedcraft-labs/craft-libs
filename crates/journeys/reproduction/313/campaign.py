@@ -54,5 +54,8 @@ for generation in range(10000):
   if report.get('failure') and not path.parent.parent.with_suffix('.lease-expired.json').exists():
    fatal.append((str(path),report['failure']))
  if fatal:raise RuntimeError('non-resource failure requires review: '+str(fatal))
+ if config.get('require_contiguous_pair'):
+  splits=list(k.glob(prefix+'-*.deferred.json'))+list(k.glob(prefix+'-*.lease-expired.json'))
+  if splits:raise RuntimeError('contiguous-pair protocol interrupted; preserve whole acquisition for review: '+str(splits))
  print('attempt ended',code,'completed sides retained',flush=True)
 else:raise RuntimeError('campaign retry limit reached')
