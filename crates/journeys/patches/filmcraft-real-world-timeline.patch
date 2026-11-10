@@ -49,7 +49,7 @@ index 7928ccea..0018a252 100644
      let mut stages = Vec::new();
      for i in 0..runs {
 diff --git a/crates/ui-egui/examples/bench/playback.rs b/crates/ui-egui/examples/bench/playback.rs
-index 6dde3a10..2b041ecd 100644
+index 6dde3a10..ce451f53 100644
 --- a/crates/ui-egui/examples/bench/playback.rs
 +++ b/crates/ui-egui/examples/bench/playback.rs
 @@ -35,6 +35,11 @@ pub fn import(s: &mut Session, path: &Path) -> ItemId {
@@ -64,19 +64,7 @@ index 6dde3a10..2b041ecd 100644
  /// One clip per track from t = 0 (`layers[0]` on V1), with (scale %, position, rotation°,
  /// opacity %) Motion/Opacity settings per layer.
  pub fn build_sequence(s: &mut Session, w: u32, h: u32, layers: &[(ItemId, f64, Option<(f64, f64)>, f64, f64)], effects: &[&str], secs: f64) -> ItemId {
-@@ -137,10 +142,7 @@ impl Display {
-     }
- 
-     fn target(&self, seq: ItemId) -> Target {
--        match &self.gpu {
--            Some((c, _)) => Target::SequencePlan(seq, c.caps()),
--            None => Target::Sequence(seq),
--        }
-+        if self.gpu.is_some() { Target::SequencePlan(seq) } else { Target::Sequence(seq) }
-     }
- 
-     /// Show the exact frame, or the nearest earlier cached one; returns whether it was exact.
-@@ -670,6 +672,16 @@ fn parse_args() -> Args {
+@@ -670,6 +675,16 @@ fn parse_args() -> Args {
  pub fn scenario_session(name: &str) -> Option<(Session, ItemId)> {
      let mut s = Session::default();
      let seq = match name {
@@ -94,21 +82,10 @@ index 6dde3a10..2b041ecd 100644
              let a = import(&mut s, &fixture("a1080.mp4")?);
              build_sequence(&mut s, 1920, 1080, &[(a, 100.0, None, 0.0, 100.0)], &[], 20.0)
 diff --git a/crates/ui-egui/examples/bench/sections.rs b/crates/ui-egui/examples/bench/sections.rs
-index ada15935..d78264fc 100644
+index ada15935..9f978ae6 100644
 --- a/crates/ui-egui/examples/bench/sections.rs
 +++ b/crates/ui-egui/examples/bench/sections.rs
-@@ -29,10 +29,6 @@ fn gpu_export_frame_renderer_factory() -> Option<Box<dyn filmcraft_export::Frame
-         ) -> Option<filmcraft_render::Image> {
-             self.0.render(project, seq, t, opts, sources)
-         }
--
--        fn caps(&self) -> filmcraft_render::plan::DeviceCaps {
--            self.0.caps()
--        }
-     }
-     filmcraft_gpu::ExportRenderer::new().map(|r| Box::new(R(r)) as Box<dyn filmcraft_export::FrameRenderer>)
- }
-@@ -189,6 +185,7 @@ pub fn playback(o: &Opts) -> Vec<Value> {
+@@ -189,6 +189,7 @@ pub fn playback(o: &Opts) -> Vec<Value> {
      let seconds = if o.quick { 4.0 } else { 8.0 };
      // (scenario, resolution, scale, draft decoding)
      let cases: &[(&str, &str, f32, bool)] = &[
@@ -116,7 +93,7 @@ index ada15935..d78264fc 100644
          ("h264-1080", "full", 1.0, false),
          ("stack3", "full", 1.0, false),
          ("stack3-blend", "full", 1.0, false),
-@@ -252,7 +249,7 @@ pub fn playback(o: &Opts) -> Vec<Value> {
+@@ -252,7 +253,7 @@ pub fn playback(o: &Opts) -> Vec<Value> {
  pub fn scrub(o: &Opts) -> Vec<Value> {
      let (seeks, drags) = if o.quick { (8, 3) } else { (24, 8) };
      let mut rows = Vec::new();
@@ -125,7 +102,7 @@ index ada15935..d78264fc 100644
          let Some((s, seq)) = playback::scenario_session(scenario) else {
              eprintln!("scrub {scenario}: skipped (fixtures unavailable)");
              continue;
-@@ -327,6 +324,46 @@ pub fn big_sequence(s: &mut Session, item: ItemId, name: &str, seed: u64) -> (It
+@@ -327,6 +328,46 @@ pub fn big_sequence(s: &mut Session, item: ItemId, name: &str, seed: u64) -> (It
      .expect("big sequence")
  }
  
@@ -172,7 +149,7 @@ index ada15935..d78264fc 100644
  // ------------------------------------------------------------------------------------ timeline UI
  
  struct Ui {
-@@ -360,7 +397,9 @@ impl Ui {
+@@ -360,7 +401,9 @@ impl Ui {
  /// `egui_kittest` (no window), per frame: app update (layout + painting), tessellation, and the
  /// wgpu render of the frame when a GPU adapter exists.
  pub fn timeline(o: &Opts) -> Vec<Value> {
@@ -183,7 +160,7 @@ index ada15935..d78264fc 100644
          eprintln!("timeline: skipped (fixture unavailable)");
          return Vec::new();
      };
-@@ -369,8 +408,13 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
+@@ -369,8 +412,13 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
      let mut rows = Vec::new();
      for _ in 0..o.repeat {
          let mut s = Session::default();
@@ -199,7 +176,7 @@ index ada15935..d78264fc 100644
          let (tx, rx) = std::sync::mpsc::channel();
          let app = filmcraft_ui_egui::FilmcraftApp::new(s).with_control(rx);
          let mut b = egui_kittest::Harness::builder().with_size(egui::vec2(1920.0, 1080.0)).with_max_steps(100_000);
-@@ -383,14 +427,32 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
+@@ -383,14 +431,32 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
              ui.frame();
          }
          ui.call("ui.set", json!({"timeline": {"videoTrackHeight": 34, "audioTrackHeight": 30}}));
@@ -236,7 +213,7 @@ index ada15935..d78264fc 100644
                  std::thread::sleep(Duration::from_millis(5));
              }
              let (mut upd, mut tess, mut rend, mut total) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
-@@ -438,6 +500,7 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
+@@ -438,6 +504,7 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
              eprintln!("timeline {view}: update p50 {:.2} ms, p95 {:.2} ms", pct(&upd, 0.5), pct(&upd, 0.95));
              rows.push(json!({
                  "view": view, "clips": clips, "frames": frames, "gpu": gpu,
