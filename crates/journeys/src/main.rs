@@ -1116,6 +1116,9 @@ fn execute_session(args: &[String]) -> Result<bool, String> {
     use craft_bench::probe::{Fingerprint, Readings, RealProbe, SystemProbe, evaluate};
     let config = arg(args, "--config")?;
     let out = PathBuf::from(arg(args, "--out")?);
+    if out.exists() {
+        return Err(format!("session output directory already exists: {}", out.display()));
+    }
     let probe = RealProbe;
     let load_before = probe.load1();
     let throttle_before = probe.throttle();
@@ -1217,4 +1220,17 @@ mod tests {
 fn lightcraft_session_boundaries_and_statistics() {
     let status = Command::new("python3").arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/test_lightcraft_session.py")).status().unwrap();
     assert!(status.success(), "session lifecycle/report tests failed");
+}
+
+#[cfg(test)]
+#[test]
+fn session_refuses_to_rewrite_an_existing_report() {
+    let out = std::env::temp_dir().join(format!("craft-journeys-existing-session-{}", std::process::id()));
+    std::fs::create_dir_all(&out).unwrap();
+    let report = out.join("report.json");
+    std::fs::write(&report, b"original evidence").unwrap();
+    let args = ["session", "--config", "missing-config", "--out", out.to_str().unwrap()].map(str::to_string);
+    assert!(execute_session(&args).unwrap_err().contains("already exists"));
+    assert_eq!(std::fs::read(&report).unwrap(), b"original evidence");
+    std::fs::remove_dir_all(out).unwrap();
 }

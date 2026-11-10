@@ -569,16 +569,135 @@ def session_gpu_processes():
     return dict(ns=time.perf_counter_ns(),command=command,csv=output,processes=processes)
 
 
-def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups):
+def session_gpu_foreign(snapshots, own_pids=(), own_binary=None):
+    own=set(own_pids)
+    found={}
+    for snapshot in snapshots:
+        for process in (snapshot or {}).get('processes',[]):
+            if process['pid'] in own or (own_binary is not None and process['name']==str(own_binary)):
+                continue
+            found[(process['pid'],process['name'])]=process
+    return sorted(found.values(),key=lambda process:(process['name'],process['pid']))
+
+
+def session_gpu_admit(deadline, provisional=False, observe=None, pause=None, now=None, on_wait=None):
+    observe=observe or session_gpu_processes
+    pause=pause or time.sleep
+    now=now or time.monotonic
+    while True:
+        snapshot=observe()
+        if not snapshot['processes']:
+            return snapshot,provisional
+        if provisional or now()>=deadline:
+            return snapshot,True
+        if on_wait is not None:on_wait(snapshot)
+        pause(min(30,max(0,deadline-now())))
+
+
+class SessionGpuWatch:
+    def __init__(self):
+        import threading
+        self.samples=[]
+        self.errors=[]
+        self.stopped=threading.Event()
+        self.thread=threading.Thread(target=self.collect,daemon=True)
+
+    def collect(self):
+        while not self.stopped.is_set():
+            try:self.samples.append(session_gpu_processes())
+            except Exception as error:self.errors.append(str(error))
+            self.stopped.wait(2)
+
+    def start(self):self.thread.start()
+
+    def stop(self):
+        self.stopped.set()
+        self.thread.join(timeout=20)
+        if self.thread.is_alive():self.errors.append('GPU process watcher did not stop')
+
+
+def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,run):
+    """Resource admission around the existing driver; action clocks stay inside run()."""
+    deadline=time.monotonic()+1800
+    cycle_started=time.perf_counter_ns()
+    attempt=0
+    report.setdefault('discarded_sessions',[])
+    report.setdefault('failed_sessions',[])
+    report.setdefault('gpu_wait_events',[])
+    provisional_tiers=report.setdefault('provisional_tiers',{})
+    def mark_provisional(offenders):
+        names=provisional_tiers.setdefault(tier,[])
+        names[:]=sorted(set(names)|{p['name'] for p in offenders})
+    while True:
+        def waited(snapshot):
+            report['gpu_wait_events'].append(dict(tier=tier,side=side,pair=pair,attempt=attempt,snapshot=snapshot))
+            print(f'GPU wait {tier} pair {pair} {side}: '+', '.join(p['name'] for p in snapshot['processes']),flush=True)
+            checkpoint()
+        admitted,provisional=session_gpu_admit(deadline,tier in provisional_tiers,on_wait=waited)
+        if provisional:
+            mark_provisional(admitted['processes'])
+            print(f'PROVISIONAL {tier}: GPU-clean session budget exhausted; offenders '+', '.join(provisional_tiers[tier]),flush=True)
+        attempt_dir=directory.with_name(f'{directory.name}-attempt-{attempt}')
+        watcher=SessionGpuWatch()
+        watcher.start()
+        error=None
+        try:
+            record=run(attempt_dir,provisional)
+        except Exception as failure:
+            error=failure
+            record={}
+            for name in ('partial-session.json','diagnostic.json'):
+                path=attempt_dir/name
+                if path.exists():record=json.loads(path.read_text());break
+            rejected=attempt_dir/'gpu-processes-rejected.json'
+            if rejected.exists():record['gpu_processes_before']=json.loads(rejected.read_text())
+        finally:
+            watcher.stop()
+        after=session_gpu_processes()
+        record.setdefault('gpu_processes_before',admitted)
+        record.update(directory=str(attempt_dir),side=side,tier=tier,pair=pair,attempt=attempt,
+                      gpu_processes_after=after,gpu_poll_snapshots=watcher.samples,
+                      gpu_admission_snapshot=admitted,gpu_wait_cycle_started_ns=cycle_started,
+                      gpu_provisional=provisional)
+        foreign=session_gpu_foreign([admitted,record['gpu_processes_before'],after,*watcher.samples],record.get('process_ids',[]),binary)
+        record['gpu_foreign_processes']=foreign
+        if error is not None:record['application_error']=str(error)
+        if watcher.errors:record['gpu_inspection_errors']=watcher.errors
+        attempt_dir.mkdir(parents=True,exist_ok=True)
+        if foreign and not provisional:
+            record['gpu_status']='discarded-contention'
+            report['discarded_sessions'].append(record)
+            (attempt_dir/'discarded-session.json').write_text(json.dumps(record,indent=2)+'\n')
+            if (attempt_dir/'session.json').exists():(attempt_dir/'session.json').write_text(json.dumps(record,indent=2)+'\n')
+            print(f'discard {tier} pair {pair} {side} attempt {attempt}: '+', '.join(p['name'] for p in foreign),flush=True)
+            if time.monotonic()>=deadline:mark_provisional(foreign)
+            checkpoint()
+            attempt+=1
+            continue
+        if error is not None or watcher.errors:
+            record['gpu_status']='failed'
+            report['failed_sessions'].append(record)
+            (attempt_dir/'failed-session.json').write_text(json.dumps(record,indent=2)+'\n')
+            checkpoint()
+            if error is not None:raise error
+            raise RuntimeError(f'GPU process inspection failed: {watcher.errors}')
+        if provisional:mark_provisional(foreign)
+        record['gpu_status']='shared-provisional' if provisional else 'clean'
+        (attempt_dir/('diagnostic.json' if 'quit_ns' in record else 'session.json')).write_text(json.dumps(record,indent=2)+'\n')
+        checkpoint()
+        return record
+
+
+def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False):
     from lightcraft_session_report import validate_session
     directory.mkdir(parents=True,exist_ok=False)
     library,profile = directory/'library',directory/'profile'
     log_path=directory/'app.log'
     gpu_before=session_gpu_processes()
-    if gpu_before['processes']:
+    if gpu_before['processes'] and not gpu_provisional:
         (directory/'gpu-processes-rejected.json').write_text(json.dumps(gpu_before,indent=2))
         raise RuntimeError(f'foreign GPU process before session: {gpu_before}')
-    record=dict(side=side,tier=tier,pair=pair,directory=str(directory),samples=[],gpu_processes_before=gpu_before,launch_ns=time.perf_counter_ns())
+    record=dict(side=side,tier=tier,pair=pair,directory=str(directory),samples=[],gpu_provisional=gpu_provisional,gpu_processes_before=gpu_before,launch_ns=time.perf_counter_ns())
     process,control=spawn(binary,library,profile,None,log_path=log_path)
     record['process_ids']=[process.pid]
     try:
@@ -722,11 +841,11 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         control.stream.close()
 
 
-def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=False, task="open"):
+def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=False, task="open", gpu_provisional=False):
     """Diagnostic of the previous ui.render→quit path, never a session action claim."""
     directory.mkdir(parents=True,exist_ok=False)
     gpu_before=session_gpu_processes()
-    if gpu_before['processes']:
+    if gpu_before['processes'] and not gpu_provisional:
         (directory/'gpu-processes-rejected.json').write_text(json.dumps(gpu_before,indent=2))
         raise RuntimeError(f'foreign GPU process before quit probe: {gpu_before}')
     launched=time.perf_counter_ns()
@@ -756,10 +875,10 @@ def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=Fal
                 subprocess.run(['sudo','-n','gdb','-q','-batch','-p',str(process.pid),'-ex','set pagination off','-ex','thread apply all bt 90','-ex','detach'],stdout=log,stderr=log,timeout=45)
         ended=session_wait_exit(process)
         gpu_after=session_gpu_processes()
-        record=dict(side=side,pair=pair,task=task,profiled=trace_quit,exit_code=process.returncode,success=process.returncode==0,forced_termination=False,quit_reply_error=quit_reply_error,gpu_processes_before=gpu_before,gpu_processes_after=gpu_after,process_ids=[process.pid],launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
+        record=dict(side=side,pair=pair,task=task,gpu_provisional=gpu_provisional,profiled=trace_quit,exit_code=process.returncode,success=process.returncode==0,forced_termination=False,quit_reply_error=quit_reply_error,gpu_processes_before=gpu_before,gpu_processes_after=gpu_after,process_ids=[process.pid],launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
                     quit_request_ns=sent,exit_ns=ended,quit_ns=ended-sent,render_ns=rendered-opened,
                     process_ns=ended-launched,pre_quit_state=state,gpu_adapter=state['perf'].get('gpu'))
-        if any(p['pid']!=process.pid for p in gpu_after['processes']):
+        if not gpu_provisional and any(p['pid']!=process.pid for p in gpu_after['processes']):
             record['failure']=f'foreign GPU process after quit probe: {gpu_after}'
         (directory/'diagnostic.json').write_text(json.dumps(record,indent=2)+'\n')
         if record.get('failure'):raise RuntimeError(record['failure'])
@@ -780,7 +899,7 @@ def session_main(args):
     options.out.mkdir(parents=True,exist_ok=False)
     (options.out/'config.json').write_text(json.dumps(config,indent=2)+'\n')
     sessions=[]
-    report=dict(schema='lightcraft-session-v1',publish_scope='fork-point-to-fork-main',config=config,sessions=sessions,publishable=False,
+    report=dict(discarded_sessions=[],failed_sessions=[],gpu_wait_events=[],provisional_tiers={},gpu_policy=dict(wait_poll_seconds=30,attempt_budget_seconds=1800,during_session_poll_seconds=2),schema='lightcraft-session-v1',publish_scope='fork-point-to-fork-main',config=config,sessions=sessions,publishable=False,
                 statistics=dict(resamples=2000,seed=313,bootstrap_unit='paired-session',ratio='point/main',percentiles='linear'),
                 environment={key:os.environ.get(key) for key in ('DISPLAY','WGPU_BACKEND','LIGHTCRAFT_GPU_BACKEND','LIGHTCRAFT_GPU_ADAPTER','__GL_SHADER_DISK_CACHE_PATH','CRAFT_BENCH_ISOLATED')},
                 timing_scope='control send to first X11 capture proven pixel-identical to the native control PNG; mismatches fall back to the later native capture upper bound',
@@ -801,11 +920,13 @@ def session_main(args):
                     order=('point','main','upstream') if pair%2==0 else ('upstream','main','point')
                     for side in order:
                         print(f'quit probe {task} pair {pair} {side}',flush=True)
-                        record=session_quit_probe(Path(config['revisions'][side]['binary']),Path(config['quit_probe']),options.out/f'probe-{task}-{pair}-{side}',side,pair,task=task)
+                        binary=Path(config['revisions'][side]['binary'])
+                        record=session_guarded_attempt(report,checkpoint,binary,options.out/f'probe-{task}-{pair}-{side}','legacy-quit',side,pair,
+                            lambda directory,provisional:session_quit_probe(binary,Path(config['quit_probe']),directory,side,pair,task=task,gpu_provisional=provisional))
                         report['diagnostic'].append(record)
                         checkpoint()
             report['gpu_adapters']=sorted({r['gpu_adapter'] for r in report['diagnostic'] if r['gpu_adapter']})
-            report['gpu_process_checks_passed']=True
+            report['gpu_process_checks_passed']=not report['provisional_tiers']
             report['exit_failures']=[dict(side=r['side'],task=r['task'],pair=r['pair'],exit_code=r['exit_code']) for r in report['diagnostic'] if not r['success']]
             report['all_exits_successful']=not report['exit_failures']
             print(f'quit diagnostic: {len(report["diagnostic"])} attempts, {len(report["exit_failures"])} process failures; no forced exits',flush=True)
@@ -818,7 +939,9 @@ def session_main(args):
                 for side in order:
                     print(f'session {tier} pair {pair} {side}',flush=True)
                     revision=config['revisions'][side]
-                    record=run_session(Path(revision['binary']),Path(payload),options.out/f'{tier}-{pair}-{side}',side,tier,pair,config.get('repetitions',3),config.get('warmups',2))
+                    binary=Path(revision['binary'])
+                    record=session_guarded_attempt(report,checkpoint,binary,options.out/f'{tier}-{pair}-{side}',tier,side,pair,
+                        lambda directory,provisional:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional))
                     sessions.append(record)
                     checkpoint()
         from lightcraft_session_report import check_pixels
@@ -829,7 +952,7 @@ def session_main(args):
             row['upstream_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream' and c['tier']==row['tier'])
         report['gpu_adapters']=sorted({s['gpu_adapter'] for s in sessions})
         report['output_checked']=True
-        report['gpu_process_checks_passed']=True
+        report['gpu_process_checks_passed']=not report['provisional_tiers']
         # The Rust entry point attaches craft-bench's guard/fingerprint and decides publication.
         checkpoint()
         (options.out/'table.md').write_text(markdown(report['rows']))
