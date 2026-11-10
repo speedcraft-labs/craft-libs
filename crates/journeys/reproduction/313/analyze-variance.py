@@ -2,8 +2,9 @@ import json,statistics as st,math,sys
 from pathlib import Path
 k=Path(__file__).parent
 paths=sys.argv[1:] or [str(k.parent/'paired-typical-50-resilient-v2/report.json')]
-lines=['Variance diagnostics; log SD ×100 is approximate relative SD (%). First use is excluded. No trimming. Old run includes the second warm-up because only one measured repetition exists; switch scene varies, so the old within/session split is descriptive and order-confounded. New run uses measured repeats only.','', '| Dataset / action | Sessions | Repeats/session | Between-session log SD % | Within-session log SD % |','|---|---:|---:|---:|---:|']
+lines=['Variance diagnostics; log SD ×100 is approximate relative SD (%). First use is excluded. No trimming. Only measured repetitions are used. Original import/preview/switch/export and lifecycle rows have one measured value per session: within-session variance is not identifiable, and their across-session SD includes within-session noise. The separate frozen-driver pilot estimates within-session SD from three repeats but has only one session, so its between-session component is not identifiable. New repeated rows subtract within/n from the variance of session means. Old switching uses varying scenes; old/new app commits also differ, so this is not a causal harness-only comparison.','']
 for path in paths:
+ lines+=['', 'Dataset: '+Path(path).parent.name, '', '| Dataset / action | Sessions | Repeats/session | Across-session log SD % (corrected if identifiable) | Within-session log SD % |','|---|---:|---:|---:|---:|']
  r=json.load(open(path));sessions=[s for s in r['sessions'] if s['side']=='main'];new=any('phase' in x for s in sessions for x in s['samples'])
  for a in ['import','preview','exposure','switch','export','startup','quit']:
   clusters=[]
@@ -11,7 +12,7 @@ for path in paths:
    if a in ['startup','quit']:
     vals=[x['duration_ns'] for x in s.get(a+'_samples',[]) if x['phase']=='warm'] if new else [s['startup_library_ns'] if a=='startup' else s['exit_ns']-s['quit_request_ns']]
    else:
-    xs=[x for x in s['samples'] if x['action']==a]; vals=[x['duration_ns'] for x in xs if not x['warmup']] if new else [x['duration_ns'] for x in xs[1:]]
+    xs=[x for x in s['samples'] if x['action']==a]; vals=[x['duration_ns'] for x in xs if not x['warmup']]
    clusters.append([math.log(x) for x in vals])
   within=st.mean(st.variance(xs) for xs in clusters) if all(len(xs)>1 for xs in clusters) else None
   between=st.variance(st.mean(xs) for xs in clusters) if len(clusters)>1 else None
