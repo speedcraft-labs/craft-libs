@@ -85,7 +85,9 @@ def summarize(sessions, resamples=2000):
                 med = {side: statistics.median(x for i in indices for x in group[i]) for side, group in clusters.items()}
                 ratios.append(med['point'] / med['main'])
             ci = [percentile(ratios, .025), percentile(ratios, .975)]
-            rows.append(dict(tier=tier, action=action, provisional=any(s.get('gpu_provisional') for group in groups.values() for s in group), gpu_offenders=sorted({p['name'] for group in groups.values() for s in group for p in s.get('gpu_foreign_processes',[])}), sides=stats, speedup=stats['point']['median_ns']/stats['main']['median_ns'], ci95=ci,
+            offenders={p['name'] for group in groups.values() for s in group for p in s.get('gpu_foreign_processes',[])}
+            offenders|={name for group in groups.values() for s in group for name in s.get('gpu_tier_offenders',[])}
+            rows.append(dict(tier=tier, action=action, provisional=any(s.get('gpu_provisional') for group in groups.values() for s in group), gpu_offenders=sorted(offenders), sides=stats, speedup=stats['point']['median_ns']/stats['main']['median_ns'], ci95=ci,
                              verdict='faster' if ci[0] > 1 else 'slower' if ci[1] < 1 else 'no measurable change'))
     return rows
 

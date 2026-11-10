@@ -569,12 +569,12 @@ def session_gpu_processes():
     return dict(ns=time.perf_counter_ns(),command=command,csv=output,processes=processes)
 
 
-def session_gpu_foreign(snapshots, own_pids=(), own_binary=None):
+def session_gpu_foreign(snapshots, own_pids=()):
     own=set(own_pids)
     found={}
     for snapshot in snapshots:
         for process in (snapshot or {}).get('processes',[]):
-            if process['pid'] in own or (own_binary is not None and process['name']==str(own_binary)):
+            if process['pid'] in own:
                 continue
             found[(process['pid'],process['name'])]=process
     return sorted(found.values(),key=lambda process:(process['name'],process['pid']))
@@ -661,7 +661,7 @@ def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,ru
                       gpu_processes_driver_after=driver_after,
                       gpu_admission_snapshot=admitted,gpu_wait_cycle_started_ns=cycle_started,
                       gpu_provisional=provisional)
-        foreign=session_gpu_foreign([admitted,record['gpu_processes_before'],driver_after,after,*watcher.samples],record.get('process_ids',[]),binary)
+        foreign=session_gpu_foreign([admitted,record['gpu_processes_before'],driver_after,after,*watcher.samples],record.get('process_ids',[]))
         record['gpu_foreign_processes']=foreign
         if error is not None:record['application_error']=str(error)
         if watcher.errors:record['gpu_inspection_errors']=watcher.errors
@@ -685,6 +685,7 @@ def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,ru
             raise RuntimeError(f'GPU process inspection failed: {watcher.errors}')
         if provisional:mark_provisional(foreign)
         record['gpu_status']='shared-provisional' if provisional else 'clean'
+        record['gpu_tier_offenders']=list(provisional_tiers.get(tier,[]))
         (attempt_dir/('diagnostic.json' if 'quit_ns' in record else 'session.json')).write_text(json.dumps(record,indent=2)+'\n')
         checkpoint()
         return record
