@@ -356,6 +356,26 @@ def session_wait(control, predicate, timeout=180):
     raise TimeoutError(f'LightCraft frame state did not converge: {state}')
 
 
+def session_drain(control, record, phase, require_saved=False):
+    """Wait outside action/quit/startup clocks for real background work to finish."""
+    entry=dict(phase=phase,start_ns=time.perf_counter_ns(),progress=[])
+    record.setdefault('background_drains',[]).append(entry)
+    next_log=time.monotonic()+30
+    def ready(state):
+        nonlocal next_log
+        idle=session_idle(state) and not state['activity'] and not state['tasks']
+        if idle and (not require_saved or state.get('unsaved') is None):return True
+        if time.monotonic()>=next_log:
+            progress=dict(ns=time.perf_counter_ns(),activity=state['activity'],tasks=state['tasks'],unsaved=state.get('unsaved'))
+            entry['progress'].append(progress)
+            print(f'background drain {phase}: '+json.dumps(progress),flush=True)
+            next_log=time.monotonic()+30
+        return False
+    state=session_wait(control,ready,timeout=1800)
+    entry['end_ns']=time.perf_counter_ns()
+    return state
+
+
 class SessionX11Capture:
     """Read our visible X11 window; later native PNG must prove identical pixels."""
     def __init__(self, pid):
@@ -814,7 +834,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         render_preview(control,oracle,photo)
         record['oracle']=str(oracle)
         record['oracle_source']=file_digest(Path(paths[0]))
-        state=session_wait(control,lambda s:session_idle(s) and not s['activity'] and not s['tasks'] and s.get('unsaved') is None)
+        state=session_drain(control,record,'before-idle-quit',require_saved=True)
         record['gpu_adapter']=state['perf'].get('gpu')
         record['pre_quit_state']=state
         # No forced process termination is allowed to masquerade as a quit sample.
@@ -833,7 +853,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         record['startup_library_ns']=ended-started
         record['startup_capture']=control.last_capture_proof
         record['startup_state']=control.call('ui.inspect')
-        session_wait(control,lambda s:session_idle(s) and not s['activity'] and not s['tasks'])
+        session_drain(control,record,'after-startup-frame')
         stop(process,control)
         process=None
         record['gpu_processes_after']=session_gpu_processes()

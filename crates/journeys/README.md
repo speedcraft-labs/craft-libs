@@ -436,3 +436,12 @@ and must be read with those failure counts, rather than as graceful-quit timings
 The mature session mode still rejects an abnormal process exit. An early clean-GPU
 cold diagnostic observed SIGSEGV in fork main while quitting during initialization;
 that failure is retained and linked to the shutdown follow-up.
+
+
+Background preparation may outlive the measured actions. In particular, upstream
+can prepare all500 library previews by default. Preserve that default work and
+wait outside every action/quit/startup clock for up to30 minutes before idle
+quit, and after the populated-library startup frame before untimed cleanup.
+`background_drains` retains timestamps and30-second progress snapshots. The
+progress wait neither cancels work nor contributes to a measured action; a
+remaining task at the deadline rejects the attempt.
