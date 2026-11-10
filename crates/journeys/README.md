@@ -259,241 +259,110 @@ retained Agentbox renders, previews differed by at most one 8-bit RGB code value
 the 2048 × 1640 JPEGs differed by at most 11, with mean absolute channel error below 0.5.
 
 
-### LightCraft session latency (hyper #291 correction)
+### LightCraft session latency (hyper #291)
 
-Run `craft-journeys session --config session.json --out REPORT_DIRECTORY`.
-Install Python 3 with Pillow for pixel verification. Build all three app revisions before locking. Config keys: `revisions` with `point`,
-`main`, `upstream` (each has `revision`, absolute `binary`); `payloads` maps one tier
-name to an absolute RAW folder; `sessions` (10), `warmups` (2), `repetitions` (3),
-`pair` (zero-based, defaults to 0). **Each invocation runs only that one pair.**
-For the next pair, set `resume_report` to the previous acquisition's `report.json`
-and use a new output directory. Completed sessions are retained without rerunning;
-workload settings and binary hashes must match. Each previous report's SHA-256,
-machine fingerprint and CPU guard are retained. Publication requires all ten
-distinct pairs and passing guards from every acquisition. A report interrupted
-before its CPU guard was written remains unpublishable: resume from the last
-successfully completed acquisition and retain the interrupted raw directory.
-The CLI exits 1 for an incomplete/unpublishable comparison even after a successful
-pair; inspect `report.json` before selecting it as the next resume checkpoint.
-The existing desktop driver launches once per session. Action clocks run from
-control-request send to native frame capture after finished-render state; they
-include polling, capture and IPC overhead, not OS input delivery or scanout.
-No action includes launch or exit; the lifecycle validator rejects that mistake.
-Import visits every thumbnail grid page and checks resident textures and pixels;
-repeat imports remove catalog records only, keeping originals. Exposure is a held
-slider with 60 backpressured moves, each verified and captured, not a 60 Hz gesture.
-JPEG export is checked independently. Populated-library startup and quit have
-separate clocks. Warm-ups and all samples are retained; bootstrap resamples paired
-sessions, keeping slider steps in their original clusters. craft-bench's guard and
-a nonempty observed GPU adapter gate publication. Headless capture fallback is retained and retried; no such image is accepted as a result frame.
+`craft-journeys session --config session.json --out REPORT_DIRECTORY` runs one
+prebuilt revision/session per acquisition when `side` is set; otherwise one pair.
+Binaries must be built before locking. Use Python 3 with Pillow XCB, `xwininfo`,
+`xprop`, and an NVIDIA Xorg display large enough for the 1600×1000 app window.
+Existing launch-per-task journeys are unchanged.
 
-Agentbox: use a private NVIDIA X display large enough for the window (for this run,
-`DISPLAY=:118` at 1920×1080, `WGPU_BACKEND=vulkan`). Build in the one ticket target directory, retain reports outside
-it, then run through `flock /jobs/work/speedcraft-labs/bench.lock
-flock -x /jobs/work/speedcraft-labs/gpu.lock
-/jobs/work/speedcraft-labs/scripts/bench-run ...`. Existing launch-per-task journeys
-and their reports are unchanged.
+Config fields: `revisions` (`point`, `main`, optional `upstream`, each with absolute
+`binary` and pinned `revision`); `sides`; one `payloads` tier/folder; `sessions`
+(at least 10); `pair` (zero-based); optional `side`; `warmups` (2), `repetitions`
+(10), `exposure_steps` (4); `measurement_method: "pre-dispatch-v2"`. Continue with
+`resume_report` pointing to the preceding acquisition's report. Workloads and
+binary hashes must match. Every acquisition retains its CPU guard and fingerprint;
+incomplete or contaminated reports cannot be published. Reverse ABC/CBA or AB/BA
+order on alternate pairs; release both locks between sides.
 
-Release both locks between pairs. Enforce the Agentbox 15-minute acquisition cap
-with the timeout **inside** the locks, so queue waiting does not consume it:
+On Agentbox, use `DISPLAY=:118 WGPU_BACKEND=vulkan` and a shared explicit NVIDIA
+shader-cache path under this ticket's one target directory. GPU initialization
+finishes before actions. Shader and OS caches are never flushed: **cold means
+first use within a fresh app/session**, not cold hardware or a cold disk.
 
 ```sh
 flock /jobs/work/speedcraft-labs/bench.lock \
   flock -x /jobs/work/speedcraft-labs/gpu.lock \
   timeout --signal=TERM --kill-after=5s 895s \
   /jobs/work/speedcraft-labs/scripts/bench-run \
-  craft-journeys session --config pair-0.json --out reports/pair-0
-# Release, then prepare pair-1.json with pair=1 and resume_report pointing above.
+  craft-journeys session --config pair-0-point.json --out reports/pair-0-point
 ```
 
-Measure the typical tens-of-photos library first. The 500-photo matrix is optional
-stress work, only when `sudo lslocks` shows no waiters for `bench.lock`; inspect
-the queue again before every acquisition. Do not launch a multi-pair command
-under either lock. Background preparation can make a stress pair exceed the cap;
-retain that interrupted acquisition and defer it rather than extending the lease.
-The hard cap takes precedence over the driver's longer GPU-admission/drain limits.
+Do not hold a lock for more than 15 minutes. Import-heavy stress runs only when
+`sudo lslocks` shows no bench waiters. A timeout is a retained failure, never a
+reason to extend the lease. Reports record NVIDIA PID/name snapshots before,
+every two seconds during, and after each session. Foreign GPU processes discard
+the attempt. The retained admission policy has a 30-minute budget; exhausted
+budgets label the entire tier provisional and prohibit publication. The outer
+895-second cap takes precedence. Other workers' GPU tests take the lock shared.
 
-Payload acquisition is pinned in `crates/corpus/manifests/lightcraft-session-2026.toml`.
-Fetch it with craft-corpus, then materialize hard-linked tier folders:
+Each action waits outside timing for one second of observed empty activity/task
+and render queues (new activity rows can be hidden for 0.5 s). Input-to-result
+clocks start at control dispatch. The X11 observer starts **before dispatch** and
+runs independently of `ui.inspect` polling. A later successful native capture
+must prove the earlier displayed pixels identical; otherwise the native capture
+is an explicit upper bound. Readback intervals and all candidate hashes/timestamps
+are retained. This observes displayed frames, not hardware scanout. No fixed
+latency is subtracted; no outliers are trimmed. Export additionally requires
+observed export completion because an unchanged photo frame cannot prove that a
+file finished writing.
 
-```sh
-craft-corpus fetch crates/corpus/manifests/lightcraft-session-2026.toml "$ARTCRAFT_CORPUS/lightcraft-session-2026"
-python3 crates/journeys/scripts/lightcraft_session_corpus.py \
-  crates/corpus/manifests/lightcraft-session-2026.toml \
-  "$ARTCRAFT_CORPUS/lightcraft-session-2026" \
-  crates/journeys/fixtures/lightcraft-session-tiers.json \
-  --out "$ARTCRAFT_CORPUS/lightcraft-session-tiers-2026"
-```
+Import removes catalog records, preserves originals, reimports the exact file set
+and visits/checks every grid page. It includes scripted navigation of those pages,
+so it is an **all-thumbnails workflow**, not only engine import time. Preview
+resets to grid/fit then opens the same photo at 100%. Switch resets to the first
+photo and selects the same second photo every time. Exposure is a backpressured
+held slider, with threshold-crossing setup and warm-ups; its first timed step
+is not a pristine first gesture. Export uses a unique JPEG path each time.
+First timed action samples are separately labeled cold; measured repeats after
+warm-ups are warm. Startup/quit repeat independently with a populated library;
+the first reopen/idle quit is cold, later lifecycle repetitions are warm. Empty
+library startup and the legacy cold-quit diagnostic are not these rows.
 
-`typical-50` contains 50 distinct Sony ILCE-7C (A7C) RAWs at 6000×4000 (24 MP),
-one low-ISO ground-truth exposure per scene from the [Raw Natural Image Noise
-Dataset](https://doi.org/10.14428/DVN/DEQCIM), version 1.0 (2025-01-15), by Benoit
-Brummer and Christophe De Vleeschouwer, Université catholique de Louvain. The
-Dataverse metadata explicitly licenses the dataset [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/),
-including commercial use, with attribution and ShareAlike for adapted material.
-That license also applies to derived photographic outputs; it does not change the
-software's license. The manifest pins each immutable Dataverse file URL and SHA-256.
-The selection takes the first 50 distinct scenes in filename order among full-size
-45–55 MB ARWs with `_GT_` in the name; every downloaded EXIF identifies ILCE-7C and
-6000×4000, and all 50 SHA-256 values differ. These real low-ISO scenes include
-household objects, textures and plants; they are not a measured user percentile.
+Statistics use whole paired sessions as bootstrap clusters (4,000 resamples,
+seed 313), never individual slider steps as independent sessions. Ratio is point
+median / main median; CI excluding 1 determines faster/slower. Calibration uses
+`aa: true` with two separate clean builds of **the same commit**, interleaved
+exactly as the real comparison. The A/A gate requires at least 10 pairs, a 95% CI
+containing 1, and relative half-width ≤5% (≤10% for import/startup), per action and
+state. The MDE column estimates the detectable multiplicative change at two-sided
+alpha .05 and power .80 from log CI width; it is not the CI half-width. A real
+comparison supplies `aa_report`; without it unchanged rows say "sensitivity
+uncalibrated". The formatter rejects "no measurable change" without an A/A MDE.
+Report failed gates and achieved MDE instead of claiming 5% sensitivity.
 
-`typical-31` remains as the **abandoned, undersized pilot**: 31 distinct Sony A7 III
-RAWs, including photographer DNG conversions (28 Signature Edits plus three
-raw.pixls.us). Further Signature Edits galleries returned a CAPTCHA. The pilot
-was stopped after its first complete three-revision block once the 50-file source
-was validated; no photo is duplicated or relabeled to inflate its size.
-`heavy-500` contains 470 CC0 raw.pixls.us files plus 30 Signature Edits RAWs, with
-active-sensor sizes in the 23–46 MP window (nominally 24–45 MP). It includes camera
-compression/crop variants and is an engineering workload, not a measured user
-population percentile. The manifest excludes entries licensed BY-NC-SA and samples
-attributed to Adobe DNG Converter. DNGs contributed by photographers remain eligible;
-DNG wrappers identifying their source as JPEG/TIFF are excluded. RAW decoding may
-still be unsupported in an app revision; that is a reported failure, never silently
-replaced by synthetic files or a smaller payload.
+The test-only `CRAFT_JOURNEYS_TEST_SWITCH_DELAY_MS` adds a real dispatch delay to
+main-side switch requests. Set it to 10% of the calibrated warm switch median,
+record that absolute delay and run a separate interleaved matrix. It never changes
+recorded elapsed time after the fact.
 
-[raw.pixls.us](https://raw.pixls.us/) records each selected entry as CC0-1.0; its
-repository also has non-CC0 entries, which are **not** selected. Signature Edits'
-[free RAW license](https://www.signatureedits.com/free-raw-license-terms/) permits
-use, modification and distribution including commercial use, with restrictions on
-competing photo-sharing services. The manifest records per-file URLs, SHA-256 and
-provenance; no RAW media is committed. Tier membership is explicit in the JSON
-fixture. Selection provenance and download logs belong with the raw reports.
+Output gates stay outside timing: exact imported filenames; non-placeholder,
+resident thumbnail pixels; changed photo-region pixels on every measured slider
+step; JPEG versus an independent 8-bit sRGB PNG export at identical geometry
+(channel MAE ≤8). Cross-revision fixed-state previews require RGB max ≤1 and exact
+alpha; JPEG requires RGB max ≤16 and channel MAE ≤0.5. Upstream exceeding parity
+is descriptive only. Passing frame images are pruned after their hashes and
+checks are recorded; failure captures remain. Fixed-state oracle files are kept
+until the paired checks finish. Raw reports/logs belong in the one ticket keep
+directory, backed up at milestones with `nas-keep`, not committed here.
 
-The actions are motivated by upstream issues #3786 (320 CR2s from CF, thumbnails),
-#1372 (high-quality previews), #1709 (exposure/preview lag), #3767 (22,763-photo NAS
-startup lens scan) and #1011 (57,947-photo sidebar). These local-SSD, smaller-library
-tiers do not reproduce CF/NFS storage, a 22k-photo scan or a 58k-photo sidebar.
-Preview opens 100% zoom with automatic source quality. Exposure remains a global
-slider exercise, not a mask correctness test for #1709. There is no blended score.
-The fixed +0.7 oracle outside timing requires at most one RGB code of difference
-and identical alpha between revisions, the bound declared before collection.
+Payloads: `crates/corpus/manifests/lightcraft-session-2026.toml` pins immutable
+URLs/SHA-256/licences. `lightcraft_session_corpus.py MANIFEST DOWNLOAD_ROOT TIERS
+--out TIER_ROOT` verifies downloads and materializes hardlinks. TIER_ROOT must be
+outside DOWNLOAD_ROOT (craft-corpus prunes unlisted files).
 
-The initial heavy tier's scanner returned 494 candidates from 500 files: ARQ,
-GPR and STI extensions were ignored. Those six source pins and the rejection
-reason are retained in `fixtures/lightcraft-session-excluded.json`; six other
-licensed RAWs replace them before collecting comparisons. Tier folders live
-**outside** the stamped download root because craft-corpus prunes unlisted files.
+* `typical-50`: 50 distinct Sony A7C 24 MP RAWs, RawNIND v1.0 (2025-01-15),
+  Benoit Brummer and Christophe De Vleeschouwer, Université catholique de Louvain,
+  https://doi.org/10.14428/DVN/DEQCIM, **CC BY-SA 4.0**, not CC0. One low-ISO
+  ground-truth exposure per scene, first 50 full-size `_GT_` ARWs in filename order.
+* `import-1262`: 1,262 distinct **CC0-1.0** camera originals from raw.pixls.us,
+  frozen repository metadata, recognized CR2/NEF/ARW/ORF/RW2/PEF/SRW/RAF formats.
+  This is an engineering camera/encoding/resolution mix, not 1,262 similar shots
+  from one camera. DNG conversion/JPEG wrappers and non-CC0 entries are excluded.
+  No repeated bytes inflate the count: Add-in-place deduplicates by content.
+  The import validates all requested names, so unsupported or skipped inputs fail.
 
-Session profiles pin their app via a private `CRAFT_VERSIONS_FILE`, suppressing
-asynchronous update prompts/network checks. Optional lens-profile onboarding is
-dismissed before timing; no lens database is downloaded. A slider gesture crosses
-egui's drag threshold before two warm-up moves and 60 measured moves. Each session
-in the initial matrix uses one measured import/preview/switch/export after two
-warm-ups; the ten sessions supply ten independent observations per side. Linux
-pidfd readiness observes quit without Popen's 50 ms timeout-poll quantization.
-JPEGs must reproduce a separate 2048px render of the same photo/settings within
-lossy MAE 8; cross-revision JPEG differences must stay within RGB max 16/MAE 0.5.
-These output gates are outside every action clock and declared before the matrix.
-
-
-For Agentbox, use a private NVIDIA Xorg display at 1920×1080 (the 1600×1000 app
-window must fit entirely on screen). `session_frame` samples the **actual visible
-X11 window belonging to the app PID**, via Pillow XCB readback, every 5 ms while
-the existing native control screenshot is pending. It uses the first candidate
-whose complete RGB pixels hash identically to that later native PNG. All candidate
-timestamps/hashes and the reference PNG are retained. This verifies that the
-*earlier displayed frame* already showed the result, instead of including the
-screenshot API's mandatory 120 ms / three-frame settle delay. The validator rejects
-an early timestamp without a matching pixel proof. No delay is subtracted.
-
-If no earlier candidate matches exactly (or X11 capture is unavailable/occluded),
-the sample explicitly falls back to the later native-capture **upper bound**.
-The method and verification timestamp are recorded per sample. These are sampled
-input-to-result-frame observations, including readback/IPC/polling overhead, not
-hardware scanout timestamps. Prerequisites are Pillow with XCB, `xwininfo`, `xprop`,
-and the GPU-backed X display; no OS synthetic input is sent.
-
-GPU initialization is fully warmed before actions, with `gpu_ready_ns` recorded
-separately. Runs share an explicit NVIDIA shader cache under the one ticket target,
-like a returning user; its path is recorded and compiled cache contents are not
-backed up. Idle quit waits for background preview preparation to finish **before**
-its clock; the separate cold legacy diagnostic deliberately quits during setup.
-
-The preview oracle gate is strict for the primary fork-point→fork-main comparison.
-Current upstream's color output exceeds that bound on the Sony RAW, so its median
-column is marked **descriptive only / not pixel-equivalent**, with all measured
-differences retained. No upstream-relative speedup is claimed. `publishable` in
-this session schema refers to the primary comparison (`publish_scope` records it).
-The retained typical report's original JPEG/source-render check allowed a one-pixel
-short-edge rounding mismatch, aligned before its fixed MAE 8 check. New runs use
-the exact-geometry lossless export reference described below.
-
-
-If the compositor capture times out and falls back to headless, that PNG and its
-candidate timestamps/hashes are retained as a failed attempt. The driver retries
-(up to three attempts) with the **original action clock still running**; it does
-not subtract any assumed delay. A successful native PNG can verify an earlier
-real X11 frame sampled during **any** attempt; the earliest exact RGB match
-supplies the endpoint. Without a matching X11 frame, the successful native
-capture completion supplies the explicit upper bound. Three failures reject the session. The first 31-file pilot exposed
-three such upstream timeouts and was rejected by the earlier fail-on-any-fallback
-policy; its report/logs remain retained. The replacement matrix uses this explicit
-retry policy for all three revisions, declared before collection.
-
-A rejected first block of the 50-file matrix exposed why retry candidates must be
-combined: a fork-main exposure request took 6315.13 ms through capture retry, but
-an earlier X11 frame matched the successful native PNG 5571.34 ms before that
-endpoint (input-to-proven-frame 743.79 ms). That block was stopped and retained;
-the final matrix uses the earliest exact pixel proof across all attempts for every
-revision. Tests cover both this case and the conservative no-match upper bound.
-
-
-GPU isolation is mandatory on Agentbox: acquire `bench.lock`, then **exclusive**
-`gpu.lock`, then invoke `bench-run`. Other GPU tests take the GPU lock shared.
-Before launch and after the populated-library startup process has exited, every
-session records the complete `nvidia-smi --query-compute-apps=pid,name --format=csv`
-result with a monotonic timestamp. A watcher also records it every two seconds
-throughout each session, including populated-library startup. Before each attempt,
-a foreign process causes a 30-second admission poll. A contaminated attempt is
-retained under `discarded_sessions` with process names and repeated in a fresh
-directory. Waiting and discarded attempts share a 30-minute budget per requested
-session. If that budget expires, the next fresh attempt proceeds and the entire
-tier is labeled **provisional**, with offending process names. Remaining sessions
-in that tier retain the same label. Such a report cannot pass the publication
-gate; its table is explicitly a shared-GPU observation. Clean accepted attempts
-alone enter the primary table; discarded attempts never enter its bootstrap.
-This fallback implements the benchmark operator's explicit shared-GPU policy.
-The initial GPU-sharing pilots remain excluded. The cold quit diagnostic records
-the same process snapshots outside its clocks. Polling detects observed foreign
-processes; a process that starts and exits entirely between polls can escape it.
-
-
-Before accepting the completed matrix, the output verifier also hashes the inner
-60% of the actual displayed photo rectangle in every measured exposure frame and
-requires it to differ from the preceding warm-up/step frame. The slider sits
-outside this region. The report retains each crop box and current/previous photo
-hash; a changing control label alone cannot pass this output check. This is an
-untimed verification of retained native PNGs and changes no input or frame clock.
-At least one exposure warm-up supplies the initial photo frame.
-
-The legacy cold-quit diagnostic retains nonzero process exits with `exit_code`,
-`success` and `forced_termination: false`; it continues through all planned
-attempts and reports the failure list. Its time-to-exit statistics include crashes
-and must be read with those failure counts, rather than as graceful-quit timings.
-The mature session mode still rejects an abnormal process exit. An early clean-GPU
-cold diagnostic observed SIGSEGV in fork main while quitting during initialization;
-that failure is retained and linked to the shutdown follow-up.
-
-
-Background preparation may outlive the measured actions. In particular, upstream
-can prepare all 500 library previews by default. Preserve that default work and
-wait outside every action/quit/startup clock for up to 30 minutes before idle
-quit, and after the populated-library startup frame before untimed cleanup.
-`background_drains` retains timestamps and 30-second progress snapshots. The
-progress wait neither cancels work nor contributes to a measured action; a
-remaining task at the deadline rejects the attempt.
-
-
-For new session exports, the untimed reference is an 8-bit sRGB PNG exported
-through the same geometry/source/settings path as JPEG. Dimensions must match
-exactly, and the lossy channel-MAE 8 bound remains fixed. A UI-render preview can
-round the short edge differently (1366 versus 1365 at long edge 2048); stretching
-it misaligns high-ISO noise and is not a valid JPEG-codec reference. The retained
-typical 50 legacy report passed its original preview-based check; its method stays
-explicitly identified. New validation runs immediately after the untimed PNG,
-before potentially long background draining. Cross-revision bounds are unchanged.
-
-Idle must remain observed for one second: `ui.inspect` omits activity rows younger
-than 0.5 seconds, so one empty snapshot cannot establish that preparation stopped.
-This settling interval is outside every measured clock.
+The heavy tier approximates the photo count in upstream #367; it cannot reproduce
+CF/NFS conditions or #832's 38,545-photo/~25-minute report. Existing legacy
+reports and unsuccessful approaches remain in ticket 313's NAS archive.

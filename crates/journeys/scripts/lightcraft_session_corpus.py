@@ -21,6 +21,8 @@ def main():
         raise ValueError('tier folders must be outside the stamped corpus tree')
     args.out.mkdir(parents=True,exist_ok=True)
     for tier,names in tiers.items():
+        if isinstance(names,dict):
+            names=[name for name,entry in entries.items() if names['tag'] in entry.get('tags',[])]
         directory=args.out/tier
         directory.mkdir(exist_ok=True)
         for name in names:

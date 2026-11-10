@@ -340,7 +340,7 @@ def session_wait_exit(process, timeout=150):
 
 
 def session_execute(control, command, params=None):
-    delay=getattr(control,'test_delay_ms',0) if command=='library.select' and getattr(control,'action_sampler',None) else 0
+    delay=getattr(control,'test_delay_ms',0) if command=='library.select' and getattr(control,'armed_action',None)=='switch' else 0
     if delay:
         started=time.perf_counter_ns()
         time.sleep(delay/1000)
@@ -459,6 +459,7 @@ def session_arm(control, record, action):
     if getattr(control, 'action_sampler', None) is not None:
         raise RuntimeError('previous action observer still running')
     control.action_sampler = SessionSampler(control)
+    control.armed_action = action
 
 
 def session_capture_once(control, path):
@@ -546,6 +547,7 @@ def session_result(control, path, sent, not_before=None):
     if observer is not None:
         observer.finish()
         control.action_sampler = None
+        control.armed_action = None
     proof = control.last_capture_proof
     proof['candidates'] = [c for c in proof['candidates'] if c['ns'] > sent and (not_before is None or c['ns']>=not_before)]
     matches = [c['ns'] for c in proof['candidates'] if c['rgb_sha256'] == digest
