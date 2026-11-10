@@ -1,0 +1,28 @@
+{
+  "action": "switch",
+  "phase": "warm",
+  "fraction_of_calibration_control": 0.1,
+  "requested_ms": 42.35933825,
+  "calibration": "/jobs/work/speedcraft-labs/keep/313-session-latency/sensitivity/aa-v6-paired-attempt-37-19/report.json",
+  "calibration_control_median_ns": 423593382.5,
+  "calibration_ratio": 0.9421676923404096,
+  "calibration_ci95": [
+    0.846508090836235,
+    1.03124394212948
+  ],
+  "calibration_mde_pct": 15.152061082000104,
+  "pairs": 20,
+  "repetitions": 4,
+  "scope": "Real sleep in the timed dispatch queue before only the armed library.select. Same unmodified independently clean-built app binaries; control arm sleeps zero. Every requested/actual delay is recorded and must lie inside its result-frame action clock. Fixed sample size, no sequential stopping, no numeric latency trimming.",
+  "calibration_control_kind": "independent untreated pilot",
+  "calibration_control_report": "/jobs/work/speedcraft-labs/keep/313-session-latency/sensitivity/switch-slowdown-v6-attempt-0-0/point/report.json",
+  "calibration_selected_pairs": [
+    0
+  ],
+  "calibration_selected_samples": 4,
+  "requested_fraction_acceptance_pct": [
+    9,
+    11
+  ],
+  "prior_all_session_requested_ms": 97.99934135000001
+}

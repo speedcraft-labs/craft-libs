@@ -4,7 +4,7 @@ from pathlib import Path
 k=Path(__file__).parent;corpus=Path('/jobs/work/speedcraft-labs/hyper/corpus/lightcraft-session-tiers-2026');page_size=os.sysconf('SC_PAGE_SIZE')
 while not (k/'gpu-clock-observer.stop').exists():
  started=time.monotonic_ns();rows=[]
- for tier in ['typical-50','import-1262']:
+ for tier in ['typical-50','import-1262','import-1259']:
   files=sorted(str(p) for p in (corpus/tier).iterdir() if p.is_file() and not p.name.startswith('.'))
   result=subprocess.run(['fincore','--json','--bytes','--output','PAGES,SIZE,FILE',*files],text=True,capture_output=True)
   if result.returncode:

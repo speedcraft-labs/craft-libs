@@ -3,8 +3,10 @@ from pathlib import Path
 p=argparse.ArgumentParser();p.add_argument('--aa',type=Path,required=True);p.add_argument('--additional-aa',type=Path,nargs='*',default=[]);p.add_argument('--comparison',type=Path,nargs='+',required=True);p.add_argument('--slowdown',type=Path);args=p.parse_args();k=Path(__file__).parent
 read=lambda path:json.loads(path.read_text())
 aa=read(args.aa);reports=[read(x) for x in args.comparison]
+assert all(s.get('test_switch_delay_ms',0)==0 for report in reports for s in report['sessions']), 'production comparison includes test injection'
+assert all(not report['config'].get('test_switch_delay_ms') and not report['config'].get('test_quit_delay_ns') for report in reports), 'production config includes test injection'
 fmt=lambda x:f'{x:.2f}' if x is not None else 'uncalibrated'
-lines=['User-visible results pending editorial interpretation. Ratio = exp(median log paired-session median(point)/median(main)); above 1 favors fork main. Pooled medians/p95 are descriptive and need not have this ratio. All latencies are ms. Cold means first timed use after setup, warm means measured repeats; OS/shader caches are not flushed.','', 'A/A: identical current-main commit, two separately clean-built binaries, contiguous AB/BA pairs. 95% CI resamples whole paired sessions. MDE is approximate alpha .05 / power .80 sensitivity, not the CI half-width.','', '| Action / state | Ratio | 95% CI | Ordinary paired 95% CI | Half-width % | Minimum detectable effect % | Allowed half-width % | Gate |','|---|---:|---:|---:|---:|---:|---:|---|']
+lines=['User-visible results pending editorial interpretation. Ratio = exp(median log paired-session median(point)/median(main)); above 1 favors fork main. Pooled medians/p95 are descriptive and need not have this ratio. All latencies are ms. Cold means first timed use after setup, warm means measured repeats; OS/shader caches are not flushed.','', 'A/A: identical current-main commit, two separately clean-built binaries, contiguous AB/BA pairs. 95% CI resamples whole paired sessions. MDE is approximate alpha .05 / power .80 sensitivity, not the CI half-width. A/A intervals excluding 1 reject comparison verdicts; their displayed MDE is interval width only, not validated sensitivity.','', '| Action / state | Ratio | 95% CI | Ordinary paired 95% CI | Half-width % | Minimum detectable effect % | Allowed half-width % | Gate |','|---|---:|---:|---:|---:|---:|---:|---|']
 for index,control in enumerate([aa,*[read(path) for path in args.additional_aa]]):
  if index:
   lines+=['', 'A/A calibration: '+', '.join(sorted({r['tier'] for r in control['rows']})), '', '| Action / state | Ratio | 95% CI | Ordinary paired 95% CI | Half-width % | Minimum detectable effect % | Allowed half-width % | Gate |','|---|---:|---:|---:|---:|---:|---:|---|']
@@ -12,7 +14,10 @@ for index,control in enumerate([aa,*[read(path) for path in args.additional_aa]]
   lines.append(f"| {r['action']} / {r['phase']} | {r['speedup']:.3f} | {r['ci95'][0]:.3f}–{r['ci95'][1]:.3f} | {r['ordinary_ci95'][0]:.3f}–{r['ordinary_ci95'][1]:.3f} | {r['half_width_pct']:.2f} | {fmt(r['minimum_detectable_effect_pct'])} | {r['threshold_pct']} | {'PASS' if r['aa_pass'] else 'FAIL'} |")
 if args.slowdown:
  slow=read(args.slowdown)
- if slow['config'].get('test_quit_delay_ns') is not None:
+ if slow['config'].get('test_switch_delay_ms') is not None:
+  proof=subprocess.check_output(['python3',str(k/'validate-switch-slowdown.py'),str(args.slowdown)],text=True)
+  lines+=['',proof]
+ elif slow['config'].get('test_quit_delay_ns') is not None:
   proof=subprocess.check_output(['python3',str(k/'validate-quit-slowdown.py'),str(args.slowdown)],text=True)
   lines+=['',proof]
  else:
@@ -28,8 +33,8 @@ for report in reports:
    def cell(side):
     s=r['sides'].get(side);return f"{s['median_ns']/1e6:.2f}/{s['p95_ns']/1e6:.2f}" if s else 'not measured'
    lines.append(f"| {r['action']} / {r['phase']} | {cell('point')} | {cell('main')} | {r['speedup']:.3f} ({r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}) | {('width only: ' if r.get('calibration_contains_unity') is False else '')+fmt(r['minimum_detectable_effect_pct'])}/{fmt(r['estimated_mde_pct'])} | {cell('upstream')} | {r['verdict']} |")
-variance=subprocess.check_output(['python3',str(k/'analyze-variance.py'),str(k.parent/'paired-typical-50-resilient-v2/report.json'),str(k/'aa-v4-control-continuation-2-2/report.json'),str(args.aa)],text=True)
-lines+=['',variance,'','Validation: `cargo test -p craft-journeys` (see exact current log); earlier full local workspace run: 3,835 passed, 127 ignored, zero failures. Post-rebase run hit H.264 reset and proof timing assertions; both baseline comparisons and exact logs are reported separately. Three strict lints reproduce on integration in untouched files. No trimming; failed/rejected attempts remain retained.','', 'Payload limit: import-1262 is 1,262 distinct CC0 camera originals. It approximates the count in #367, not its camera/storage distribution. #832 is a different Lightroom-catalog / 1.1 TB USB/exFAT workflow with 38,545 photos and ~25 minutes; it is out of scope.']
+variance=subprocess.check_output(['python3',str(k/'analyze-variance.py'),str(k.parent/'paired-typical-50-resilient-v2/report.json'),str(k/'aa-v5-fixed-attempt-38-9/report.json'),str(args.aa)],text=True)
+lines+=['',variance,'','Validation: `cargo test -p craft-journeys` (see exact current log); earlier full local workspace run: 3,835 passed, 127 ignored, zero failures. Post-rebase run hit H.264 reset and proof timing assertions; both baseline comparisons and exact logs are reported separately. Three strict lints reproduce on integration in untouched files. No trimming; failed/rejected attempts remain retained.','', 'Payload limit: import-1259 is 1,259 distinct CC0 camera originals. Three source-verified non-TIFF PowerShot CR2s were excluded before A/A after the 1,262-file pilot rejected the incomplete import; the failed attempt and pins remain retained. It approximates the count in #367, not its camera/storage distribution. #832 is a different Lightroom-catalog / 1.1 TB USB/exFAT workflow with 38,545 photos and ~25 minutes; it is out of scope.']
 lines += ['', (k/'validation-summary.md').read_text()]
 (k/'final-tables.md').write_text('\n'.join(lines)+'\n')
 chartdata={'aa':aa['rows'],'comparisons':[r for report in reports for r in report['rows']]}

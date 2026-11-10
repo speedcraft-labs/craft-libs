@@ -2,12 +2,13 @@ Validation, with builds/tests on CPUs 0–21 and the one ticket target directory
 
 ```text
 cargo test -p craft-journeys
-Ran 36 Python tests ... OK
+Ran 38 Python tests ... OK
 test result: ok. 3 passed; 0 failed; 0 ignored
 
 cargo test --workspace --no-fail-fast
-latest post-rebase: 295 suites; 3833 passed; 2 failed; 127 ignored
-prior full run:     295 suites; 3835 passed; 0 failed; 127 ignored
+latest label-guard run: 295 suites; 3835 passed; 0 failed; 127 ignored
+prior v5 run:          295 suites; 3833 passed; 2 failed; 127 ignored
+earlier full run:      295 suites; 3835 passed; 0 failed; 127 ignored
 ```
 
 | Check / exact command | Branch | Clean integration |
@@ -19,6 +20,6 @@ prior full run:     295 suites; 3835 passed; 0 failed; 127 ignored
 | `cargo clippy --workspace --all-targets -- -D warnings` | Two assign_op_pattern errors, gpu-blur/shader/src/lib.rs:58,78 | Same two errors |
 | `cargo clippy -p craft-av1 --all-targets -- -D warnings` | unnecessary_sort_by, crates/av1/tests/fuzz_hostile.rs:184 | Same error |
 
-The HEVC failures previously reported are not reproducible. The two new timing assertions and three lints occur in files identical to integration and untouched by this PR. The earlier full passing run is retained; it does not replace the latest failing output. Journeys strict clippy and workspace formatting pass. Prefix for the local commands: `taskset -c 0-21 nice -n 19 env CARGO_BUILD_JOBS=8 CARGO_TARGET_DIR=/jobs/work/speedcraft-labs/targets/313-session-latency SQLX_OFFLINE=true RUST_MIN_STACK=8388608`.
+The HEVC failures previously reported are not reproducible. The two new timing assertions and three lints occur in files identical to integration and untouched by this PR. All runs are retained: the latest full run passes, while the intervening H.264/proof timing failures also reproduced on clean integration. Journeys strict clippy and workspace formatting pass. Prefix for the local commands: `taskset -c 0-21 nice -n 19 env CARGO_BUILD_JOBS=8 CARGO_TARGET_DIR=/jobs/work/speedcraft-labs/targets/313-session-latency SQLX_OFFLINE=true RUST_MIN_STACK=8388608`.
 
-Exact output: sensitivity/journeys-v5-final.log, workspace-v5.log, workspace-v4-rebased.log, workspace-tests-cpu.log, integration-cd0-{h264-reset,proof-budget,bframes,draft,clippy,av1-clippy}.log and branch-hevc.log. Latest source head cb3ef47c has frozen v5 clock observations; refresh hosted checks at final head before merge. Full v5 workspace repeats3833passed/2failed/127ignored; same two unchanged timing failures.
+Exact output: sensitivity/journeys-label-guard.log, workspace-label-guard.log (latest passing run), workspace-v5.log, workspace-v4-rebased.log, workspace-tests-cpu.log, integration-cd0-{h264-reset,proof-budget,bframes,draft,clippy,av1-clippy}.log and branch-hevc.log. No tested codec/proof/lint file differs from integration. The reporting-only control guard leaves all 14 original A/A rows' numeric fields bit-identical; report-label-compatibility.json records the comparison. Current hosted checks are refreshed before merge.
