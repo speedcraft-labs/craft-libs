@@ -270,7 +270,7 @@ Existing launch-per-task journeys are unchanged.
 Config fields: `revisions` (`point`, `main`, optional `upstream`, each with absolute
 `binary` and pinned `revision`); `sides`; one `payloads` tier/folder; `sessions`
 (at least 10); `pair` (zero-based); optional `side`; `warmups` (2), `repetitions`
-(10), `exposure_steps` (4); `measurement_method: "pre-dispatch-v2"`. Continue with
+(10), `exposure_steps` (4); `measurement_method: "pre-dispatch-quickack-v3"`. Continue with
 `resume_report` pointing to the preceding acquisition's report. Workloads and
 binary hashes must match. Every acquisition retains its CPU guard and fingerprint;
 incomplete or contaminated reports cannot be published. Reverse ABC/CBA or AB/BA
@@ -303,7 +303,11 @@ clocks start at control dispatch. The X11 observer starts **before dispatch** an
 runs independently of `ui.inspect` polling. A later successful native capture
 must prove the earlier displayed pixels identical; otherwise the native capture
 is an explicit upper bound. Readback intervals and all candidate hashes/timestamps
-are retained. This observes displayed frames, not hardware scanout. No fixed
+are retained. This observes displayed frames, not hardware scanout. Session TCP uses NODELAY and prompt QUICKACK receives (including partial JSON)
+to avoid delayed-ACK quantization from the token-streaming server. The legacy
+launch-per-task transport is unchanged. A private X server shares reserved CPUs
+22–27 with the app; pinning only the app leaves readback at the mercy of other
+workers. Record the server affinity with every acquisition. No fixed
 latency is subtracted; no outliers are trimmed. Export additionally requires
 observed export completion because an unchanged photo frame cannot prove that a
 file finished writing.

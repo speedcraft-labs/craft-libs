@@ -22,6 +22,26 @@ class Control:
         self.stream = stream
         self.reader = stream.makefile("r", encoding="utf-8")
         self.ident = 0
+        self.low_latency = False
+        self.pending_reply = b""
+
+    def read_reply(self):
+        if not self.low_latency:
+            return self.reader.readline()
+        # The server streams JSON tokens with Nagle enabled. ACK each receive
+        # promptly, including partial JSON, so the final newline cannot sit behind
+        # Linux's delayed-ACK timer. This is session instrumentation, not app work.
+        while b"\n" not in self.pending_reply:
+            if hasattr(socket, 'TCP_QUICKACK'):
+                self.stream.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+            chunk = self.stream.recv(65536)
+            if not chunk:
+                raise RuntimeError('LightCraft control closed during a reply')
+            self.pending_reply += chunk
+            if hasattr(socket, 'TCP_QUICKACK'):
+                self.stream.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+        line, self.pending_reply = self.pending_reply.split(b"\n", 1)
+        return line
 
     def call(self, method: str, params: dict | None = None):
         self.ident += 1
@@ -29,7 +49,7 @@ class Control:
         encoded = (json.dumps(request, separators=(",", ":")) + "\n").encode()
         self.last_sent_ns = time.perf_counter_ns()
         self.stream.sendall(encoded)
-        line = self.reader.readline()
+        line = self.read_reply()
         if not line:
             raise RuntimeError(f"LightCraft control closed during {method}")
         received_ns=time.perf_counter_ns()
@@ -173,6 +193,9 @@ def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *
         process.terminate()
         process.wait(timeout=5)
         raise TimeoutError("LightCraft control channel did not start")
+    if log_path is not None:
+        control.stream.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+        control.low_latency=True
     control.trace=[]
     control.process_pid=process.pid
     control.session_log=log_path
@@ -830,6 +853,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
     control.test_delay_ms=float(os.environ.get('CRAFT_JOURNEYS_TEST_SWITCH_DELAY_MS','0')) if side=='main' else 0
     record['test_switch_delay_ms']=control.test_delay_ms
     record['process_ids']=[process.pid]
+    record['control_transport']=dict(tcp_nodelay=control.low_latency,tcp_quickack=control.low_latency and hasattr(socket,'TCP_QUICKACK'))
     record['control_traces']=[dict(pid=process.pid,calls=control.trace)]
     try:
         state=control.call('ui.inspect')
@@ -1069,7 +1093,7 @@ def session_resume(config, binary_hashes):
     def workload(c):return {k:v for k,v in c.items() if k not in ('pair','side','resume_report')}
     if prior.get('schema')!='lightcraft-session-v1' or workload(prior['config'])!=workload(config):
         raise ValueError('resume report workload/revisions differ')
-    if config.get('measurement_method')=='pre-dispatch-v2' and prior.get('driver_sha256')!=file_digest(Path(__file__)):
+    if config.get('measurement_method') and prior.get('driver_sha256')!=file_digest(Path(__file__)):
         raise ValueError('resume driver differs; restart the matrix')
     if prior.get('binary_sha256')!=binary_hashes:
         raise ValueError('resume report binary hashes differ')
@@ -1122,7 +1146,7 @@ def session_main(args):
     parser.add_argument('--out',required=True,type=Path)
     options=parser.parse_args(args)
     config=json.loads(options.config.read_text())
-    config.setdefault('measurement_method','pre-dispatch-v2')
+    config.setdefault('measurement_method','pre-dispatch-quickack-v3')
     calibration=session_calibration(config)
     pair=config.get('pair',0)
     if not isinstance(pair,int) or not 0<=pair<config.get('sessions',10):

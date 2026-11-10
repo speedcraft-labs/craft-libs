@@ -431,5 +431,20 @@ class Boundaries(unittest.TestCase):
         config['revisions']['main'].update(binary='B',revision='other')
         with self.assertRaisesRegex(ValueError,'same app commit'):session_calibration(config)
 
+    def test_low_latency_transport_handles_fragmented_utf8_and_buffered_lines(self):
+        import socket,json
+        from lightcraft_real_app import Control
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1',0));listener.listen(1)
+            with socket.create_connection(listener.getsockname()) as client:
+                connection,_=listener.accept()
+                with connection:
+                    control=Control(client);control.low_latency=True
+                    data='{"id":1,"result":"snowman ☃"}\n{"id":2}\n'.encode()
+                    for start in range(0,len(data),3):connection.sendall(data[start:start+3])
+                    self.assertEqual(json.loads(control.read_reply())['result'],'snowman ☃')
+                    self.assertEqual(json.loads(control.read_reply())['id'],2)
+                    control.reader.close()
+
 
 if __name__=='__main__': unittest.main()
