@@ -8,6 +8,15 @@ import sys
 import time
 from pathlib import Path
 
+import pymupdf
+
+
+def pixel_digest(path: Path) -> tuple[str, int, int]:
+    """Hash the rendered pixels, so equivalent SVG path serializations compare equal."""
+    document = pymupdf.open(stream=path.read_bytes(), filetype="svg")
+    pixmap = document[0].get_pixmap(alpha=True)
+    return hashlib.sha256(pixmap.samples).hexdigest(), pixmap.width, pixmap.height
+
 
 def main() -> int:
     binary, input_file, output_file = map(Path, sys.argv[1:4])
@@ -58,7 +67,8 @@ def main() -> int:
         for child_node in node.get("children", []):
             yield from visit(child_node)
 
-    digest = None
+    svg_digest = None
+    svg_bytes = 0
     select_elapsed = 0
     drag_elapsed = 0
     try:
@@ -89,7 +99,7 @@ def main() -> int:
 
         select_started = time.perf_counter_ns()
         tool("pointer", {"tool": "move", "kind": "click", "x": x, "y": y})
-        result = tool("pointer", {"kind": "click", "x": x, "y": y})
+        result = tool("pointer", {"kind": "double", "x": x, "y": y})
         select_elapsed = time.perf_counter_ns() - select_started
         if node_id not in result.get("selection", []):
             raise RuntimeError(f"click-through did not select Featured {node_id}: {result.get('selection')}")
@@ -103,7 +113,9 @@ def main() -> int:
         tool("export", {"ids": [screen_id], "format": "svg", "path": str(output_file)})
         if not output_file.is_file() or output_file.stat().st_size == 0:
             raise RuntimeError("FigCraft did not write the SVG export")
-        digest = hashlib.sha256(output_file.read_bytes()).hexdigest()
+        svg = output_file.read_bytes()
+        svg_digest = hashlib.sha256(svg).hexdigest()
+        svg_bytes = len(svg)
     finally:
         child.stdin.close()
         try:
@@ -112,12 +124,29 @@ def main() -> int:
             child.kill()
             child.wait()
 
-    print(f"CRAFT_JOURNEY_NS={time.perf_counter_ns() - started}")
-    print(f"CRAFT_OUTPUT_SHA256={digest}")
+    journey_ns = time.perf_counter_ns() - started
+    pixels_digest, width, height = pixel_digest(output_file)
+    print(f"CRAFT_JOURNEY_NS={journey_ns}")
+    print(f"CRAFT_OUTPUT_SHA256={pixels_digest}")
+    print(f"CRAFT_OUTPUT_BYTES_SHA256={svg_digest}")
     print(f"POINTER_SELECT_ROUNDTRIP_NS={select_elapsed}")
     print(f"SMART_GUIDE_DRAG_ROUNDTRIP_NS={drag_elapsed}")
     with output_file.with_suffix(".metrics.jsonl").open("a", encoding="utf-8") as metrics:
-        metrics.write(json.dumps({"pointer_select_roundtrip_ns": select_elapsed, "smart_guide_drag_roundtrip_ns": drag_elapsed}) + "\n")
+        metrics.write(
+            json.dumps(
+                {
+                    "pointer_select_roundtrip_ns": select_elapsed,
+                    "smart_guide_drag_roundtrip_ns": drag_elapsed,
+                    "svg_bytes": svg_bytes,
+                    "svg_sha256": svg_digest,
+                    "pixel_sha256": pixels_digest,
+                    "pixel_width": width,
+                    "pixel_height": height,
+                    "pixel_rasterizer": f"PyMuPDF {pymupdf.VersionBind}",
+                }
+            )
+            + "\n"
+        )
     return 0
 
 
