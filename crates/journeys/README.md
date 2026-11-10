@@ -54,6 +54,8 @@ target root so prepared builds can be reused.
 | --- | --- | --- |
 | `cadcraft.edit-hatched-drawing.12k` | CADCraft | Edit one entity in a deterministic generated 12,000-hatch drawing |
 | `cadcraft.open-dxf.large-map` | CADCraft | Open the pinned Graz map DXF |
+| `cadcraft.hatch-render-typical-wall-brick` | CADCraft | Build and checksum a model-space display list for a median-sized, hatch-bearing real-world DXF |
+| `cadcraft.hatch-render-typical-wall-brick-fork-baseline` | CADCraft | Same DXF journey with the CADCraft fork baseline patch for no-fix comparisons |
 | `cadcraft.open-dxf.usa` | CADCraft | Open the pinned USA DXF |
 | `cadcraft.open-dxf.us-main` | CADCraft | Open the pinned US-main DXF |
 | `wordcraft.startup-cold-first-frame`, `wordcraft.startup-warm-first-frame` | WordCraft | Cold and warm start through the first interactive document frame |
