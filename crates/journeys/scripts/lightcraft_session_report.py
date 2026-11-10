@@ -139,6 +139,22 @@ def verify_photo_change(previous,current):
         raise ValueError('exposure result photo pixels did not change')
 
 
+def check_export_pixels(session):
+    from PIL import Image, ImageChops, ImageStat
+    jpeg=Image.open(session['export_sample']).convert('RGB')
+    expected=Image.open(session['export_oracle']).convert('RGB')
+    if jpeg.size!=expected.size:
+        if session.get('export_oracle_method')=='png-export-same-geometry':
+            raise ValueError('JPEG and lossless PNG export geometry differ')
+        if max(abs(a-b) for a,b in zip(jpeg.size,expected.size))>1:
+            raise ValueError('JPEG output dimensions differ from requested source render')
+        # Retain validation of the already-published legacy preview-based report.
+        expected=expected.resize(jpeg.size,Image.Resampling.BILINEAR)
+    mean=ImageStat.Stat(ImageChops.difference(jpeg,expected)).mean
+    if max(mean)>8:raise ValueError(f'JPEG does not reproduce its photo/settings within lossy MAE 8: {mean}')
+    return dict(mean_rgb=mean,dimensions=list(jpeg.size),oracle_method=session.get('export_oracle_method','legacy-ui-render'))
+
+
 def check_pixels(sessions):
     from PIL import Image, ImageChops, ImageStat
     checks=[]
@@ -147,15 +163,7 @@ def check_pixels(sessions):
     for tier,pair in sorted({(s['tier'],s['pair']) for s in sessions}):
         group={s['side']:s for s in sessions if s['tier']==tier and s['pair']==pair}
         for session in group.values():
-            jpeg=Image.open(session['export_sample']).convert('RGB')
-            expected=Image.open(session['export_oracle']).convert('RGB')
-            if jpeg.size!=expected.size:
-                if max(abs(a-b) for a,b in zip(jpeg.size,expected.size))>1:
-                    raise ValueError('JPEG output dimensions differ from requested source render')
-                # Preview and export paths round the short edge differently (1366 vs 1365).
-                expected=expected.resize(jpeg.size,Image.Resampling.BILINEAR)
-            mean=ImageStat.Stat(ImageChops.difference(jpeg,expected)).mean
-            if max(mean)>8:raise ValueError(f'JPEG does not reproduce its photo/settings within lossy MAE 8: {mean}')
+            session['export_output_check']=check_export_pixels(session)
         for side in ('main','upstream'):
             a,b=group['point'],group[side]
             if a['oracle_source']!=b['oracle_source']:

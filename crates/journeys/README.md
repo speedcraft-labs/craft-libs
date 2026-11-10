@@ -447,9 +447,19 @@ that failure is retained and linked to the shutdown follow-up.
 
 
 Background preparation may outlive the measured actions. In particular, upstream
-can prepare all500 library previews by default. Preserve that default work and
-wait outside every action/quit/startup clock for up to30 minutes before idle
+can prepare all 500 library previews by default. Preserve that default work and
+wait outside every action/quit/startup clock for up to 30 minutes before idle
 quit, and after the populated-library startup frame before untimed cleanup.
-`background_drains` retains timestamps and30-second progress snapshots. The
+`background_drains` retains timestamps and 30-second progress snapshots. The
 progress wait neither cancels work nor contributes to a measured action; a
 remaining task at the deadline rejects the attempt.
+
+
+For new session exports, the untimed reference is an 8-bit sRGB PNG exported
+through the same geometry/source/settings path as JPEG. Dimensions must match
+exactly, and the lossy channel-MAE 8 bound remains fixed. A UI-render preview can
+round the short edge differently (1366 versus 1365 at long edge 2048); stretching
+it misaligns high-ISO noise and is not a valid JPEG-codec reference. The retained
+typical 50 legacy report passed its original preview-based check; its method stays
+explicitly identified. New validation runs immediately after the untimed PNG,
+before potentially long background draining. Cross-revision bounds are unchanged.
