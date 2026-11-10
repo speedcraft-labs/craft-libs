@@ -1,12 +1,15 @@
 import argparse,json,subprocess
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--aa',type=Path,required=True);p.add_argument('--comparison',type=Path,nargs='+',required=True);p.add_argument('--slowdown',type=Path);args=p.parse_args();k=Path(__file__).parent
+p=argparse.ArgumentParser();p.add_argument('--aa',type=Path,required=True);p.add_argument('--additional-aa',type=Path,nargs='*',default=[]);p.add_argument('--comparison',type=Path,nargs='+',required=True);p.add_argument('--slowdown',type=Path);args=p.parse_args();k=Path(__file__).parent
 read=lambda path:json.loads(path.read_text())
 aa=read(args.aa);reports=[read(x) for x in args.comparison]
 fmt=lambda x:f'{x:.2f}' if x is not None else 'uncalibrated'
 lines=['User-visible results pending editorial interpretation. Ratio = exp(median log paired-session median(point)/median(main)); above 1 favors fork main. Pooled medians/p95 are descriptive and need not have this ratio. All latencies are ms. Cold means first timed use after setup, warm means measured repeats; OS/shader caches are not flushed.','', 'A/A: identical current-main commit, two separately clean-built binaries, contiguous AB/BA pairs. 95% CI resamples whole paired sessions. MDE is approximate alpha .05 / power .80 sensitivity, not the CI half-width.','', '| Action / state | Ratio | 95% CI | Ordinary paired 95% CI | Half-width % | Minimum detectable effect % | Allowed half-width % | Gate |','|---|---:|---:|---:|---:|---:|---:|---|']
-for r in aa['rows']:
- lines.append(f"| {r['action']} / {r['phase']} | {r['speedup']:.3f} | {r['ci95'][0]:.3f}–{r['ci95'][1]:.3f} | {r['ordinary_ci95'][0]:.3f}–{r['ordinary_ci95'][1]:.3f} | {r['half_width_pct']:.2f} | {fmt(r['minimum_detectable_effect_pct'])} | {r['threshold_pct']} | {'PASS' if r['aa_pass'] else 'FAIL'} |")
+for index,control in enumerate([aa,*[read(path) for path in args.additional_aa]]):
+ if index:
+  lines+=['', 'A/A calibration: '+', '.join(sorted({r['tier'] for r in control['rows']})), '', '| Action / state | Ratio | 95% CI | Ordinary paired 95% CI | Half-width % | Minimum detectable effect % | Allowed half-width % | Gate |','|---|---:|---:|---:|---:|---:|---:|---|']
+ for r in control['rows']:
+  lines.append(f"| {r['action']} / {r['phase']} | {r['speedup']:.3f} | {r['ci95'][0]:.3f}–{r['ci95'][1]:.3f} | {r['ordinary_ci95'][0]:.3f}–{r['ordinary_ci95'][1]:.3f} | {r['half_width_pct']:.2f} | {fmt(r['minimum_detectable_effect_pct'])} | {r['threshold_pct']} | {'PASS' if r['aa_pass'] else 'FAIL'} |")
 if args.slowdown:
  slow=read(args.slowdown)
  if slow['config'].get('test_quit_delay_ns') is not None:

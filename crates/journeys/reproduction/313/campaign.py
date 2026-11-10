@@ -27,18 +27,20 @@ for generation in range(10000):
       and report.get('guard',{}).get('contended') is False
       and report.get('prior_acquisitions_passed') and report.get('gpu_process_checks_passed')
       and report.get('output_checked') and not report.get('failure')):
-   candidates.append((len(report['sessions']),path.stat().st_mtime,path,report))
+   info=dict(actual={(s['tier'],s['pair'],s['side']) for s in report['sessions']},publishable=report.get('publishable'),comparison_complete=report.get('comparison_complete'))
+   candidates.append((len(report['sessions']),path.stat().st_mtime,path,info))
+ report=None  # Do not retain megabytes of every cumulative report while benchmarking.
  current=dict(config)
  if candidates:
-  _,_,path,report=max(candidates,key=lambda x:x[:2])
+  _,_,path,info=max(candidates,key=lambda x:x[:2])
   current['resume_report']=str(path)
   (k/(label+'-latest.txt')).write_text(str(path))
   selected={config['side']} if config.get('side') else set(config.get('acquisition_sides',config['sides']))
   expected={(tier,pair,side) for tier in config['payloads'] for pair in range(config['sessions']) for side in selected}
-  actual={(s['tier'],s['pair'],s['side']) for s in report['sessions']}
+  actual=info['actual']
   print('checkpoint',path,'sessions',len(actual),flush=True)
   if expected<=actual:
-   (k/(label+'-complete.json')).write_text(json.dumps(dict(report=str(path),publishable=report.get('publishable'),comparison_complete=report.get('comparison_complete')),indent=2))
+   (k/(label+'-complete.json')).write_text(json.dumps(dict(report=str(path),publishable=info['publishable'],comparison_complete=info['comparison_complete']),indent=2))
    print('COMPLETE',path,flush=True)
    break
  cfg=k/f'{label}-generation-{generation}.json';cfg.write_text(json.dumps(current,indent=2))
