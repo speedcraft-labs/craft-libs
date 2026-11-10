@@ -123,7 +123,7 @@ def stable_identity(source_hash: str, task: str, **result) -> str:
     return digest_json({"source": source_hash, "task": task, "result": result})
 
 
-def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *, log_path: Path | None = None):
+def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *, log_path: Path | None = None, on_started=None):
     profile.mkdir(parents=True, exist_ok=True)
     library.mkdir(parents=True, exist_ok=True)
     port = free_port()
@@ -146,6 +146,8 @@ def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *
         command.append(str(photo_path))
     with log_path.open("wb") if log_path else open(os.devnull, "wb") as log:
         process = subprocess.Popen(command, cwd=profile, env=env, stdout=log, stderr=log)
+    if on_started is not None:
+        on_started(process.pid)
     deadline = time.monotonic() + 90
     control = None
     while time.monotonic() < deadline:
@@ -674,8 +676,9 @@ def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,ru
         watcher=SessionGpuWatch()
         watcher.start()
         error=None
+        owned_pids=[]
         try:
-            record=run(attempt_dir,provisional)
+            record=run(attempt_dir,provisional,owned_pids.append)
         except Exception as failure:
             error=failure
             record={}
@@ -687,6 +690,9 @@ def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,ru
         finally:
             watcher.stop()
         after=session_gpu_processes()
+        # A startup failure may precede the first driver checkpoint/control connection.
+        # Preserve ownership from Popen so our failed app is never retried as contention.
+        record['process_ids']=sorted(set(record.get('process_ids',[]))|set(owned_pids))
         record.setdefault('gpu_processes_before',admitted)
         driver_after=record.get('gpu_processes_after')
         record.update(directory=str(attempt_dir),side=side,tier=tier,pair=pair,attempt=attempt,
@@ -724,7 +730,7 @@ def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,ru
         return record
 
 
-def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False):
+def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False, on_started=None):
     from lightcraft_session_report import validate_session, check_export_pixels
     directory.mkdir(parents=True,exist_ok=False)
     library,profile = directory/'library',directory/'profile'
@@ -734,7 +740,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         (directory/'gpu-processes-rejected.json').write_text(json.dumps(gpu_before,indent=2))
         raise RuntimeError(f'foreign GPU process before session: {gpu_before}')
     record=dict(side=side,tier=tier,pair=pair,directory=str(directory),samples=[],gpu_provisional=gpu_provisional,gpu_processes_before=gpu_before,launch_ns=time.perf_counter_ns())
-    process,control=spawn(binary,library,profile,None,log_path=log_path)
+    process,control=spawn(binary,library,profile,None,log_path=log_path,on_started=on_started)
     record['process_ids']=[process.pid]
     try:
         state=control.call('ui.inspect')
@@ -861,7 +867,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         control.stream.close()
         # Separately measure reopening the already-populated library, including a finished photo frame.
         started=time.perf_counter_ns()
-        process,control=spawn(binary,library,profile,None,log_path=directory/'startup.log')
+        process,control=spawn(binary,library,profile,None,log_path=directory/'startup.log',on_started=on_started)
         record['process_ids'].append(process.pid)
         session_detail(control,photo)
         ended,_=session_frame(control,directory/'startup-library.png')
@@ -885,7 +891,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         control.stream.close()
 
 
-def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=False, task="open", gpu_provisional=False):
+def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=False, task="open", gpu_provisional=False, on_started=None):
     """Diagnostic of the previous ui.render→quit path, never a session action claim."""
     directory.mkdir(parents=True,exist_ok=False)
     gpu_before=session_gpu_processes()
@@ -893,7 +899,7 @@ def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=Fal
         (directory/'gpu-processes-rejected.json').write_text(json.dumps(gpu_before,indent=2))
         raise RuntimeError(f'foreign GPU process before quit probe: {gpu_before}')
     launched=time.perf_counter_ns()
-    process,control=spawn(binary,directory/'library',directory/'profile',photo_path,log_path=directory/'app.log')
+    process,control=spawn(binary,directory/'library',directory/'profile',photo_path,log_path=directory/'app.log',on_started=on_started)
     try:
         photo=wait_for_photo(control,process)
         opened=time.perf_counter_ns()
@@ -932,6 +938,33 @@ def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=Fal
         control.stream.close()
 
 
+def session_resume(config, binary_hashes):
+    """Reuse completed sessions, preserving the guard and provenance of each acquisition."""
+    if not config.get('resume_report'):
+        return None
+    path=Path(config['resume_report'])
+    prior=json.loads(path.read_text())
+    def workload(c):return {k:v for k,v in c.items() if k not in ('pair','resume_report')}
+    if prior.get('schema')!='lightcraft-session-v1' or workload(prior['config'])!=workload(config):
+        raise ValueError('resume report workload/revisions differ')
+    if prior.get('binary_sha256')!=binary_hashes:
+        raise ValueError('resume report binary hashes differ')
+    from lightcraft_session_report import validate_session
+    keys=set()
+    for session in prior['sessions']:
+        validate_session(session)
+        key=(session['tier'],session['pair'],session['side'])
+        if key in keys:raise ValueError(f'duplicate resumed session: {key}')
+        keys.add(key)
+    return prior
+
+
+def session_comparison_complete(config,sessions):
+    expected={(tier,pair,side) for tier in config['payloads'] for pair in range(config.get('sessions',10)) for side in ('point','main','upstream')}
+    actual=[(s['tier'],s['pair'],s['side']) for s in sessions]
+    return len(actual)==len(expected) and set(actual)==expected
+
+
 def session_main(args):
     import argparse
     from lightcraft_session_report import summarize, markdown
@@ -940,17 +973,33 @@ def session_main(args):
     parser.add_argument('--out',required=True,type=Path)
     options=parser.parse_args(args)
     config=json.loads(options.config.read_text())
+    pair=config.get('pair',0)
+    if not isinstance(pair,int) or not 0<=pair<config.get('sessions',10):
+        raise ValueError('pair must be an index in 0..sessions')
+    if not config.get('quit_probe') and len(config['payloads'])!=1:
+        raise ValueError('one payload tier per lock acquisition is required')
+    binary_hashes={side:file_digest(Path(rev['binary'])) for side,rev in config['revisions'].items()}
+    prior=session_resume(config,binary_hashes)
     options.out.mkdir(parents=True,exist_ok=False)
     (options.out/'config.json').write_text(json.dumps(config,indent=2)+'\n')
-    sessions=[]
+    sessions=list(prior['sessions']) if prior else []
     report=dict(discarded_sessions=[],failed_sessions=[],gpu_wait_events=[],provisional_tiers={},gpu_policy=dict(wait_poll_seconds=30,attempt_budget_seconds=1800,during_session_poll_seconds=2),schema='lightcraft-session-v1',publish_scope='fork-point-to-fork-main',config=config,sessions=sessions,publishable=False,
                 statistics=dict(resamples=2000,seed=313,bootstrap_unit='paired-session',ratio='point/main',percentiles='linear'),
                 environment={key:os.environ.get(key) for key in ('DISPLAY','WGPU_BACKEND','LIGHTCRAFT_GPU_BACKEND','LIGHTCRAFT_GPU_ADAPTER','__GL_SHADER_DISK_CACHE_PATH','CRAFT_BENCH_ISOLATED')},
                 timing_scope='control send to first X11 capture proven pixel-identical to the native control PNG; mismatches fall back to the later native capture upper bound',
                 harness_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=Path(__file__).resolve().parents[3],text=True).strip(),
-                binary_sha256={side:file_digest(Path(rev['binary'])) for side,rev in config['revisions'].items()})
+                binary_sha256=binary_hashes,comparison_complete=False,prior_acquisitions_passed=True)
+    if prior:
+        for key in ('discarded_sessions','failed_sessions','gpu_wait_events','provisional_tiers'):
+            report[key]=prior.get(key,report[key])
+        report['prior_acquisitions']=prior.get('prior_acquisitions',[])+[dict(
+            path=config['resume_report'],sha256=file_digest(Path(config['resume_report'])),
+            harness_revision=prior['harness_revision'],guard=prior.get('guard'),fingerprint=prior.get('fingerprint'))]
+        report['prior_acquisitions_passed']=prior.get('prior_acquisitions_passed',True) and prior.get('guard',{}).get('contended') is False
     def checkpoint():
-        (options.out/'report.json').write_text(json.dumps(report,indent=2)+'\n')
+        temporary=options.out/'report.json.tmp'
+        temporary.write_text(json.dumps(report,indent=2)+'\n')
+        temporary.replace(options.out/'report.json')
     checkpoint()
     display=ensure_display()
     try:
@@ -960,13 +1009,13 @@ def session_main(args):
             report['diagnostic_only']=True
             report['input_sha256']=file_digest(Path(config['quit_probe']))
             for task in config.get('quit_tasks',['open']):
-                for pair in range(config.get('sessions',10)):
+                for pair in [pair]:
                     order=('point','main','upstream') if pair%2==0 else ('upstream','main','point')
                     for side in order:
                         print(f'quit probe {task} pair {pair} {side}',flush=True)
                         binary=Path(config['revisions'][side]['binary'])
                         record=session_guarded_attempt(report,checkpoint,binary,options.out/f'probe-{task}-{pair}-{side}','legacy-quit',side,pair,
-                            lambda directory,provisional:session_quit_probe(binary,Path(config['quit_probe']),directory,side,pair,task=task,gpu_provisional=provisional))
+                            lambda directory,provisional,on_started:session_quit_probe(binary,Path(config['quit_probe']),directory,side,pair,task=task,gpu_provisional=provisional,on_started=on_started))
                         report['diagnostic'].append(record)
                         checkpoint()
             report['gpu_adapters']=sorted({r['gpu_adapter'] for r in report['diagnostic'] if r['gpu_adapter']})
@@ -978,14 +1027,16 @@ def session_main(args):
             return 0
         # ABC/CBA blocks keep the primary comparison adjacent, reverse order on alternate pairs.
         for tier,payload in config['payloads'].items():
-            for pair in range(config.get('sessions',10)):
+            for pair in [pair]:
                 order=('point','main','upstream') if pair%2==0 else ('upstream','main','point')
                 for side in order:
+                    if any((s['tier'],s['pair'],s['side'])==(tier,pair,side) for s in sessions):
+                        continue
                     print(f'session {tier} pair {pair} {side}',flush=True)
                     revision=config['revisions'][side]
                     binary=Path(revision['binary'])
                     record=session_guarded_attempt(report,checkpoint,binary,options.out/f'{tier}-{pair}-{side}',tier,side,pair,
-                        lambda directory,provisional:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional))
+                        lambda directory,provisional,on_started:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional,on_started=on_started))
                     sessions.append(record)
                     checkpoint()
         from lightcraft_session_report import check_pixels
@@ -996,6 +1047,7 @@ def session_main(args):
             row['upstream_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream' and c['tier']==row['tier'])
         report['gpu_adapters']=sorted({s['gpu_adapter'] for s in sessions})
         report['output_checked']=True
+        report['comparison_complete']=session_comparison_complete(config,sessions)
         report['gpu_process_checks_passed']=not report['provisional_tiers']
         # The Rust entry point attaches craft-bench's guard/fingerprint and decides publication.
         checkpoint()

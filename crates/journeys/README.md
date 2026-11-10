@@ -263,8 +263,18 @@ the 2048 × 1640 JPEGs differed by at most 11, with mean absolute channel error 
 
 Run `craft-journeys session --config session.json --out REPORT_DIRECTORY`.
 Install Python 3 with Pillow for pixel verification. Build all three app revisions before locking. Config keys: `revisions` with `point`,
-`main`, `upstream` (each has `revision`, absolute `binary`); `payloads` maps tier names
-to absolute RAW folders; `sessions` (10), `warmups` (2), `repetitions` (3).
+`main`, `upstream` (each has `revision`, absolute `binary`); `payloads` maps one tier
+name to an absolute RAW folder; `sessions` (10), `warmups` (2), `repetitions` (3),
+`pair` (zero-based, defaults to 0). **Each invocation runs only that one pair.**
+For the next pair, set `resume_report` to the previous acquisition's `report.json`
+and use a new output directory. Completed sessions are retained without rerunning;
+workload settings and binary hashes must match. Each previous report's SHA-256,
+machine fingerprint and CPU guard are retained. Publication requires all ten
+distinct pairs and passing guards from every acquisition. A report interrupted
+before its CPU guard was written remains unpublishable: resume from the last
+successfully completed acquisition and retain the interrupted raw directory.
+The CLI exits 1 for an incomplete/unpublishable comparison even after a successful
+pair; inspect `report.json` before selecting it as the next resume checkpoint.
 The existing desktop driver launches once per session. Action clocks run from
 control-request send to native frame capture after finished-render state; they
 include polling, capture and IPC overhead, not OS input delivery or scanout.
@@ -283,6 +293,25 @@ it, then run through `flock /jobs/work/speedcraft-labs/bench.lock
 flock -x /jobs/work/speedcraft-labs/gpu.lock
 /jobs/work/speedcraft-labs/scripts/bench-run ...`. Existing launch-per-task journeys
 and their reports are unchanged.
+
+Release both locks between pairs. Enforce the Agentbox 15-minute acquisition cap
+with the timeout **inside** the locks, so queue waiting does not consume it:
+
+```sh
+flock /jobs/work/speedcraft-labs/bench.lock \
+  flock -x /jobs/work/speedcraft-labs/gpu.lock \
+  timeout --signal=TERM --kill-after=5s 895s \
+  /jobs/work/speedcraft-labs/scripts/bench-run \
+  craft-journeys session --config pair-0.json --out reports/pair-0
+# Release, then prepare pair-1.json with pair=1 and resume_report pointing above.
+```
+
+Measure the typical tens-of-photos library first. The 500-photo matrix is optional
+stress work, only when `sudo lslocks` shows no waiters for `bench.lock`; inspect
+the queue again before every acquisition. Do not launch a multi-pair command
+under either lock. Background preparation can make a stress pair exceed the cap;
+retain that interrupted acquisition and defer it rather than extending the lease.
+The hard cap takes precedence over the driver's longer GPU-admission/drain limits.
 
 Payload acquisition is pinned in `crates/corpus/manifests/lightcraft-session-2026.toml`.
 Fetch it with craft-corpus, then materialize hard-linked tier folders:
@@ -386,8 +415,9 @@ Current upstream's color output exceeds that bound on the Sony RAW, so its media
 column is marked **descriptive only / not pixel-equivalent**, with all measured
 differences retained. No upstream-relative speedup is claimed. `publishable` in
 this session schema refers to the primary comparison (`publish_scope` records it).
-The per-side JPEG/source-render check allows a one-pixel short-edge rounding
-mismatch, aligned by bilinear resize before the declared lossy MAE 8 check.
+The retained typical report's original JPEG/source-render check allowed a one-pixel
+short-edge rounding mismatch, aligned before its fixed MAE 8 check. New runs use
+the exact-geometry lossless export reference described below.
 
 
 If the compositor capture times out and falls back to headless, that PNG and its

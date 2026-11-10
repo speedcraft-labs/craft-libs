@@ -205,7 +205,7 @@ class Boundaries(unittest.TestCase):
             def stop(self):pass
         with tempfile.TemporaryDirectory() as tmp:
             report={};calls=[]
-            def run(directory,provisional):
+            def run(directory,provisional,on_started):
                 calls.append((directory,provisional));directory.mkdir()
                 return {'process_ids':[123]}
             with patch('lightcraft_real_app.session_gpu_admit',return_value=(clean,False)), patch('lightcraft_real_app.SessionGpuWatch',Watch), patch('lightcraft_real_app.session_gpu_processes',return_value=clean):
@@ -228,7 +228,7 @@ class Boundaries(unittest.TestCase):
             def stop(self):pass
         with tempfile.TemporaryDirectory() as tmp:
             report={};calls=[]
-            def run(directory,provisional):
+            def run(directory,provisional,on_started):
                 calls.append(directory);directory.mkdir()
                 return {'process_ids':[123],'gpu_processes_after':foreign if len(calls)==1 else clean}
             with patch('lightcraft_real_app.session_gpu_admit',return_value=(clean,False)), patch('lightcraft_real_app.SessionGpuWatch',Watch), patch('lightcraft_real_app.session_gpu_processes',return_value=clean):
@@ -250,7 +250,7 @@ class Boundaries(unittest.TestCase):
             def stop(self):pass
         with tempfile.TemporaryDirectory() as tmp:
             report={}
-            def run(directory,provisional):
+            def run(directory,provisional,on_started):
                 self.assertTrue(provisional);directory.mkdir();return fixture()
             with patch('lightcraft_real_app.session_gpu_admit',return_value=(foreign,True)), patch('lightcraft_real_app.SessionGpuWatch',Watch), patch('lightcraft_real_app.session_gpu_processes',return_value=foreign):
                 accepted=session_guarded_attempt(report,lambda:None,Path('/our-app'),Path(tmp)/'session','typical','main',0,run)
@@ -264,6 +264,79 @@ class Boundaries(unittest.TestCase):
         from lightcraft_real_app import session_gpu_foreign
         snapshots=[{'processes':[{'pid':123,'name':'same-binary'},{'pid':456,'name':'same-binary'}]}]
         self.assertEqual(session_gpu_foreign(snapshots,[123]),[{'pid':456,'name':'same-binary'}])
+
+    def test_control_startup_failure_is_not_discarded_as_gpu_contention(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from lightcraft_real_app import session_guarded_attempt, spawn
+        clean={'processes':[]};own={'processes':[{'pid':123,'name':'our-failed-app'}]}
+        class Watch:
+            samples=[own];errors=[]
+            def start(self):pass
+            def stop(self):pass
+        class FailedProcess:
+            pid=123;returncode=-11
+            def poll(self):return self.returncode
+        with tempfile.TemporaryDirectory() as tmp:
+            report={};directory=Path(tmp)/'session'
+            def run(attempt,provisional,on_started):
+                attempt.mkdir()
+                return spawn(Path('/our-app'),attempt/'library',attempt/'profile',None,on_started=on_started)
+            with patch('lightcraft_real_app.session_gpu_admit',return_value=(clean,False)), patch('lightcraft_real_app.SessionGpuWatch',Watch), patch('lightcraft_real_app.session_gpu_processes',return_value=clean), patch('lightcraft_real_app.subprocess.Popen',return_value=FailedProcess()):
+                with self.assertRaisesRegex(RuntimeError,'startup with status -11'):
+                    session_guarded_attempt(report,lambda:None,Path('/our-app'),directory,'typical','main',0,run)
+            self.assertEqual(report['discarded_sessions'],[])
+            self.assertEqual(len(report['failed_sessions']),1)
+            self.assertEqual(report['failed_sessions'][0]['process_ids'],[123])
+            self.assertEqual(report['failed_sessions'][0]['gpu_foreign_processes'],[])
+
+    def test_pair_resume_preserves_samples_and_rejects_changed_workload(self):
+        import json,tempfile
+        from pathlib import Path
+        from lightcraft_real_app import session_resume, session_comparison_complete
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'report.json'
+            config=dict(payloads={'typical':'/raw'},sessions=10,warmups=2,pair=0)
+            session=fixture();session.update(tier='typical',pair=0,side='point')
+            prior=dict(schema='lightcraft-session-v1',config=config,binary_sha256={'point':'hash'},sessions=[session])
+            path.write_text(json.dumps(prior))
+            resumed=dict(config,pair=1,resume_report=str(path))
+            self.assertEqual(session_resume(resumed,{'point':'hash'})['sessions'],[session])
+            with self.assertRaisesRegex(ValueError,'binary hashes'):
+                session_resume(resumed,{'point':'changed'})
+            with self.assertRaisesRegex(ValueError,'workload'):
+                session_resume(dict(resumed,warmups=0),{'point':'hash'})
+            self.assertFalse(session_comparison_complete(config,[session]))
+            all_sessions=[dict(tier='typical',pair=p,side=s) for p in range(10) for s in ('point','main','upstream')]
+            self.assertTrue(session_comparison_complete(config,all_sessions))
+            self.assertFalse(session_comparison_complete(config,all_sessions+[all_sessions[0]]))
+
+    def test_session_invocation_runs_one_pair_and_keeps_prior_guard(self):
+        import contextlib,io,json,tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from lightcraft_real_app import session_main, file_digest
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);binary=root/'app';binary.write_bytes(b'fake binary')
+            config=dict(payloads={'typical':'/raw'},sessions=10,warmups=2,pair=0,
+                        revisions={s:dict(binary=str(binary),revision=s) for s in ('point','main','upstream')})
+            prior_sessions=[dict(fixture(),tier='typical',pair=0,side=s) for s in config['revisions']]
+            prior=root/'prior.json';prior.write_text(json.dumps(dict(schema='lightcraft-session-v1',config=config,
+                sessions=prior_sessions,binary_sha256={s:file_digest(binary) for s in config['revisions']},
+                harness_revision='frozen',guard={'contended':False},fingerprint={'machine':'test'})))
+            config.update(pair=1,resume_report=str(prior))
+            config_path=root/'config.json';config_path.write_text(json.dumps(config));calls=[]
+            def guarded(report,checkpoint,binary,directory,tier,side,pair,run):
+                calls.append((pair,side));return dict(fixture(),tier=tier,pair=pair,side=side)
+            with patch('lightcraft_real_app.ensure_display',return_value=None), patch('lightcraft_real_app.session_guarded_attempt',side_effect=guarded), patch('lightcraft_session_report.check_pixels',return_value=[]), patch('lightcraft_session_report.summarize',return_value=[]), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(session_main(['--config',str(config_path),'--out',str(root/'out')]),0)
+            report=json.loads((root/'out'/'report.json').read_text())
+            self.assertEqual(calls,[(1,'upstream'),(1,'main'),(1,'point')])
+            self.assertEqual(len(report['sessions']),6)
+            self.assertFalse(report['comparison_complete'])
+            self.assertTrue(report['prior_acquisitions_passed'])
+            self.assertEqual(report['prior_acquisitions'][0]['guard'],{'contended':False})
 
     def test_stable_ratio_resamples_sessions(self):
         from lightcraft_session_report import ACTIONS

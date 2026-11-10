@@ -100,3 +100,20 @@ an untimed8-bit sRGB lossless PNG export with exactly the JPEG's geometry and
 source/settings. The MAE 8, primary PNG 1/alpha 0 and cross-JPEG 16/0.5 bounds are
 unchanged, and the same noisy RAW remains the heavy preview/export source.
 Completed legacy reports keep their original preview-based checks and evidence.
+# Monolithic stress acquisition stopped by coordinator
+
+`failed/313-monolithic-stress-lock` preserves the superseded matrix approach.
+The coordinator stopped heavy-500 v4 after two complete three-revision pairs and
+one additional fork-point session (7/30). The acquisition had occupied the shared
+benchmark/GPU locks for almost 90 minutes with 13 benchmarks queued. All seven
+completed sessions had clean observed GPU windows, but there is no final CPU
+guard or ten-pair cohort; they do not enter a published table. Upstream's default
+500-preview preparation took 801 seconds in the first session, outside every
+action clock. The raw sessions and partial checkpoint are retained in NAS.
+
+The completed typical-50 cohort is the primary deliverable. Optional heavy stress
+now runs only without queued workers, one pair per acquisition, under the hard
+15-minute limit. `pair` and `resume_report` retain completed acquisitions and their
+guards without holding either lock between them. An interrupted acquisition with
+no final CPU guard cannot become publishable through resuming.
+
