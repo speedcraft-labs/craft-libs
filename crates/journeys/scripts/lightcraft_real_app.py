@@ -490,10 +490,27 @@ class SessionSampler:
 
 def session_arm(control, record, action):
     session_drain(control, record, 'before-' + action)
+    session_check_gpu_condition(record, 'before-' + action)
     if getattr(control, 'action_sampler', None) is not None:
         raise RuntimeError('previous action observer still running')
     control.action_sampler = SessionSampler(control)
     control.armed_action = action
+
+
+def session_check_gpu_condition(record, phase):
+    """Observe the configured hardware condition outside every action clock."""
+    expected=record.get('gpu_state')
+    if not expected:return
+    sent=time.perf_counter_ns()
+    raw=subprocess.check_output(['nvidia-smi','--id=0',
+        '--query-gpu=clocks.gr,clocks.mem,pstate','--format=csv,noheader,nounits'],text=True,timeout=5)
+    graphics,memory,pstate=[v.strip() for v in raw.strip().split(',')]
+    actual=dict(graphics_mhz=int(graphics),memory_mhz=int(memory),pstate=pstate)
+    checked=dict(phase=phase,sent_ns=sent,observed_ns=time.perf_counter_ns(),actual=actual)
+    record.setdefault('gpu_condition_checks',[]).append(checked)
+    if (abs(actual['graphics_mhz']-expected['graphics_mhz'])>15
+            or abs(actual['memory_mhz']-expected['memory_mhz'])>5):
+        raise RuntimeError(f'GPU clock condition differs before {phase}: expected {expected}, observed {actual}')
 
 
 def session_capture_once(control, path):
@@ -880,7 +897,7 @@ def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,ru
         return record
 
 
-def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False, on_started=None, exposure_steps=10):
+def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False, on_started=None, exposure_steps=10, gpu_state=None):
     from lightcraft_session_report import validate_session, check_export_pixels
     directory.mkdir(parents=True,exist_ok=False)
     library,profile = directory/'library',directory/'profile'
@@ -889,7 +906,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
     if gpu_before['processes'] and not gpu_provisional:
         (directory/'gpu-processes-rejected.json').write_text(json.dumps(gpu_before,indent=2))
         raise RuntimeError(f'foreign GPU process before session: {gpu_before}')
-    record=dict(side=side,tier=tier,pair=pair,directory=str(directory),samples=[],gpu_provisional=gpu_provisional,gpu_processes_before=gpu_before,launch_ns=time.perf_counter_ns())
+    record=dict(side=side,tier=tier,pair=pair,directory=str(directory),samples=[],gpu_state=gpu_state,gpu_provisional=gpu_provisional,gpu_processes_before=gpu_before,launch_ns=time.perf_counter_ns())
     process,control=spawn(binary,library,profile,None,log_path=log_path,on_started=on_started)
     control.test_delay_ms=float(os.environ.get('CRAFT_JOURNEYS_TEST_SWITCH_DELAY_MS','0')) if side=='main' else 0
     record['test_switch_delay_ms']=control.test_delay_ms
@@ -1030,6 +1047,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         state=session_drain(control,record,'before-idle-quit',require_saved=True)
         record['gpu_adapter']=state['perf'].get('gpu')
         record['pre_quit_state']=state
+        session_check_gpu_condition(record,'before-idle-quit')
         # No forced process termination is allowed to masquerade as a quit sample.
         control.call('engine.execute',{'command':'app.quit'})
         record['quit_request_ns']=control.last_sent_ns
@@ -1038,6 +1056,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             raise RuntimeError(f'quit failed: {process.returncode}')
         control.stream.close()
         # Separately measure reopening the already-populated library, including a finished photo frame.
+        session_check_gpu_condition(record,'before-library-startup')
         started=time.perf_counter_ns()
         process,control=spawn(binary,library,profile,None,log_path=directory/'startup.log',on_started=on_started)
         record['process_ids'].append(process.pid)
@@ -1053,6 +1072,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         session_drain(control,record,'after-startup-frame')
         for lifecycle in range(repetitions):
             session_drain(control,record,f'before-repeat-quit-{lifecycle}',require_saved=True)
+            session_check_gpu_condition(record,f'before-repeat-quit-{lifecycle}')
             control.call('engine.execute',{'command':'app.quit'})
             sent=control.last_sent_ns
             exited=session_wait_exit(process)
@@ -1060,6 +1080,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             record['quit_samples'].append(dict(duration_ns=exited-sent,phase='warm',sent_ns=sent,exit_ns=exited,exit_code=process.returncode))
             control.stream.close()
             if lifecycle==repetitions-1:break
+            session_check_gpu_condition(record,f'before-repeat-startup-{lifecycle}')
             started=time.perf_counter_ns()
             process,control=spawn(binary,library,profile,None,log_path=directory/f'startup-repeat-{lifecycle}.log',on_started=on_started)
             record['process_ids'].append(process.pid)
@@ -1182,6 +1203,11 @@ def session_calibration(config):
         raise ValueError('calibration app commit differs from comparison main')
     if report.get('driver_sha256')!=file_digest(Path(__file__)):
         raise ValueError('calibration used a different driver; repeat A/A')
+    for key in ('gpu_state','measurement_method','warmups','repetitions','exposure_steps'):
+        if report['config'].get(key)!=config.get(key):
+            raise ValueError(f'calibration condition differs: {key}')
+    if any(s.get('gpu_state')!=report['config'].get('gpu_state') for s in report['sessions']):
+        raise ValueError('calibration session GPU condition differs from config')
     from lightcraft_session_report import summarize
     return {'rows':summarize(report['sessions'],aa=True)}
 
@@ -1262,7 +1288,7 @@ def session_main(args):
                     revision=config['revisions'][side]
                     binary=Path(revision['binary'])
                     record=session_guarded_attempt(report,checkpoint,binary,options.out/f'{tier}-{pair}-{side}',tier,side,pair,
-                        lambda directory,provisional,on_started:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional,on_started=on_started,exposure_steps=config.get('exposure_steps',10)))
+                        lambda directory,provisional,on_started:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional,on_started=on_started,exposure_steps=config.get('exposure_steps',10),gpu_state=config.get('gpu_state')))
                     sessions.append(record)
                     checkpoint()
         from lightcraft_session_report import check_pixels

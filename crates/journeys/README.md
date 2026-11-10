@@ -350,6 +350,27 @@ comparison supplies `aa_report`; without it unchanged rows say "sensitivity
 uncalibrated". The formatter rejects "no measurable change" without an A/A MDE.
 Report failed gates and achieved MDE instead of claiming 5% sensitivity.
 
+Agentbox's automatic GPU power state is an additional measurement condition:
+the diagnostic run saw 300–1,350 MHz graphics clocks and 405–7,000 MHz memory
+clocks. Switching duration closely tracked render time (correlation 0.996 in
+the first two pairs). The controlled protocol uses
+`measurement_method: "first-grid-quickack-fixed-gpu-v5"` and
+`gpu_state: {"graphics_mhz": 1350, "memory_mhz": 7000, "power_mizer_mode": 1}`.
+The external lease controller locks graphics clocks only while holding both
+locks; each owned display selects maximum-performance mode and restores its
+original mode before exit. The controller restores default graphics-clock
+management before unlocking, including on lease expiry. Direct memory locking
+is unsupported on this GPU even though `nvidia-smi` returns zero: check its
+output and the actual clocks. The tested PowerMizer condition holds memory at
+7,000 MHz instead.
+
+The driver observes actual graphics/memory clocks outside every action and
+populated-library lifecycle timer. A mismatch rejects the session; observations
+remain in the raw report. Calibration must match the hardware condition and
+repeat settings. These are latencies at the stated controlled GPU condition;
+automatic-power diagnostics remain separate. No latency is normalized by clock
+speed, and no delay is subtracted from a measurement.
+
 The test-only `CRAFT_JOURNEYS_TEST_SWITCH_DELAY_MS` adds a real dispatch delay to
 main-side switch requests. Set it to 10% of the calibrated warm switch median,
 record that absolute delay and run a separate interleaved matrix. It never changes

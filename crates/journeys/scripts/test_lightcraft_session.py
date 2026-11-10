@@ -10,6 +10,37 @@ def fixture():
 
 
 class Boundaries(unittest.TestCase):
+    def test_configured_gpu_condition_is_observed(self):
+        from unittest.mock import patch
+        from lightcraft_real_app import session_check_gpu_condition
+        record={'gpu_state':dict(graphics_mhz=1350,memory_mhz=7000)}
+        with patch('subprocess.check_output',return_value='1350, 7000, P0\n'):
+            session_check_gpu_condition(record,'before-switch')
+        check=record['gpu_condition_checks'][0]
+        self.assertEqual(check['actual'],dict(graphics_mhz=1350,memory_mhz=7000,pstate='P0'))
+        self.assertEqual(check['phase'],'before-switch')
+
+    def test_wrong_gpu_condition_is_retained_and_blocks_action(self):
+        from unittest.mock import patch
+        from lightcraft_real_app import session_check_gpu_condition
+        record={'gpu_state':dict(graphics_mhz=1350,memory_mhz=7000)}
+        with patch('subprocess.check_output',return_value='435, 405, P8\n'):
+            with self.assertRaisesRegex(RuntimeError,'clock condition differs'):
+                session_check_gpu_condition(record,'before-switch')
+        self.assertEqual(record['gpu_condition_checks'][0]['actual']['memory_mhz'],405)
+
+    def test_gpu_observation_must_precede_action_clock(self):
+        s=fixture();s['gpu_state']=dict(graphics_mhz=1350,memory_mhz=7000)
+        with self.assertRaisesRegex(ValueError,'lack observations'):validate_session(s)
+        s['gpu_condition_checks']=[dict(phase='before-exposure',sent_ns=21,observed_ns=25,
+            actual=dict(graphics_mhz=1350,memory_mhz=7000,pstate='P0'))]
+        validate_session(s)
+        s['gpu_condition_checks'][0]['observed_ns']=35
+        with self.assertRaisesRegex(ValueError,'untimed GPU'):validate_session(s)
+        s['gpu_condition_checks'][0]['observed_ns']=25
+        s['gpu_condition_checks'][0]['actual']['graphics_mhz']=435
+        with self.assertRaisesRegex(ValueError,'condition was not met'):validate_session(s)
+
     def test_valid_session(self):
         validate_session(fixture())
 

@@ -99,7 +99,7 @@ rapid reset exceeded 300 s and proof long-TRY took 11.281 s against a 10 s limit
 Both fail on clean integration `cd0f22bc`: H.264 at 300.04 s; proof takes
 14.266 s against the same 10 s assertion. Neither file differs from integration.
 Both runs remain retained rather than substituting the earlier success. Targeted journeys
-tests pass (3 Rust tests including 33 Python tests). Both HEVC tests pass on clean integration. This branch's
+tests pass (3 Rust tests including 36 Python tests). Both HEVC tests pass on clean integration. This branch's
 `cargo test -p craft-hevc conformance:: -- --nocapture` passes 43 tests, ignores 2.
 The old HEVC failures are currently **not reproducible**, not established baseline
 failures. Clippy reproduces the two shader assign-op errors (lines 58/78) and the
@@ -129,7 +129,7 @@ A/A, deliberate-slowdown and replacement comparison results are pending; this
 file currently makes no new latency or sensitivity claim.
 
 
-## Frozen v4 acceptance protocol
+## Retained v4 diagnostic protocol
 
 All v1–v3 trials are diagnostic and retained; they are not silently pooled into
 the acceptance gate. Before collecting the fixed v4 campaign:
@@ -155,3 +155,28 @@ state; they do not establish that all of it came from the display. A read-only
 check found no bench.slice quota/throttling (cpu.max unlimited, nr_throttled 0),
 only the owned service on CPUs 22–27, and GPU temperature 51 C / P8 at that instant.
 GPU clocks and host-frequency effects have not been independently identified.
+
+
+## Controlled GPU condition
+
+The six accepted v4 sessions (three A/A pairs) are diagnostic, not an acceptance
+gate. Identical binaries had warm switch last-render medians A/B of 892/1,062,
+474/856 and 532/749 ms. All deliberate-delay fields were zero. A read-only
+observer saw graphics clocks 300–1,350 MHz and memory 405–7,000 MHz; sparse
+observations during pair 2 switching were 585 MHz for A (one observation) and
+442.5 MHz median for B (four observations). This suggests a power-state source
+of variance, but is not an independent causal experiment.
+
+A scoped capability probe confirmed graphics locking at 1,350 MHz. The memory
+lock command printed “not supported” while returning zero. Setting the owned
+X display's PowerMizer mode from its original 2 to 1 held P0 at 1,350/7,000 MHz.
+The probe restored mode 2 and default clock management before releasing either
+lock. Raw CLI output, initial support-flag parsing failure and corrected probe
+are retained. No action samples were collected by these probes.
+
+The new v5 campaign uses the same action clocks and statistics under that
+controlled GPU condition, with explicit untimed clock observations before every
+action and lifecycle timer. Wrong clocks reject a session; calibration also
+requires matching clock/repeat settings. It starts fresh: no v4 observations
+are pooled into v5. Absolute latencies are conditional on this stated GPU state.
+The scoped controller must restore settings even when its owned unit expires.

@@ -18,6 +18,15 @@ def validate_session(session):
     for snapshot in snapshots:
         if not session.get('gpu_provisional') and snapshot is not None and any(p['pid'] not in own for p in snapshot['processes']):
             raise ValueError('foreign GPU process makes session not publishable')
+    expected=session.get('gpu_state')
+    if expected:
+        checks=session.get('gpu_condition_checks',[])
+        if not checks:raise ValueError('configured GPU clocks lack observations')
+        for check in checks:
+            actual=check['actual']
+            if (abs(actual['graphics_mhz']-expected['graphics_mhz'])>15
+                    or abs(actual['memory_mhz']-expected['memory_mhz'])>5):
+                raise ValueError('GPU clock condition was not met')
     if 'startup_samples' in session:
         starts,quits=session['startup_samples'],session['quit_samples']
         if len(quits)!=len(starts)+1 or quits[0]['exit_ns']!=session['exit_ns']:
@@ -33,6 +42,7 @@ def validate_session(session):
         for quit in quits:
             if quit['exit_code']!=0 or quit['duration_ns']!=quit['exit_ns']-quit['sent_ns']:
                 raise ValueError('repeated quit failure or fabricated duration')
+    used_clock_checks=set()
     for action in session['samples']:
         if action['action'] not in ACTIONS:
             raise ValueError('unknown action')
@@ -42,6 +52,11 @@ def validate_session(session):
             raise ValueError('duration includes work outside input-to-frame boundary')
         if not action['checked'] or not action['frame_sha256']:
             raise ValueError('unchecked output')
+        if expected:
+            before=[c for c in checks if c['phase']=='before-'+action['action']
+                    and c['observed_ns']<=action['sent_ns'] and c['observed_ns'] not in used_clock_checks]
+            if not before:raise ValueError('action lacks an untimed GPU clock observation')
+            used_clock_checks.add(max(c['observed_ns'] for c in before))
         proof=action.get('evidence',{}).get('capture')
         if proof is not None:
             if proof.get('native') is False:
