@@ -458,5 +458,69 @@ class Boundaries(unittest.TestCase):
         self.assertIsNone(row['minimum_detectable_effect_pct'])
         self.assertFalse(row['aa_pass'])
 
+    def test_fixed_order_bootstrap_retains_balance_and_detects_known_effect(self):
+        from lightcraft_session_report import ACTIONS
+        sessions=[]
+        for side in ('point','main'):
+            for pair in range(10):
+                # A fixed first/second slot effect, plus common machine drift.
+                base=(10 if (pair%2==0)==(side=='point') else 40)*(pair+1)
+                sample=fixture();sample.update(side=side,tier='test',pair=pair,startup_library_ns=base,quit_request_ns=1000,exit_ns=1050)
+                sample['samples']=[dict(copy.deepcopy(sample['samples'][0]),action=a,frame_ns=30+base,duration_ns=base) for a in ACTIONS]
+                sessions.append(sample)
+        row=summarize(sessions,resamples=500,aa=True)[0]
+        self.assertEqual(row['ci95'],[1,1])
+        self.assertTrue(row['aa_pass'])
+        self.assertNotAlmostEqual(row['pooled_ratio'],1)
+        self.assertLess(row['ordinary_ci95'][0],1)
+        self.assertGreater(row['ordinary_ci95'][1],1)
+        for sample in sessions:
+            if sample['side']=='main':
+                for x in sample['samples']:x.update(frame_ns=30+round(x['duration_ns']*1.1),duration_ns=round(x['duration_ns']*1.1))
+        row=summarize(sessions,resamples=500)[0]
+        self.assertAlmostEqual(row['speedup'],1/1.1)
+        self.assertEqual(row['verdict'],'slower')
+
+    @unittest.skipUnless(importlib.util.find_spec('PIL'), 'Pillow is required for real-app pixel checks')
+    def test_first_grid_clock_excludes_the_later_page_audit(self):
+        import tempfile,hashlib
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import patch,Mock
+        from PIL import Image
+        from lightcraft_real_app import session_import_frame
+        state=dict(perf={'thumbTextures':1},scroll={'grid':0},pixelsPerPoint=1)
+        def call(method,params=None):
+            if method=='ui.inspect':return state
+            if params['filter']=='grid:scroll':return [{'id':'grid:scroll','rect':[0,0,20,20]}]
+            return [{'id':'thumb:1','rect':[0,0,20,20]}]
+        observer=SimpleNamespace(finish=Mock());control=SimpleNamespace(call=call,action_sampler=observer)
+        with tempfile.TemporaryDirectory() as tmp:
+            image=Image.frombytes('RGB',(20,20),bytes(range(240))*5)
+            digest=hashlib.sha256(image.tobytes()).hexdigest()
+            def capture(control,path):
+                image.save(path)
+                control.last_capture_proof=dict(verified_ns=90,width=20,height=20,frame_ns=40,
+                    candidates=[dict(ns=n,rgb_sha256=digest,width=20,height=20) for n in (40,60)])
+                return 40,digest
+            with patch('lightcraft_real_app.session_grid_settled',return_value=state),patch('lightcraft_real_app.session_frame',side_effect=capture):
+                end,_,proof,facts=session_import_frame(control,{},Path(tmp),0,[1],30,50)
+            self.assertEqual(end,60)  # Never an identical image before import completion.
+            self.assertEqual(facts['visible_ids'],[1])
+            self.assertEqual(proof['frame_ns'],60)
+            observer.finish.assert_called_once()
+
+    def test_acquisition_selection_is_not_a_changed_workload(self):
+        import json,tempfile
+        from pathlib import Path
+        from lightcraft_real_app import session_resume,file_digest
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'report.json'
+            c=dict(payloads={'test':'/raw'},sessions=10,measurement_method='v4',acquisition_sides=['point','main'])
+            old=dict(schema='lightcraft-session-v1',config=c,driver_sha256=file_digest(Path(__file__).with_name('lightcraft_real_app.py')),binary_sha256={'point':'same'},sessions=[])
+            path.write_text(json.dumps(old))
+            current=dict(c,acquisition_sides=['upstream'],resume_report=str(path))
+            self.assertEqual(session_resume(current,{'point':'same'})['sessions'],[])
+
 
 if __name__=='__main__': unittest.main()

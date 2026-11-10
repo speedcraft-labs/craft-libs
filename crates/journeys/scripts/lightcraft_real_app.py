@@ -576,7 +576,11 @@ def session_frame(control, path):
 
 
 def session_result(control, path, sent, not_before=None):
-    end, digest = session_frame(control, path)
+    _, digest = session_frame(control, path)
+    return session_finish_result(control, sent, digest, not_before)
+
+
+def session_finish_result(control, sent, digest, not_before=None):
     observer = getattr(control, 'action_sampler', None)
     if observer is not None:
         observer.finish()
@@ -627,6 +631,43 @@ def session_grid_settled(control):
         previous=offset
         time.sleep(.01)
     raise TimeoutError('grid did not settle')
+
+
+def session_import_frame(control, record, directory, iteration, ids, sent, completed):
+    """First usable viewport after ALL files entered the catalog; page audit is later."""
+    from PIL import Image, ImageStat
+    for attempt in range(3):
+        state=session_grid_settled(control)
+        view=next(w for w in control.call('ui.widgets',{'filter':'grid:scroll'}) if w['id']=='grid:scroll')
+        vx,vy,vw,vh=view['rect']
+        widgets=control.call('ui.widgets',{'filter':'thumb:'})
+        visible=[]
+        for widget in widgets:
+            if not widget['id'].startswith('thumb:'):continue
+            ident=int(widget['id'].split(':')[1]);x,y,w,h=widget['rect']
+            if ident in ids and vx<=x and x+w<=vx+vw and vy<=y and y+h<=vy+vh:
+                visible.append((ident,(x,y,w,h)))
+        path=directory/f'first-grid-{iteration}-{attempt}.png'
+        _,digest=session_frame(control,path)
+        after=control.call('ui.inspect')
+        image=Image.open(path).convert('RGB');ppp=state['pixelsPerPoint']
+        blank=[]
+        for ident,(x,y,w,h) in visible:
+            box=tuple(round(v*ppp) for v in (x+w*.3,y+h*.25,x+w*.7,y+h*.55))
+            if max(ImageStat.Stat(image.crop(box)).stddev)<1:blank.append(ident)
+        valid=(visible and not blank and after['perf']['thumbTextures']>=len(visible)
+               and isinstance(after['scroll'].get('grid'),(int,float))
+               and isinstance(state['scroll'].get('grid'),(int,float))
+               and abs(after['scroll']['grid']-state['scroll']['grid'])<=.5)
+        facts=dict(visible_ids=[ident for ident,_ in visible],blank_ids=blank,
+                   perf=after['perf'],before_perf=state['perf'],scroll=state['scroll']['grid'],grid_rect=view['rect'])
+        if valid:
+            end,digest=session_finish_result(control,sent,digest,not_before=completed)
+            return end,digest,control.last_capture_proof,facts
+        retained=path.with_suffix('.rejected.png');path.rename(retained)
+        proof=control.last_capture_proof;proof['reference_png']=str(retained)
+        record.setdefault('first_grid_rejections',[]).append(dict(iteration=iteration,attempt=attempt,capture=proof,**facts))
+    raise RuntimeError('no usable imported grid after three native frames; original clock and rejected frames retained')
 
 
 def session_grid_at_top(state):
@@ -877,6 +918,8 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
                 session_execute(control,'photo.deletePermanently',{'ids': ids})
                 control.call('ui.move', {'x': 600, 'y': 350})
                 control.call('ui.scroll', {'dy': 100000})
+            session_execute(control,'view.squareGrid')
+            control.call('ui.set',{'thumbSize':100})
             session_arm(control,record,'import')
             control.call('ui.dropFiles',{'paths':[str(payload)]})
             sent=control.last_sent_ns
@@ -886,6 +929,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             if result.get('importing')!=len(paths):
                 raise RuntimeError(f'incomplete import request: {result}')
             session_wait(control,lambda s:s.get('import') is None and s.get('scan') is None)
+            import_completed_ns=time.perf_counter_ns()
             catalog=session_execute(control,'catalog.query',{'limit':len(paths)+1})
             photos=sorted(catalog['photos'],key=lambda p:p['fileName'])
             if len(photos)!=len(paths) or {p['fileName'] for p in photos}!={Path(p).name for p in paths}:
@@ -893,9 +937,13 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             ids=[p['id'] for p in photos]
             grid_dir=directory/f'import-{iteration}'
             grid_dir.mkdir()
-            end,digest,frames=session_grid(control,ids,grid_dir)
-            end,digest=session_result(control,grid_dir/'verified-result.png',sent,not_before=control.import_last_navigation_ns)
-            session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),frames=frames,capture=control.last_capture_proof)
+            end,digest,proof,viewport=session_import_frame(control,record,directory,iteration,ids,sent,import_completed_ns)
+            record['pending_import_check']=dict(sent_ns=sent,frame_ns=end,capture=proof)
+            # Every page is still checked, but scripted scrolling/capture/CPU pixel
+            # verification cannot inflate the user's import-to-usable-grid clock.
+            _,_,frames=session_grid(control,ids,grid_dir)
+            record.pop('pending_import_check')
+            session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),frames=frames,first_viewport=viewport,completion_observed_ns=import_completed_ns,capture=proof)
         record['photo_ids']=ids
         record['photos']=photos
         photo=ids[0]
@@ -1090,7 +1138,7 @@ def session_resume(config, binary_hashes):
         return None
     path=Path(config['resume_report'])
     prior=json.loads(path.read_text())
-    def workload(c):return {k:v for k,v in c.items() if k not in ('pair','side','resume_report')}
+    def workload(c):return {k:v for k,v in c.items() if k not in ('pair','side','acquisition_sides','resume_report')}
     if prior.get('schema')!='lightcraft-session-v1' or workload(prior['config'])!=workload(config):
         raise ValueError('resume report workload/revisions differ')
     if config.get('measurement_method') and prior.get('driver_sha256')!=file_digest(Path(__file__)):
@@ -1146,7 +1194,7 @@ def session_main(args):
     parser.add_argument('--out',required=True,type=Path)
     options=parser.parse_args(args)
     config=json.loads(options.config.read_text())
-    config.setdefault('measurement_method','pre-dispatch-quickack-v3')
+    config.setdefault('measurement_method','first-grid-quickack-v4')
     calibration=session_calibration(config)
     pair=config.get('pair',0)
     if not isinstance(pair,int) or not 0<=pair<config.get('sessions',10):
@@ -1159,7 +1207,7 @@ def session_main(args):
     (options.out/'config.json').write_text(json.dumps(config,indent=2)+'\n')
     sessions=list(prior['sessions']) if prior else []
     report=dict(discarded_sessions=[],failed_sessions=[],gpu_wait_events=[],provisional_tiers={},gpu_policy=dict(wait_poll_seconds=30,attempt_budget_seconds=1800,during_session_poll_seconds=2),schema='lightcraft-session-v1',publish_scope='fork-point-to-fork-main',config=config,sessions=sessions,publishable=False,
-                statistics=dict(resamples=2000,seed=313,bootstrap_unit='paired-session',ratio='point/main',percentiles='linear'),
+                statistics=dict(resamples=4000,seed=313,bootstrap_unit='paired-session-stratified-by-fixed-AB-BA-order',ordinary_ci_retained=True,pooled_ci_retained=True,ratio='exp(median(log(session_point_median/session_main_median)))',percentiles='linear'),
                 environment={key:os.environ.get(key) for key in ('DISPLAY','WGPU_BACKEND','LIGHTCRAFT_GPU_BACKEND','LIGHTCRAFT_GPU_ADAPTER','__GL_SHADER_DISK_CACHE_PATH','CRAFT_BENCH_ISOLATED')},
                 timing_scope='control send to first X11 capture proven pixel-identical to the native control PNG; mismatches fall back to the later native capture upper bound',
                 driver_sha256=file_digest(Path(__file__)),
@@ -1207,6 +1255,7 @@ def session_main(args):
                 order=('point','main','upstream') if pair%2==0 else ('upstream','main','point')
                 for side in order:
                     if side not in config.get('sides',('point','main','upstream')) or (config.get('side') and config['side']!=side):continue
+                    if side not in config.get('acquisition_sides',config.get('sides',('point','main','upstream'))):continue
                     if any((s['tier'],s['pair'],s['side'])==(tier,pair,side) for s in sessions):
                         continue
                     print(f'session {tier} pair {pair} {side}',flush=True)
@@ -1219,13 +1268,15 @@ def session_main(args):
         from lightcraft_session_report import check_pixels
         complete_pairs=[p for p in range(config.get('sessions',10)) if all(any(s['side']==side and s['pair']==p for s in sessions) for side in config.get('sides',('point','main','upstream')))]
         paired=[s for s in sessions if s['pair'] in complete_pairs]
-        report['pixel_checks']=check_pixels(paired) if paired else []
+        primary_pairs={p for p in range(config.get('sessions',10)) if all(any(s['side']==side and s['pair']==p for s in sessions) for side in ('point','main'))}
+        verified=[s for s in sessions if s['pair'] in primary_pairs]
+        report['pixel_checks']=check_pixels(verified) if verified else []
         # Keep hashes and measured evidence, not thousands of passing native PNGs.
-        for accepted in paired:
+        for accepted in verified:
             if 'directory' not in accepted:continue
             protected={accepted['oracle'],accepted['export_sample'],accepted['export_oracle']}
             for image in Path(accepted['directory']).rglob('*.png'):
-                if str(image) not in protected and 'headless-attempt' not in image.name:
+                if str(image) not in protected and 'headless-attempt' not in image.name and '.rejected.' not in image.name:
                     image.unlink()
         report['rows']=summarize(paired, calibration=calibration, aa=config.get('aa',False)) if paired else []
         report['secondary_pixel_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream')

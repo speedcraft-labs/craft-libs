@@ -122,14 +122,24 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
                 for side,group in clusters.items():
                     flat = [x for cluster in group for x in cluster]
                     stats[side] = dict(n=len(flat), median_ns=statistics.median(flat), p95_ns=percentile(flat,.95), max_ns=max(flat), **variance_components(group))
-                rng = random.Random(313)
-                ratios = []
-                for _ in range(resamples):
-                    indices = [rng.randrange(n) for _ in range(n)]
-                    med = {side:statistics.median(x for i in indices for x in group[i]) for side,group in clusters.items()}
-                    ratios.append(med['point']/med['main'])
-                ci = [percentile(ratios,.025),percentile(ratios,.975)]
-                ratio = stats['point']['median_ns']/stats['main']['median_ns']
+                pair_logs=[math.log(statistics.median(clusters['point'][i])/statistics.median(clusters['main'][i])) for i in range(n)]
+                def interval(stratified, pooled=False):
+                    rng=random.Random(313);ratios=[]
+                    strata=[[i for i,session in enumerate(groups['point']) if session['pair']%2==parity] for parity in (0,1)]
+                    for _ in range(resamples):
+                        # Preserve the experiment's FIXED order counts, without
+                        # treating any repeats or slider steps as independent.
+                        indices=([rng.choice(stratum) for stratum in strata for _ in stratum] if stratified
+                                 else [rng.randrange(n) for _ in range(n)])
+                        if pooled:
+                            med={side:statistics.median(x for i in indices for x in group[i]) for side,group in clusters.items()}
+                            ratios.append(med['point']/med['main'])
+                        else:ratios.append(math.exp(statistics.median(pair_logs[i] for i in indices)))
+                    return [percentile(ratios,.025),percentile(ratios,.975)]
+                ci=interval(True)
+                ordinary_ci=interval(False)
+                pooled_ci=interval(False,pooled=True)
+                ratio = math.exp(statistics.median(pair_logs))
                 half_width = (ci[1]-ci[0])/2/ratio*100
                 # CI-derived MDE on log scale, with 80% power explicitly declared.
                 mde = math.expm1((math.log(ci[1])-math.log(ci[0]))/2 * (1.959964+.841621)/1.959964)*100
@@ -138,7 +148,7 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
                 limit = 10 if action in ('import','startup') else 5
                 offenders = {name for group in groups.values() for session in group for name in session.get('gpu_tier_offenders',[])}
                 verdict = 'insufficient paired sessions' if n<10 else 'faster' if ci[0]>1 else 'slower' if ci[1]<1 else 'no measurable change' if sensitivity is not None else 'sensitivity uncalibrated'
-                rows.append(dict(tier=tier,action=action,phase=phase,observed_pairs=n,sides=stats,speedup=ratio,ci95=ci,
+                rows.append(dict(tier=tier,action=action,phase=phase,observed_pairs=n,sides=stats,speedup=ratio,ci95=ci,ordinary_ci95=ordinary_ci,pooled_ci95=pooled_ci,pooled_ratio=stats['point']['median_ns']/stats['main']['median_ns'],
                     half_width_pct=half_width,minimum_detectable_effect_pct=sensitivity,estimated_mde_pct=mde,
                     is_aa=aa,aa_pass=aa and n>=10 and ci[0]<=1<=ci[1] and half_width<=limit,
                     threshold_pct=limit,calibration_pairs=n if aa else reference.get('calibration_pairs') if reference else None,
@@ -147,7 +157,7 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
 
 
 def markdown(rows):
-    lines = ['Ratio = point / main; >1 favors main. Times in ms. Paired-session bootstrap; cold = first use in a session, warm = post-warm-up. OS/shader caches are not flushed.',
+    lines = ['Ratio = exp(median log paired-session median(point)/median(main)); >1 favors main. Displayed medians/p95 pool all samples. Times in ms. Order-stratified paired-session bootstrap (ordinary CI also retained in JSON); cold = first use in a session, warm = post-warm-up. OS/shader caches are not flushed.',
              'MDE: A/A-derived approximate two-sided 5% significance, 80% power detectable change on log scale. Uncalibrated comparisons cannot say "no measurable change".']
     for tier in sorted({r['tier'] for r in rows}):
         selected=[r for r in rows if r['tier']==tier]

@@ -94,7 +94,7 @@ cargo clippy -p craft-av1 --all-targets -- -D warnings
 
 The full required local workspace run now passes: **3,835 passed, 127 ignored,
 zero failures** across 295 reported suites including doctests. Targeted journeys
-tests pass (3 Rust tests including 29 Python tests). Both HEVC tests pass on clean integration. This branch's
+tests pass (3 Rust tests including 33 Python tests). Both HEVC tests pass on clean integration. This branch's
 `cargo test -p craft-hevc conformance:: -- --nocapture` passes 43 tests, ignores 2.
 The old HEVC failures are currently **not reproducible**, not established baseline
 failures. Clippy reproduces the two shader assign-op errors (lines 58/78) and the
@@ -122,3 +122,31 @@ pins are committed; generated reports, per-run JSON and media stay off git.
 
 A/A, deliberate-slowdown and replacement comparison results are pending; this
 file currently makes no new latency or sensitivity claim.
+
+
+## Frozen v4 acceptance protocol
+
+All v1–v3 trials are diagnostic and retained; they are not silently pooled into
+the acceptance gate. Before collecting the fixed v4 campaign:
+
+* Each bounded AB/BA acquisition resets a private NVIDIA display **per build**,
+  on reserved CPUs 22–27. Ten complete independent pairs are required.
+* Import ends at the first proven usable viewport after all requested files enter
+  the catalog. Full thumbnail-page coverage remains mandatory outside timing.
+  Scripted scrolling and repeated native screenshots are not a user import action.
+* The ratio is exp(median log paired-session median(point)/median(main)). Whole
+  paired sessions are resampled within the fixed even/odd order strata (4,000
+  resamples, seed 313). Pooled medians/p95 remain descriptive latency columns.
+  Ordinary paired and original pooled-median CIs are also retained, so this change
+  of estimator/design is explicit and auditable. No observations are trimmed.
+* The A/A half-width/unity gates and the independent real 10% queued-delay check
+  remain mandatory. The latter must detect a changed action; a narrower formula
+  alone cannot validate sensitivity.
+
+The shared-display v3 diagnostic had warm startup 823/1,259 ms and quit 106/177 ms
+for identical binaries in its first pair. Its next reversed pair had startup
+1,186/1,621 ms (main first, point second). Those results exposed session/order
+state; they do not establish that all of it came from the display. A read-only
+check found no bench.slice quota/throttling (cpu.max unlimited, nr_throttled 0),
+only the owned service on CPUs 22–27, and GPU temperature 51 C / P8 at that instant.
+GPU clocks and host-frequency effects have not been independently identified.
