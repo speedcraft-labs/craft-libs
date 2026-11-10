@@ -617,6 +617,7 @@ def session_grid(control, ids, directory):
     vx,vy,vw,vh=view['rect']
     control.call('ui.move',{'x':vx+vw/2,'y':vy+vh/2})
     control.call('ui.scroll',{'dy':100000,'source':'wheel','unit':'point'})
+    last_navigation_ns=control.last_sent_ns
     session_wait(control,session_grid_at_top)
     session_frame(control,directory/'grid-top.png')
     previous_scroll = None
@@ -654,6 +655,7 @@ def session_grid(control, ids, directory):
             seen.add(ident)
         frames.append(dict(path=str(path), sha256=digest, ids=[i for i,_ in visible],perf=state['perf'],capture=control.last_capture_proof))
         if seen == set(ids):
+            control.import_last_navigation_ns=last_navigation_ns
             return end,digest,frames
         scroll = state.get('scroll',{}).get('grid')
         if scroll == previous_scroll and page > 0:
@@ -661,6 +663,7 @@ def session_grid(control, ids, directory):
         previous_scroll = scroll
         control.call('ui.move', {'x': state['window'][0]/2, 'y': state['window'][1]/2})
         control.call('ui.scroll', {'dy': -vh*.5,'source':'wheel','unit':'point'})
+        last_navigation_ns=control.last_sent_ns
         session_wait(control,lambda s:s.get('scroll',{}).get('grid')!=scroll)
     raise RuntimeError(f'not all thumbnails shown: {len(seen)}/{len(ids)}')
 
@@ -855,7 +858,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             grid_dir=directory/f'import-{iteration}'
             grid_dir.mkdir()
             end,digest,frames=session_grid(control,ids,grid_dir)
-            end,digest=session_result(control,grid_dir/'verified-result.png',sent)
+            end,digest=session_result(control,grid_dir/'verified-result.png',sent,not_before=control.import_last_navigation_ns)
             session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),frames=frames,capture=control.last_capture_proof)
         record['photo_ids']=ids
         record['photos']=photos
@@ -963,7 +966,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         record['startup_capture']=control.last_capture_proof
         record['startup_state']=control.call('ui.inspect')
         session_drain(control,record,'after-startup-frame')
-        for lifecycle in range(3):
+        for lifecycle in range(repetitions):
             session_drain(control,record,f'before-repeat-quit-{lifecycle}',require_saved=True)
             control.call('engine.execute',{'command':'app.quit'})
             sent=control.last_sent_ns
@@ -971,7 +974,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             if process.returncode!=0:raise RuntimeError(f'quit failed: {process.returncode}')
             record['quit_samples'].append(dict(duration_ns=exited-sent,phase='warm',sent_ns=sent,exit_ns=exited,exit_code=process.returncode))
             control.stream.close()
-            if lifecycle==2:break
+            if lifecycle==repetitions-1:break
             started=time.perf_counter_ns()
             process,control=spawn(binary,library,profile,None,log_path=directory/f'startup-repeat-{lifecycle}.log',on_started=on_started)
             record['process_ids'].append(process.pid)
