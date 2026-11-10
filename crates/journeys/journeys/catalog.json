@@ -637,6 +637,10 @@
           "path": "pdfcraft-public-domain/opm-sf85p-2017.pdf"
         }
       ]
-    }
+    },
+    {"name":"gridcraft.real-budget.open","app":"gridcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft","build":{"program":"cargo","args":["build","--release","-p","gridcraft-ui-egui","--example","snapshot"]},"run":{"program":"python3","args":["{journey_repo}/crates/journeys/scripts/gridcraft_budget_journey.py","{input}","open"],"output":"markers"},"inputs":[{"name":"jovialio-monthly-budget-tracker","path":"gridcraft-budget-tracker-2026/monthly-budget-tracker.xlsx"}]},
+    {"name":"gridcraft.real-budget.edit-recalc","app":"gridcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft","build":{"program":"cargo","args":["build","--release","-p","gridcraft-ui-egui","--example","snapshot"]},"run":{"program":"python3","args":["{journey_repo}/crates/journeys/scripts/gridcraft_budget_journey.py","{input}","edit-recalc"],"output":"markers"},"inputs":[{"name":"jovialio-monthly-budget-tracker","path":"gridcraft-budget-tracker-2026/monthly-budget-tracker.xlsx"}]},
+    {"name":"gridcraft.real-budget.scroll","app":"gridcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft","build":{"program":"cargo","args":["build","--release","-p","gridcraft-ui-egui","--example","snapshot"]},"run":{"program":"python3","args":["{journey_repo}/crates/journeys/scripts/gridcraft_budget_journey.py","{input}","scroll"],"output":"markers"},"inputs":[{"name":"jovialio-monthly-budget-tracker","path":"gridcraft-budget-tracker-2026/monthly-budget-tracker.xlsx"}]},
+    {"name":"gridcraft.real-budget.save","app":"gridcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft","build":{"program":"cargo","args":["build","--release","-p","gridcraft-ui-egui","--example","snapshot"]},"run":{"program":"python3","args":["{journey_repo}/crates/journeys/scripts/gridcraft_budget_journey.py","{input}","save"],"output":"markers"},"inputs":[{"name":"jovialio-monthly-budget-tracker","path":"gridcraft-budget-tracker-2026/monthly-budget-tracker.xlsx"}]}
   ]
 }

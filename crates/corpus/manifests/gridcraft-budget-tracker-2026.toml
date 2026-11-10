@@ -1,0 +1,10 @@
+name = "gridcraft-budget-tracker-2026"
+description = "A public monthly budget workbook selected for GridCraft formula, conditional-formatting, chart, and common-task journeys."
+
+[[file]]
+path = "monthly-budget-tracker.xlsx"
+url = "https://raw.githubusercontent.com/jovialio/personal-finance-tracker-excel/f5f1973956f15ab17906b4a51d52776185d5e4ec/Monthly%20Budget%20Tracker.xlsx"
+sha256 = "eb54f5ad49d76083ddb8516ba2067312fe1561085c75eaccd201c47a1b46fb6a"
+licence = "MIT"
+provenance = "https://github.com/jovialio/personal-finance-tracker-excel"
+tags = ["xlsx", "budget", "financial", "real-workbook", "median-near", "8-sheets", "25524-formulas", "9290-sumifs-cells", "938-countifs-cells", "10-conditional-format-ranges", "27-charts"]

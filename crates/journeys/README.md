@@ -147,7 +147,7 @@ means an empty app profile, not a flushed operating-system file cache. Task jour
 | --- | --- | --- |
 | PhotoCraft | `quote-card-misty-beach.psd`, 5,919,438 bytes; 1000×1000, 4 layers | open, Gaussian Blur, save PSD |
 | PdfCraft | IRS 2023 Form 990, 800,253 bytes; 12 pages, 1,075 fields | open, edit a form field, save edited PDF |
-| GridCraft | 2024 AIES estimates workbook, 14,050 bytes; 1 sheet, 62 rows, 485 stored cells | open, edit A3, save XLSX |
+| GridCraft | 2024 AIES estimates workbook, 14,050 bytes; plus MIT Monthly Budget Tracker, 346,412 bytes, 8 sheets and 25,524 formulas | AIES: open, edit A3, save; budget: open, edit/recalc, scroll, save |
 | CADCraft | State Open Band DWG, 7,777,818 bytes; about 22k entities | open, edit entity color, save DWG |
 | WordCraft | Autism Commission 2019 DOCX, 302,427 bytes; 316 paragraphs and 1 table | open, scroll, edit text, save DOCX |
 | DeckCraft | MDAR Unit 3 Spanish PPTX, 8,541,624 bytes; 26 slides | open, navigate, edit title, save, export PDF |
@@ -160,6 +160,14 @@ and the selected quote card is 0.7% above it. The five public-domain government 
 the existing journey corpus have a median of about 800 KB, matching the selected IRS form. The
 official AIES workbook is 25% above the XLSX corpus median and is a real supporting spreadsheet,
 not a test case. The manifest pins source URLs, licenses and SHA-256 hashes.
+
+The second GridCraft payload was chosen from the public formula-bearing workbooks: the MIT
+Monthly Budget Tracker is a real budget workbook, not a regression fixture, and is 1.27× the
+272,699-byte median of nine public NREL SAM finance-model workbooks. It has 9,290 SUMIFS formula
+cells (9,582 calls), 938 COUNTIFS cells, 10 expression-based conditional-formatting ranges and
+27 charts. The selected corpus was audited across 1,025 spreadsheet packages; 353 contained
+worksheet formulas. The workbook therefore reaches the SUMIFS/COUNTIFS path (#22) and formula
+conditional formatting (#114), while still representing ordinary budget-model work.
 
 Startup journeys launch the real desktop app and stop at its first PNG frame, followed by a
 successful UI control request. The open/edit/save journeys use one-shot adapters over each app's
