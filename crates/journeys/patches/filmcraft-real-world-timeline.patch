@@ -1,17 +1,142 @@
+diff --git a/crates/engine/examples/bench_export.rs b/crates/engine/examples/bench_export.rs
+index 7928ccea..0018a252 100644
+--- a/crates/engine/examples/bench_export.rs
++++ b/crates/engine/examples/bench_export.rs
+@@ -99,23 +99,32 @@ fn ffmpeg_fixture(secs: u32) -> Option<PathBuf> {
+     Some(path)
+ }
+ 
+-fn session(src: &Path) -> Session {
++fn session(src: &Path, secs: u32) -> Session {
+     let mut s = Session::default();
+-    let r = s.execute("file.import", json!({ "paths": [src.to_string_lossy()] })).expect("import");
++    let image_sequence = std::env::var_os("FILMCRAFT_EXPORT_IMAGE_SEQUENCE").is_some();
++    let r = s.execute("file.import", json!({ "paths": [src.to_string_lossy()], "imageSequence": image_sequence })).expect("import");
+     let item = ItemId(r["items"].as_array().and_then(|a| a.first()).and_then(Value::as_u64).expect("imported item"));
++    let audio_item = std::env::var_os("FILMCRAFT_EXPORT_AUDIO")
++        .map(|path| {
++            let path = PathBuf::from(path);
++            let r = s.execute("file.import", json!({ "paths": [path.to_string_lossy()] })).expect("audio import");
++            ItemId(r["items"].as_array().and_then(|a| a.first()).and_then(Value::as_u64).expect("imported audio item"))
++        })
++        .unwrap_or(item);
+     let info = s.project.item(item).and_then(|i| i.as_media()).map(|m| m.info.clone()).expect("media");
+     let v = info.video.clone().expect("video stream");
+     let rate = v.frame_rate;
+     s.edit("bench", |p, st| {
+         let settings = SequenceSettings { width: v.width, height: v.height, frame_rate: rate, ..SequenceSettings::default() };
+         let seq = p.new_sequence("Bench", settings, 1, 1, None);
+-        let d = p.item(item).map(|i| i.duration()).unwrap_or(Tick::ZERO);
++        let requested = rate.snap(Tick::from_seconds_f64(f64::from(secs)));
++        let d = p.item(item).map(|i| i.duration().min(requested)).unwrap_or(Tick::ZERO);
+         let range = TimeRange::new(Tick::ZERO, d);
+         let mut vi = p.make_track_item(item, TrackKind::Video, Tick::ZERO, range, rate).expect("video item");
+         for e in &mut vi.effects {
+             filmcraft_project::resolve_auto_points(e, (v.width, v.height), (v.width, v.height));
+         }
+-        let ai = p.make_track_item(item, TrackKind::Audio, Tick::ZERO, range, rate).expect("audio item");
++        let ai = p.make_track_item(audio_item, TrackKind::Audio, Tick::ZERO, range, rate).expect("audio item");
+         let q = p.sequence_mut(seq).expect("sequence");
+         q.video_tracks[0].items.push(vi);
+         q.audio_tracks[0].items.push(ai);
+@@ -140,7 +149,7 @@ fn main() {
+     let dir = std::env::temp_dir().join(format!("filmcraft-bench-export-{}", std::process::id()));
+     std::fs::create_dir_all(&dir).expect("temp dir");
+     let out = keep.clone().unwrap_or_else(|| dir.join(format!("out.{}", if format == "prores" { "mov" } else { "mp4" })));
+-    let mut s = session(&src);
++    let mut s = session(&src, secs);
+     let mut times = Vec::new();
+     let mut stages = Vec::new();
+     for i in 0..runs {
+diff --git a/crates/ui-egui/examples/bench/playback.rs b/crates/ui-egui/examples/bench/playback.rs
+index 6dde3a10..2b041ecd 100644
+--- a/crates/ui-egui/examples/bench/playback.rs
++++ b/crates/ui-egui/examples/bench/playback.rs
+@@ -35,6 +35,11 @@ pub fn import(s: &mut Session, path: &Path) -> ItemId {
+     ItemId(r["items"].as_array().and_then(|a| a.first()).and_then(Value::as_u64).unwrap_or_else(|| panic!("import {}: {r}", path.display())))
+ }
+ 
++pub fn import_image_sequence(s: &mut Session, path: &Path) -> ItemId {
++    let r = s.execute("file.import", json!({ "paths": [path.to_string_lossy()], "imageSequence": true })).expect("image sequence import");
++    ItemId(r["items"].as_array().and_then(|a| a.first()).and_then(Value::as_u64).unwrap_or_else(|| panic!("import sequence {}: {r}", path.display())))
++}
++
+ /// One clip per track from t = 0 (`layers[0]` on V1), with (scale %, position, rotation°,
+ /// opacity %) Motion/Opacity settings per layer.
+ pub fn build_sequence(s: &mut Session, w: u32, h: u32, layers: &[(ItemId, f64, Option<(f64, f64)>, f64, f64)], effects: &[&str], secs: f64) -> ItemId {
+@@ -137,10 +142,7 @@ impl Display {
+     }
+ 
+     fn target(&self, seq: ItemId) -> Target {
+-        match &self.gpu {
+-            Some((c, _)) => Target::SequencePlan(seq, c.caps()),
+-            None => Target::Sequence(seq),
+-        }
++        if self.gpu.is_some() { Target::SequencePlan(seq) } else { Target::Sequence(seq) }
+     }
+ 
+     /// Show the exact frame, or the nearest earlier cached one; returns whether it was exact.
+@@ -670,6 +672,16 @@ fn parse_args() -> Args {
+ pub fn scenario_session(name: &str) -> Option<(Session, ItemId)> {
+     let mut s = Session::default();
+     let seq = match name {
++        "image-sequence" => {
++            let path = std::path::PathBuf::from(std::env::var_os("FILMCRAFT_SEQUENCE_MEDIA")?);
++            let item = import_image_sequence(&mut s, &path);
++            let (width, height, duration) = {
++                let media = s.project.item(item)?.as_media()?;
++                let video = media.info.video.as_ref()?;
++                (video.width, video.height, media.info.duration.seconds())
++            };
++            build_sequence(&mut s, width, height, &[(item, 100.0, None, 0.0, 100.0)], &[], duration)
++        }
+         "h264-1080" | "seek-storm" => {
+             let a = import(&mut s, &fixture("a1080.mp4")?);
+             build_sequence(&mut s, 1920, 1080, &[(a, 100.0, None, 0.0, 100.0)], &[], 20.0)
 diff --git a/crates/ui-egui/examples/bench/sections.rs b/crates/ui-egui/examples/bench/sections.rs
-index ada15935..2e76a4ae 100644
+index ada15935..d78264fc 100644
 --- a/crates/ui-egui/examples/bench/sections.rs
 +++ b/crates/ui-egui/examples/bench/sections.rs
-@@ -327,6 +327,44 @@ pub fn big_sequence(s: &mut Session, item: ItemId, name: &str, seed: u64) -> (It
+@@ -29,10 +29,6 @@ fn gpu_export_frame_renderer_factory() -> Option<Box<dyn filmcraft_export::Frame
+         ) -> Option<filmcraft_render::Image> {
+             self.0.render(project, seq, t, opts, sources)
+         }
+-
+-        fn caps(&self) -> filmcraft_render::plan::DeviceCaps {
+-            self.0.caps()
+-        }
+     }
+     filmcraft_gpu::ExportRenderer::new().map(|r| Box::new(R(r)) as Box<dyn filmcraft_export::FrameRenderer>)
+ }
+@@ -189,6 +185,7 @@ pub fn playback(o: &Opts) -> Vec<Value> {
+     let seconds = if o.quick { 4.0 } else { 8.0 };
+     // (scenario, resolution, scale, draft decoding)
+     let cases: &[(&str, &str, f32, bool)] = &[
++        ("image-sequence", "full", 1.0, false),
+         ("h264-1080", "full", 1.0, false),
+         ("stack3", "full", 1.0, false),
+         ("stack3-blend", "full", 1.0, false),
+@@ -252,7 +249,7 @@ pub fn playback(o: &Opts) -> Vec<Value> {
+ pub fn scrub(o: &Opts) -> Vec<Value> {
+     let (seeks, drags) = if o.quick { (8, 3) } else { (24, 8) };
+     let mut rows = Vec::new();
+-    for scenario in ["h264-1080", "h264-2160", "hevc-2160"].into_iter().filter(|s| o.wants(s)) {
++    for scenario in ["image-sequence", "h264-1080", "h264-2160", "hevc-2160"].into_iter().filter(|s| o.wants(s)) {
+         let Some((s, seq)) = playback::scenario_session(scenario) else {
+             eprintln!("scrub {scenario}: skipped (fixtures unavailable)");
+             continue;
+@@ -327,6 +324,46 @@ pub fn big_sequence(s: &mut Session, item: ItemId, name: &str, seed: u64) -> (It
      .expect("big sequence")
  }
  
 +/// Eight contiguous cuts from one ordinary 1080p source, with its embedded soundtrack aligned
 +/// underneath. The real-world #291 adapter sets `FILMCRAFT_TIMELINE_MEDIA` so timeline painting
 +/// uses the same file as playback and export rather than the synthetic 1000-clip stress fixture.
-+fn real_world_sequence(s: &mut Session, item: ItemId) -> (ItemId, usize) {
++fn real_world_sequence(s: &mut Session, item: ItemId, external_audio: Option<ItemId>) -> (ItemId, usize) {
 +    let media = s.project.item(item).and_then(|it| it.as_media()).expect("real-world timeline source is media");
-+    assert!(!media.info.audio_streams.is_empty(), "real-world timeline source must carry audio");
++    let audio_item = external_audio.unwrap_or(item);
++    let audio_media = s.project.item(audio_item).and_then(|it| it.as_media()).expect("real-world timeline audio source is media");
++    assert!(!audio_media.info.audio_streams.is_empty(), "real-world timeline audio source must carry audio");
 +    let duration = media.info.duration;
 +    let (width, height) = media.info.video.as_ref().map(|v| (v.width, v.height)).unwrap_or((1920, 1080));
 +    let rate = FrameRate::FPS_23_976;
@@ -29,7 +154,7 @@ index ada15935..2e76a4ae 100644
 +            let source_range = TimeRange::from_bounds(rate.tick_of(start_frame), rate.tick_of(end_frame));
 +            let position = source_range.start;
 +            let video = p.make_track_item(item, TrackKind::Video, position, source_range, rate).expect("video region");
-+            let audio = p.make_track_item(item, TrackKind::Audio, position, source_range, rate).expect("audio region");
++            let audio = p.make_track_item(audio_item, TrackKind::Audio, position, source_range, rate).expect("audio region");
 +            video_regions.push(video);
 +            audio_regions.push(audio);
 +        }
@@ -47,7 +172,7 @@ index ada15935..2e76a4ae 100644
  // ------------------------------------------------------------------------------------ timeline UI
  
  struct Ui {
-@@ -360,7 +398,9 @@ impl Ui {
+@@ -360,7 +397,9 @@ impl Ui {
  /// `egui_kittest` (no window), per frame: app update (layout + painting), tessellation, and the
  /// wgpu render of the frame when a GPU adapter exists.
  pub fn timeline(o: &Opts) -> Vec<Value> {
@@ -58,16 +183,23 @@ index ada15935..2e76a4ae 100644
          eprintln!("timeline: skipped (fixture unavailable)");
          return Vec::new();
      };
-@@ -370,7 +410,7 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
+@@ -369,8 +408,13 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
+     let mut rows = Vec::new();
      for _ in 0..o.repeat {
          let mut s = Session::default();
-         let item = playback::import(&mut s, &path);
+-        let item = playback::import(&mut s, &path);
 -        let (_, clips) = big_sequence(&mut s, item, "Timeline 1000", 7);
-+        let (_, clips) = if real_world { real_world_sequence(&mut s, item) } else { big_sequence(&mut s, item, "Timeline 1000", 7) };
++        let item = if real_world && std::env::var_os("FILMCRAFT_TIMELINE_IMAGE_SEQUENCE").is_some() {
++            playback::import_image_sequence(&mut s, &path)
++        } else {
++            playback::import(&mut s, &path)
++        };
++        let external_audio = std::env::var_os("FILMCRAFT_TIMELINE_AUDIO").map(std::path::PathBuf::from).map(|p| playback::import(&mut s, &p));
++        let (_, clips) = if real_world { real_world_sequence(&mut s, item, external_audio) } else { big_sequence(&mut s, item, "Timeline 1000", 7) };
          let (tx, rx) = std::sync::mpsc::channel();
          let app = filmcraft_ui_egui::FilmcraftApp::new(s).with_control(rx);
          let mut b = egui_kittest::Harness::builder().with_size(egui::vec2(1920.0, 1080.0)).with_max_steps(100_000);
-@@ -383,14 +423,32 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
+@@ -383,14 +427,32 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
              ui.frame();
          }
          ui.call("ui.set", json!({"timeline": {"videoTrackHeight": 34, "audioTrackHeight": 30}}));
@@ -104,7 +236,7 @@ index ada15935..2e76a4ae 100644
                  std::thread::sleep(Duration::from_millis(5));
              }
              let (mut upd, mut tess, mut rend, mut total) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
-@@ -438,6 +496,7 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
+@@ -438,6 +500,7 @@ pub fn timeline(o: &Opts) -> Vec<Value> {
              eprintln!("timeline {view}: update p50 {:.2} ms, p95 {:.2} ms", pct(&upd, 0.5), pct(&upd, 0.95));
              rows.push(json!({
                  "view": view, "clips": clips, "frames": frames, "gpu": gpu,

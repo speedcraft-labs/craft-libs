@@ -81,9 +81,12 @@ target root so prepared builds can be reused.
 | `soundcraft.synthetic-mix-throughput` | SoundCraft | Mix 32 generated tracks over 4 seconds |
 | `filmcraft.synthetic-project-open` | FilmCraft | Open a generated project with the 360p clip fixture |
 | `filmcraft.real-world-play-scrub-export` | FilmCraft | Open a pinned 1080p NASA clip as eight contiguous video and soundtrack regions, play and scrub it, then export a 60-second H.264 cut |
+| `filmcraft.real-world-image-sequence` | FilmCraft | Generate a one-minute 1080p/29.97 numbered JPEG sequence from the pinned NASA clip, play and scrub it, draw its soundtrack waveform, and export a five-second cut |
 | `soundcraft.real-world-song-play-scrub-midi-bounce` | SoundCraft | Open a 3:06 CC0 song, play/scrub edited regions, convert an 8-second selection to notes, then bounce the song to WAV |
 
 The FilmCraft journey uses a named output-equivalence check because the upstream and fork H.264 encoders choose different compressed frames. It requires exact decoded audio, identical stream and timeline metadata, and pairwise decoded-video PSNR with a finite-frame mean of at least 50 dB and every finite frame at least 45 dB; exact video frames are counted separately. The compare wrapper records these metrics in the raw report and refuses publication if the bound or GPU-process snapshot fails.
+
+The image-sequence payload is generated deterministically from the same pinned real 1080p clip because the corpus has no representative numbered-still sequence. Its playback and export paths run on CPU; the 60-second source contains 1,798 numbered 1080p JPEGs, so playback exceeds the image-sequence source's 256 MiB decoded-frame cache budget and exercises eviction.
 
 Run and compare:
 
