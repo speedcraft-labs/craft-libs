@@ -319,7 +319,7 @@ class Boundaries(unittest.TestCase):
         from lightcraft_real_app import session_main, file_digest
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);binary=root/'app';binary.write_bytes(b'fake binary')
-            config=dict(payloads={'typical':'/raw'},sessions=10,warmups=2,pair=0,
+            config=dict(payloads={'typical':'/raw'},sessions=10,warmups=2,pair=0,measurement_method='pre-dispatch-v2',
                         revisions={s:dict(binary=str(binary),revision=s) for s in ('point','main','upstream')})
             prior_sessions=[dict(fixture(),tier='typical',pair=0,side=s) for s in config['revisions']]
             prior=root/'prior.json';prior.write_text(json.dumps(dict(schema='lightcraft-session-v1',config=config,
@@ -353,6 +353,42 @@ class Boundaries(unittest.TestCase):
         from lightcraft_session_report import markdown
         self.assertIn('PROVISIONAL',markdown(summarize(sessions)))
         self.assertIn('earlier-offender-now-gone',markdown(summarize(sessions)))
+
+    def test_aa_gate_and_calibration_are_explicit(self):
+        from lightcraft_session_report import ACTIONS, markdown, variance_components
+        sessions=[]
+        for side in ('point','main'):
+            for pair in range(10):
+                s=fixture();s.update(side=side,tier='test',pair=pair,startup_library_ns=10)
+                s['samples']=[dict(copy.deepcopy(s['samples'][0]),action=a) for a in ACTIONS]
+                sessions.append(s)
+        uncalibrated=summarize(sessions,resamples=200)
+        self.assertEqual(uncalibrated[0]['verdict'],'sensitivity uncalibrated')
+        aa=summarize(sessions,resamples=200,aa=True)
+        self.assertTrue(all(r['aa_pass'] for r in aa))
+        calibrated=summarize(sessions,resamples=200,calibration={'rows':aa})
+        self.assertEqual(calibrated[0]['verdict'],'no measurable change')
+        self.assertIn('MDE %',markdown(calibrated))
+        calibrated[0]['minimum_detectable_effect_pct']=None
+        with self.assertRaisesRegex(ValueError,'MDE'):markdown(calibrated)
+        self.assertIsNone(variance_components([[1],[2]])['within_log_sd'])
+        self.assertGreater(variance_components([[1,1],[2,2]])['between_log_sd'],0)
+        # A narrow interval excluding unity fails A/A, even with negligible variance.
+        for s in sessions:
+            if s['side']=='main':
+                for x in s['samples']:x.update(frame_ns=41,duration_ns=11)
+        self.assertFalse(summarize(sessions,resamples=200,aa=True)[0]['aa_pass'])
+
+    def test_result_rejects_pre_dispatch_and_pre_completion_frames(self):
+        from lightcraft_real_app import session_result
+        from types import SimpleNamespace
+        from pathlib import Path
+        from unittest.mock import patch
+        proof=dict(verified_ns=90,width=1,height=1,candidates=[dict(ns=n,rgb_sha256='result',width=1,height=1) for n in (20,40,60)])
+        control=SimpleNamespace(last_capture_proof=proof)
+        with patch('lightcraft_real_app.session_frame',return_value=(20,'result')):
+            self.assertEqual(session_result(control,Path('unused'),30,not_before=50),(60,'result'))
+        self.assertEqual(proof['frame_ns'],60)
 
 
 if __name__=='__main__': unittest.main()

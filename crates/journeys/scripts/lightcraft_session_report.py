@@ -52,6 +52,8 @@ def percentile(xs, p):
 
 
 def durations(session, action):
+    if action in ('startup','quit') and action+'_samples' in session:
+        return [x['duration_ns'] for x in session[action+'_samples'] if x['phase']=='warm']
     if action == 'quit':
         return [session['exit_ns'] - session['quit_request_ns']]
     if action == 'startup':
@@ -59,55 +61,97 @@ def durations(session, action):
     return [x['duration_ns'] for x in session['samples'] if x['action'] == action and not x['warmup']]
 
 
-def summarize(sessions, resamples=2000):
+def variance_components(clusters):
+    """Balanced one-way random effects on log latency; do not confuse repeats with sessions."""
+    usable = [xs for xs in clusters if len(xs) > 1]
+    if len(usable) != len(clusters) or len(clusters) < 2:
+        return dict(within_log_sd=None, between_log_sd=None)
+    logs = [[math.log(x) for x in xs] for xs in clusters]
+    within = statistics.mean(statistics.variance(xs) for xs in logs)
+    between = max(0, statistics.variance(statistics.mean(xs) for xs in logs)
+                  - statistics.mean(within / len(xs) for xs in logs))
+    return dict(within_log_sd=math.sqrt(within), between_log_sd=math.sqrt(between))
+
+
+def summarize(sessions, resamples=4000, calibration=None, aa=False):
+    # A/A precision is empirical; MDE additionally assumes asymptotic log-normal
+    # location errors, two-sided alpha=.05 and power=.80. Never call CI width power.
+    import json
+    if isinstance(calibration, str):
+        calibration = json.load(open(calibration))
+    calibrated = {(r['tier'], r['action'], r.get('phase','warm')): r
+                  for r in (calibration or {}).get('rows', [])} if calibration else {}
     rows = []
-    sides = ('point', 'main', 'upstream')
     for tier in sorted({s['tier'] for s in sessions}):
-        groups = {side: sorted([s for s in sessions if s['tier'] == tier and s['side'] == side], key=lambda s: s['pair']) for side in sides}
+        sides = tuple(side for side in ('point','main','upstream')
+                      if any(s['side']==side and s['tier']==tier for s in sessions))
+        groups = {side: sorted([s for s in sessions if s['tier']==tier and s['side']==side], key=lambda s:s['pair']) for side in sides}
         for group in groups.values():
-            for session in group:
-                validate_session(session)
-        if len({len(g) for g in groups.values()}) != 1:
+            for session in group: validate_session(session)
+        if 'point' not in groups or 'main' not in groups or len({tuple(s['pair'] for s in g) for g in groups.values()}) != 1:
             raise ValueError('unpaired sessions')
         n = len(groups['point'])
         for action in (*ACTIONS, 'startup', 'quit'):
-            clusters = {side: [durations(s, action) for s in group] for side, group in groups.items()}
-            if not all(all(cluster for cluster in group) for group in clusters.values()):
-                raise ValueError('missing action samples')
-            stats = {}
-            for side, group in clusters.items():
-                flat = [x for cluster in group for x in cluster]
-                stats[side] = dict(n=len(flat), median_ns=statistics.median(flat), p95_ns=percentile(flat, .95), max_ns=max(flat))
-            rng = random.Random(313)
-            ratios = []
-            for _ in range(resamples):
-                indices = [rng.randrange(n) for _ in range(n)]
-                med = {side: statistics.median(x for i in indices for x in group[i]) for side, group in clusters.items()}
-                ratios.append(med['point'] / med['main'])
-            ci = [percentile(ratios, .025), percentile(ratios, .975)]
-            offenders={p['name'] for group in groups.values() for s in group for p in s.get('gpu_foreign_processes',[])}
-            offenders|={name for group in groups.values() for s in group for name in s.get('gpu_tier_offenders',[])}
-            rows.append(dict(tier=tier, action=action, provisional=any(s.get('gpu_provisional') for group in groups.values() for s in group), gpu_offenders=sorted(offenders), sides=stats, speedup=stats['point']['median_ns']/stats['main']['median_ns'], ci95=ci,
-                             verdict='faster' if ci[0] > 1 else 'slower' if ci[1] < 1 else 'no measurable change'))
+            phases = ('cold','warm') if ((action in ('startup','quit') and all(action+'_samples' in session for g in groups.values() for session in g)) or action in ACTIONS and all('phase' in x for g in groups.values() for session in g for x in session['samples'])) else ('warm',)
+            for phase in phases:
+                def values(session):
+                    if action in ('startup','quit'):
+                        if action+'_samples' in session:return [x['duration_ns'] for x in session[action+'_samples'] if x['phase']==phase]
+                        return durations(session,action)
+                    if phase=='cold': return [x['duration_ns'] for x in session['samples'] if x['action']==action and x.get('phase')=='cold']
+                    return durations(session,action)
+                clusters = {side:[values(session) for session in group] for side,group in groups.items()}
+                if not all(all(cluster for cluster in group) for group in clusters.values()):
+                    raise ValueError('missing action samples')
+                stats = {}
+                for side,group in clusters.items():
+                    flat = [x for cluster in group for x in cluster]
+                    stats[side] = dict(n=len(flat), median_ns=statistics.median(flat), p95_ns=percentile(flat,.95), max_ns=max(flat), **variance_components(group))
+                rng = random.Random(313)
+                ratios = []
+                for _ in range(resamples):
+                    indices = [rng.randrange(n) for _ in range(n)]
+                    med = {side:statistics.median(x for i in indices for x in group[i]) for side,group in clusters.items()}
+                    ratios.append(med['point']/med['main'])
+                ci = [percentile(ratios,.025),percentile(ratios,.975)]
+                ratio = stats['point']['median_ns']/stats['main']['median_ns']
+                half_width = (ci[1]-ci[0])/2/ratio*100
+                # CI-derived MDE on log scale, with 80% power explicitly declared.
+                mde = math.expm1((math.log(ci[1])-math.log(ci[0]))/2 * (1.959964+.841621)/1.959964)*100
+                reference = calibrated.get((tier,action,phase))
+                sensitivity = mde if aa else reference.get('minimum_detectable_effect_pct') if reference else None
+                limit = 10 if action in ('import','startup') else 5
+                offenders = {name for group in groups.values() for session in group for name in session.get('gpu_tier_offenders',[])}
+                verdict = 'faster' if ci[0]>1 else 'slower' if ci[1]<1 else 'no measurable change' if sensitivity is not None else 'sensitivity uncalibrated'
+                rows.append(dict(tier=tier,action=action,phase=phase,sides=stats,speedup=ratio,ci95=ci,
+                    half_width_pct=half_width,minimum_detectable_effect_pct=sensitivity,estimated_mde_pct=mde,
+                    is_aa=aa,aa_pass=aa and n>=10 and ci[0]<=1<=ci[1] and half_width<=limit,
+                    threshold_pct=limit,calibration_pairs=n if aa else reference.get('calibration_pairs') if reference else None,
+                    verdict=verdict,provisional=any(s.get('gpu_provisional') for g in groups.values() for s in g),gpu_offenders=sorted(offenders)))
     return rows
 
 
 def markdown(rows):
-    lines = ['Ratio = fork point / fork main; >1 favors fork main. Times in ms. CI resamples whole paired sessions, not individual slider steps.']
+    lines = ['Ratio = point / main; >1 favors main. Times in ms. Paired-session bootstrap; cold = first use in a session, warm = post-warm-up. OS/shader caches are not flushed.',
+             'MDE: A/A-derived approximate two-sided 5% significance, 80% power detectable change on log scale. Uncalibrated comparisons cannot say "no measurable change".']
     for tier in sorted({r['tier'] for r in rows}):
-        provisional=any(r.get('provisional') for r in rows if r['tier']==tier)
-        offenders=sorted({name for r in rows if r['tier']==tier for name in r.get('gpu_offenders',[])})
-        label=f'Payload: {tier}'+(' — PROVISIONAL (shared GPU; '+', '.join(offenders)+')' if provisional else '')
-        lines += ['', label, '', '| Action | Fork point median/p95 | Fork main median/p95 | Ratio (95% CI) | Upstream median | Verdict |', '|---|---:|---:|---:|---:|---|']
-        for r in rows:
-            if r['tier'] != tier:
-                continue
-            s = r['sides']
-            cells = [f"{s[side]['median_ns']/1e6:.2f}/{s[side]['p95_ns']/1e6:.2f}" for side in ('point', 'main')]
-            lines.append(f"| {r['action']} | {cells[0]} | {cells[1]} | {r['speedup']:.3f} ({r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}) | {s['upstream']['median_ns']/1e6:.2f}{'†' if not r.get('upstream_equivalent',True) else ''} | {r['verdict']} |")
-    if any(not r.get('upstream_equivalent',True) for r in rows):
-        lines += ['', '† Upstream output exceeded the pixel-parity bound. Its medians are descriptive observations only; no upstream-relative speed claim is made.']
-    return '\n'.join(lines) + '\n'
+        selected=[r for r in rows if r['tier']==tier]
+        provisional=any(r.get('provisional') for r in selected)
+        offenders=sorted({name for r in selected for name in r.get('gpu_offenders',[])})
+        lines += ['', 'Payload: '+tier+(' — PROVISIONAL (shared GPU; '+', '.join(offenders)+')' if provisional else ''), '',
+            '| Action / state | Point median/p95 | Main median/p95 | Ratio (95% CI) | Half-width % | MDE % | Upstream median/p95 | Verdict / A/A gate |',
+            '|---|---:|---:|---:|---:|---:|---:|---|']
+        for r in selected:
+            stats=r['sides']
+            def cell(side):
+                return f"{stats[side]['median_ns']/1e6:.2f}/{stats[side]['p95_ns']/1e6:.2f}" if side in stats else '—'
+            mde=r.get('minimum_detectable_effect_pct')
+            if r['verdict']=='no measurable change' and mde is None:
+                raise ValueError('no measurable change requires measured A/A MDE')
+            # The explicit aa flag is attached below by the caller-independent statistic.
+            gate=('PASS' if r['aa_pass'] else 'FAIL') if r.get('is_aa') else r['verdict']
+            lines.append(f"| {r['action']} / {r.get('phase','warm')} | {cell('point')} | {cell('main')} | {r['speedup']:.3f} ({r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}) | {r['half_width_pct']:.2f} | {f'{mde:.2f}' if mde is not None else 'uncalibrated'} | {cell('upstream')} | {gate} |")
+    return '\n'.join(lines)+'\n'
 
 
 def check_photo_frames(session):
@@ -159,12 +203,13 @@ def check_pixels(sessions):
     from PIL import Image, ImageChops, ImageStat
     checks=[]
     for session in sessions:
-        session['photo_output_checks']=check_photo_frames(session)
+        if not session.get('photo_output_checks'):session['photo_output_checks']=check_photo_frames(session)
     for tier,pair in sorted({(s['tier'],s['pair']) for s in sessions}):
         group={s['side']:s for s in sessions if s['tier']==tier and s['pair']==pair}
         for session in group.values():
             session['export_output_check']=check_export_pixels(session)
         for side in ('main','upstream'):
+            if side not in group:continue
             a,b=group['point'],group[side]
             if a['oracle_source']!=b['oracle_source']:
                 raise ValueError('oracle source mismatch')

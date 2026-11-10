@@ -159,7 +159,7 @@ def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *
             control = Control(stream)
             break
         except OSError:
-            time.sleep(0.02)
+            time.sleep(0.002 if log_path is not None else 0.02)
     if control is None:
         process.terminate()
         process.wait(timeout=5)
@@ -340,7 +340,14 @@ def session_wait_exit(process, timeout=150):
 
 
 def session_execute(control, command, params=None):
-    return control.call('engine.execute', {'command': command, 'params': params or {}})
+    delay=getattr(control,'test_delay_ms',0) if command=='library.select' and getattr(control,'action_sampler',None) else 0
+    if delay:
+        started=time.perf_counter_ns()
+        time.sleep(delay/1000)
+    result=control.call('engine.execute', {'command': command, 'params': params or {}})
+    if delay:
+        control.last_sent_ns=started
+    return result
 
 
 def session_idle(state):
@@ -412,6 +419,48 @@ class SessionX11Capture:
         return ImageGrab.grab(bbox=self.bounds,xdisplay=self.display).convert('RGB')
 
 
+class SessionSampler:
+    """Observe displayed pixels from BEFORE dispatch, independently of readiness polling."""
+    def __init__(self, control):
+        import threading
+        if not hasattr(control, 'x11_capture'):
+            control.x11_capture = SessionX11Capture(control.process_pid)
+        self.capture = control.x11_capture
+        self.candidates = []
+        self.failures = []
+        self.stop = threading.Event()
+        self.started = threading.Event()
+        self.thread = threading.Thread(target=self.run, daemon=True)
+        self.thread.start()
+        if not self.started.wait(3):
+            raise RuntimeError('X11 observer did not start before action')
+
+    def run(self):
+        try:
+            while not self.stop.is_set():
+                pixels = self.capture.grab()
+                ns = time.perf_counter_ns()
+                self.candidates.append((ns, pixels.size, hashlib.sha256(pixels.tobytes()).hexdigest()))
+                self.started.set()
+                self.stop.wait(.001)
+        except Exception as error:
+            self.failures.append(str(error))
+            self.started.set()
+
+    def finish(self):
+        self.stop.set()
+        self.thread.join(timeout=3)
+        if self.thread.is_alive():
+            raise RuntimeError('X11 observer did not stop')
+
+
+def session_arm(control, record, action):
+    session_drain(control, record, 'before-' + action)
+    if getattr(control, 'action_sampler', None) is not None:
+        raise RuntimeError('previous action observer still running')
+    control.action_sampler = SessionSampler(control)
+
+
 def session_capture_once(control, path):
     import threading
     from PIL import Image
@@ -431,8 +480,9 @@ def session_capture_once(control, path):
                     stop_sampling.wait(.005)
             except Exception as error:
                 failures.append(str(error))
-        sampler=threading.Thread(target=sample,daemon=True)
-        sampler.start()
+        if getattr(control,'action_sampler',None) is None:
+            sampler=threading.Thread(target=sample,daemon=True)
+            sampler.start()
     except Exception as error:
         failures.append(str(error))
     try:
@@ -446,6 +496,10 @@ def session_capture_once(control, path):
     if min(png_size(path))<=0:raise RuntimeError('empty native frame')
     reference=Image.open(path).convert('RGB')
     reference_hash=hashlib.sha256(reference.tobytes()).hexdigest()
+    observer=getattr(control,'action_sampler',None)
+    if observer is not None:
+        candidates=list(observer.candidates)+candidates
+        failures+=observer.failures
     matching=[ns for ns,size,digest in candidates if ns<=verified_ns and size==reference.size and digest==reference_hash]
     end=min(matching) if matching else verified_ns
     control.last_capture_proof=dict(method='verified-x11' if matching else 'native-upper-bound',frame_ns=end,verified_ns=verified_ns,
@@ -486,6 +540,21 @@ def session_frame(control, path):
     raise RuntimeError(f'native compositor capture failed after three attempts: {attempts}')
 
 
+def session_result(control, path, sent, not_before=None):
+    end, digest = session_frame(control, path)
+    observer = getattr(control, 'action_sampler', None)
+    if observer is not None:
+        observer.finish()
+        control.action_sampler = None
+    proof = control.last_capture_proof
+    proof['candidates'] = [c for c in proof['candidates'] if c['ns'] > sent and (not_before is None or c['ns']>=not_before)]
+    matches = [c['ns'] for c in proof['candidates'] if c['rgb_sha256'] == digest
+               and (c['width'], c['height']) == (proof['width'], proof['height'])]
+    end = min(matches) if matches else proof['verified_ns']
+    proof.update(frame_ns=end, method='verified-x11' if matches else 'native-upper-bound')
+    return end, digest
+
+
 def session_detail(control, photo):
     def ready(state):
         loupe = state.get('loupe') or {}
@@ -496,7 +565,8 @@ def session_detail(control, photo):
 
 
 def session_sample(record, action, sent, end, digest, warmup, **evidence):
-    record['samples'].append(dict(action=action, sent_ns=sent, frame_ns=end, duration_ns=end-sent,
+    phase='cold' if not any(x['action']==action for x in record['samples']) else 'warm'
+    record['samples'].append(dict(action=action, phase=phase, sent_ns=sent, frame_ns=end, duration_ns=end-sent,
                                   frame_sha256=digest, warmup=warmup, checked=True, evidence=evidence))
     (Path(record['directory'])/'partial-session.json').write_text(json.dumps(record,indent=2)+'\n')
 
@@ -730,7 +800,7 @@ def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,ru
         return record
 
 
-def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False, on_started=None):
+def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False, on_started=None, exposure_steps=10):
     from lightcraft_session_report import validate_session, check_export_pixels
     directory.mkdir(parents=True,exist_ok=False)
     library,profile = directory/'library',directory/'profile'
@@ -741,6 +811,8 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         raise RuntimeError(f'foreign GPU process before session: {gpu_before}')
     record=dict(side=side,tier=tier,pair=pair,directory=str(directory),samples=[],gpu_provisional=gpu_provisional,gpu_processes_before=gpu_before,launch_ns=time.perf_counter_ns())
     process,control=spawn(binary,library,profile,None,log_path=log_path,on_started=on_started)
+    control.test_delay_ms=float(os.environ.get('CRAFT_JOURNEYS_TEST_SWITCH_DELAY_MS','0')) if side=='main' else 0
+    record['test_switch_delay_ms']=control.test_delay_ms
     record['process_ids']=[process.pid]
     try:
         state=control.call('ui.inspect')
@@ -764,6 +836,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
                 session_execute(control,'photo.deletePermanently',{'ids': ids})
                 control.call('ui.move', {'x': 600, 'y': 350})
                 control.call('ui.scroll', {'dy': 100000})
+            session_arm(control,record,'import')
             control.call('ui.dropFiles',{'paths':[str(payload)]})
             sent=control.last_sent_ns
             review=session_wait(control,lambda s:any(w['id']=='label:importSource' for w in control.call('ui.widgets',{'filter':'label:importSource'})))
@@ -780,6 +853,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             grid_dir=directory/f'import-{iteration}'
             grid_dir.mkdir()
             end,digest,frames=session_grid(control,ids,grid_dir)
+            end,digest=session_result(control,grid_dir/'verified-result.png',sent)
             session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),frames=frames,capture=control.last_capture_proof)
         record['photo_ids']=ids
         record['photos']=photos
@@ -787,12 +861,15 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         if photos[0].get('previewOnly'):
             raise RuntimeError(f'full-quality RAW preview unavailable: {photos[0]}')
         for iteration in range(warmups+repetitions):
+            session_execute(control,'view.squareGrid')
+            session_execute(control,'view.zoomFit')
             session_execute(control,'library.select',{'ids':[photo]})
+            session_arm(control,record,'preview')
             session_execute(control,'view.detail')
             sent=control.last_sent_ns
             session_execute(control,'view.zoom100')
             state=session_detail(control,photo)
-            end,digest=session_frame(control,directory/f'preview-{iteration}.png')
+            end,digest=session_result(control,directory/f'preview-{iteration}.png',sent)
             session_sample(record,'preview',sent,end,digest,iteration<warmups,loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
             session_execute(control,'view.squareGrid')
             session_execute(control,'view.zoomFit')
@@ -808,31 +885,37 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             # Cross egui's drag threshold before the 60 individually timed moves.
             session_pointer(control,x+w*(.35 if iteration%2==0 else .65),y+h*.5)
             session_detail(control,photo)
-            for step in range(warmups+60):
+            for step in range(warmups+exposure_steps):
                 before=session_execute(control,'develop.get',{'id':photo})['light']['exposure']
-                position=.35+.3*(step+1)/(warmups+60) if iteration%2==0 else .65-.3*(step+1)/(warmups+60)
+                position=.35+.3*(step+1)/(warmups+exposure_steps) if iteration%2==0 else .65-.3*(step+1)/(warmups+exposure_steps)
+                session_arm(control,record,'exposure')
                 session_pointer(control,x+w*position,y+h*.5)
                 sent=control.last_sent_ns
                 state=session_detail(control,photo)
-                end,digest=session_frame(control,directory/f'exposure-{iteration}-{step}.png')
+                end,digest=session_result(control,directory/f'exposure-{iteration}-{step}.png',sent)
                 exposure=session_execute(control,'develop.get',{'id':photo})['light']['exposure']
                 if exposure==before:
                     raise RuntimeError(f'slider step {step} had no effect: {exposure}')
                 session_sample(record,'exposure',sent,end,digest,step<warmups,step=step-warmups,exposure=exposure,loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
             session_pointer(control,x+w*position,y+h*.5,'up')
         for iteration in range(warmups+repetitions):
-            selected=ids[1+iteration%(len(ids)-1)]
+            session_execute(control,'library.select',{'ids':[photo]})
+            session_detail(control,photo)
+            selected=ids[1]
+            session_arm(control,record,'switch')
             session_execute(control,'library.select',{'ids':[selected]})
             sent=control.last_sent_ns
             state=session_detail(control,selected)
-            end,digest=session_frame(control,directory/f'switch-{iteration}.png')
+            end,digest=session_result(control,directory/f'switch-{iteration}.png',sent)
             session_sample(record,'switch',sent,end,digest,iteration<warmups,photo=selected,loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
         for iteration in range(warmups+repetitions):
             output=directory/f'export-{iteration}.jpg'
+            session_arm(control,record,'export')
             result=session_execute(control,'app.export',{'path':str(output),'ids':[photo],'format':'jpeg','longEdge':2048,'quality':90,'background':True})
             sent=control.last_sent_ns
             state=session_wait(control,lambda s: not (s.get('export') or {}).get('running'))
-            end,digest=session_frame(control,directory/f'export-{iteration}.png')
+            ready_ns=time.perf_counter_ns()
+            end,digest=session_result(control,directory/f'export-{iteration}.png',sent,not_before=ready_ns)
             if max(jpeg_size(output))!=2048:
                 raise RuntimeError(f'invalid JPEG export: {result}, {state["export"]}')
             session_sample(record,'export',sent,end,digest,iteration<warmups,jpeg_sha256=file_digest(output),dimensions=jpeg_size(output),perf=state['perf'],capture=control.last_capture_proof)
@@ -869,13 +952,31 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         started=time.perf_counter_ns()
         process,control=spawn(binary,library,profile,None,log_path=directory/'startup.log',on_started=on_started)
         record['process_ids'].append(process.pid)
+        control.action_sampler=SessionSampler(control)
         session_detail(control,photo)
-        ended,_=session_frame(control,directory/'startup-library.png')
+        ended,_=session_result(control,directory/'startup-library.png',started)
         record['startup_library_ns']=ended-started
+        record['startup_samples']=[dict(duration_ns=ended-started,phase='cold')]
+        record['quit_samples']=[dict(duration_ns=record['exit_ns']-record['quit_request_ns'],phase='cold')]
         record['startup_capture']=control.last_capture_proof
         record['startup_state']=control.call('ui.inspect')
         session_drain(control,record,'after-startup-frame')
-        stop(process,control)
+        for lifecycle in range(3):
+            session_drain(control,record,f'before-repeat-quit-{lifecycle}',require_saved=True)
+            control.call('engine.execute',{'command':'app.quit'})
+            sent=control.last_sent_ns
+            exited=session_wait_exit(process)
+            if process.returncode!=0:raise RuntimeError(f'quit failed: {process.returncode}')
+            record['quit_samples'].append(dict(duration_ns=exited-sent,phase='warm',sent_ns=sent,exit_ns=exited,exit_code=process.returncode))
+            control.stream.close()
+            if lifecycle==2:break
+            started=time.perf_counter_ns()
+            process,control=spawn(binary,library,profile,None,log_path=directory/f'startup-repeat-{lifecycle}.log',on_started=on_started)
+            record['process_ids'].append(process.pid)
+            control.action_sampler=SessionSampler(control)
+            session_detail(control,photo)
+            ended,_=session_result(control,directory/f'startup-repeat-{lifecycle}.png',started)
+            record['startup_samples'].append(dict(duration_ns=ended-started,phase='warm',sent_ns=started,frame_ns=ended,capture=control.last_capture_proof))
         process=None
         record['gpu_processes_after']=session_gpu_processes()
         validate_session(record)
@@ -886,6 +987,8 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         (directory/'partial-session.json').write_text(json.dumps(record,indent=2)+'\n')
         raise
     finally:
+        observer=getattr(control,'action_sampler',None)
+        if observer is not None:observer.finish()
         if process is not None and process.poll() is None:
             stop(process,control)
         control.stream.close()
@@ -944,7 +1047,7 @@ def session_resume(config, binary_hashes):
         return None
     path=Path(config['resume_report'])
     prior=json.loads(path.read_text())
-    def workload(c):return {k:v for k,v in c.items() if k not in ('pair','resume_report')}
+    def workload(c):return {k:v for k,v in c.items() if k not in ('pair','side','resume_report')}
     if prior.get('schema')!='lightcraft-session-v1' or workload(prior['config'])!=workload(config):
         raise ValueError('resume report workload/revisions differ')
     if prior.get('binary_sha256')!=binary_hashes:
@@ -960,7 +1063,7 @@ def session_resume(config, binary_hashes):
 
 
 def session_comparison_complete(config,sessions):
-    expected={(tier,pair,side) for tier in config['payloads'] for pair in range(config.get('sessions',10)) for side in ('point','main','upstream')}
+    expected={(tier,pair,side) for tier in config['payloads'] for pair in range(config.get('sessions',10)) for side in config.get('sides',('point','main','upstream'))}
     actual=[(s['tier'],s['pair'],s['side']) for s in sessions]
     return len(actual)==len(expected) and set(actual)==expected
 
@@ -973,6 +1076,7 @@ def session_main(args):
     parser.add_argument('--out',required=True,type=Path)
     options=parser.parse_args(args)
     config=json.loads(options.config.read_text())
+    config.setdefault('measurement_method','pre-dispatch-v2')
     pair=config.get('pair',0)
     if not isinstance(pair,int) or not 0<=pair<config.get('sessions',10):
         raise ValueError('pair must be an index in 0..sessions')
@@ -1030,18 +1134,27 @@ def session_main(args):
             for pair in [pair]:
                 order=('point','main','upstream') if pair%2==0 else ('upstream','main','point')
                 for side in order:
+                    if side not in config.get('sides',('point','main','upstream')) or (config.get('side') and config['side']!=side):continue
                     if any((s['tier'],s['pair'],s['side'])==(tier,pair,side) for s in sessions):
                         continue
                     print(f'session {tier} pair {pair} {side}',flush=True)
                     revision=config['revisions'][side]
                     binary=Path(revision['binary'])
                     record=session_guarded_attempt(report,checkpoint,binary,options.out/f'{tier}-{pair}-{side}',tier,side,pair,
-                        lambda directory,provisional,on_started:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional,on_started=on_started))
+                        lambda directory,provisional,on_started:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional,on_started=on_started,exposure_steps=config.get('exposure_steps',10)))
                     sessions.append(record)
                     checkpoint()
         from lightcraft_session_report import check_pixels
-        report['pixel_checks']=check_pixels(sessions)
-        report['rows']=summarize(sessions)
+        complete_pairs=[p for p in range(config.get('sessions',10)) if all(any(s['side']==side and s['pair']==p for s in sessions) for side in config.get('sides',('point','main','upstream')))]
+        paired=[s for s in sessions if s['pair'] in complete_pairs]
+        report['pixel_checks']=check_pixels(paired) if paired else []
+        # Keep hashes and measured evidence, not thousands of passing native PNGs.
+        for accepted in paired:
+            protected={accepted['oracle'],accepted['export_sample'],accepted['export_oracle']}
+            for image in Path(accepted['directory']).rglob('*.png'):
+                if str(image) not in protected and 'headless-attempt' not in image.name:
+                    image.unlink()
+        report['rows']=summarize(paired, calibration=config.get('aa_report'), aa=config.get('aa',False)) if paired else []
         report['secondary_pixel_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream')
         for row in report['rows']:
             row['upstream_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream' and c['tier']==row['tier'])
