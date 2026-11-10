@@ -278,20 +278,24 @@ Config fields: `revisions` (`point`, `main`, optional `upstream`, each with abso
 `resume_report` pointing to the preceding acquisition's report. Workloads and
 binary hashes must match. Every acquisition retains its CPU guard and fingerprint;
 incomplete or contaminated reports cannot be published. Reverse ABC/CBA or AB/BA
-order on alternate pairs; release both locks between sides.
+order on alternate pairs; release both locks between bounded acquisitions.
 
-On Agentbox, use `DISPLAY=:118 WGPU_BACKEND=vulkan` and a shared explicit NVIDIA
-shader-cache path under this ticket's one target directory. GPU initialization
+On Agentbox, use `WGPU_BACKEND=vulkan`, an owned NVIDIA Xorg display reset for
+each build, and a shared explicit NVIDIA shader-cache path under this ticket's
+one target directory. GPU initialization
 finishes before actions. Shader and OS caches are never flushed: **cold means
 first use within a fresh app/session**, not cold hardware or a cold disk.
 
-```sh
-flock /jobs/work/speedcraft-labs/bench.lock \
-  flock -x /jobs/work/speedcraft-labs/gpu.lock \
-  timeout --signal=TERM --kill-after=5s 895s \
-  /jobs/work/speedcraft-labs/scripts/bench-run \
-  craft-journeys session --config pair-0-point.json --out reports/pair-0-point
-```
+Take `bench.lock`, then exclusive `gpu.lock`, then invoke `scripts/bench-run`.
+The lease controller must run **outside** the transient bench service and stop
+its owned systemd unit before unlocking on timeout or cancellation. A timeout
+around the `bench-run` client alone can leave that service running. The retained
+ticket recipe (`sensitivity/lease.py`, `acquire-pair.py`, `acquire-display.py` in
+the raw-report archive) records the unit identity, caps work at 840 seconds,
+reaps that unit and its private display before releasing the locks, and defers
+a second build if the preceding build predicts an overrun. A forced-expiry
+check verifies that the owned service is inactive after cleanup. Completed,
+guarded sides may be resumed; an incomplete side contributes no samples.
 
 Do not hold a lock for more than 15 minutes. Import-heavy stress runs only when
 `sudo lslocks` shows no bench waiters. A timeout is a retained failure, never a
@@ -299,7 +303,7 @@ reason to extend the lease. Reports record NVIDIA PID/name snapshots before,
 every two seconds during, and after each session. Foreign GPU processes discard
 the attempt. The retained admission policy has a 30-minute budget; exhausted
 budgets label the entire tier provisional and prohibit publication. The outer
-895-second cap takes precedence. Other workers' GPU tests take the lock shared.
+840-second work budget takes precedence. Other workers' GPU tests take the lock shared.
 
 Each action waits outside timing for one second of observed empty activity/task
 and render queues (new activity rows can be hidden for 0.5 s). Input-to-result

@@ -92,8 +92,13 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo clippy -p craft-av1 --all-targets -- -D warnings
 ```
 
-The full required local workspace run now passes: **3,835 passed, 127 ignored,
-zero failures** across 295 reported suites including doctests. Targeted journeys
+An earlier full required local workspace run passed: **3,835 passed, 127 ignored,
+zero failures** across 295 reported suites including doctests. After rebasing on
+`cd0f22bc`, the repeated full run hit two untouched timing assertions: H.264
+rapid reset exceeded 300 s and proof long-TRY took 11.281 s against a 10 s limit.
+Both fail on clean integration `cd0f22bc`: H.264 at 300.04 s; proof takes
+14.266 s against the same 10 s assertion. Neither file differs from integration.
+Both runs remain retained rather than substituting the earlier success. Targeted journeys
 tests pass (3 Rust tests including 33 Python tests). Both HEVC tests pass on clean integration. This branch's
 `cargo test -p craft-hevc conformance:: -- --nocapture` passes 43 tests, ignores 2.
 The old HEVC failures are currently **not reproducible**, not established baseline
