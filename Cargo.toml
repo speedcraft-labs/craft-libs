@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
-exclude = ["vendor/krilla", "vendor/hayro", "vendor/hayro-interpret", "vendor/hayro-syntax", "vendor/hayro-jbig2", "vendor/hayro-cmap", "vendor/hayro-postscript"]
+exclude = ["vendor/krilla", "vendor/hayro", "vendor/hayro-interpret", "vendor/hayro-syntax", "vendor/hayro-jbig2", "vendor/hayro-cmap", "vendor/hayro-postscript", "vendor/linesweeper"]
 
 [workspace.package]
 version = "0.1.0"
@@ -16,6 +16,7 @@ craft-ai-core = { path = "crates/ai-core" }
 craft-archive = { path = "crates/archive" }
 craft-atomic = { path = "crates/atomic" }
 craft-audio-rt = { path = "crates/audio-rt" }
+craft-audio = { path = "crates/audio" }
 craft-av1 = { path = "crates/av1" }
 craft-bitstream = { path = "crates/bitstream" }
 craft-bench = { path = "crates/bench" }
@@ -50,7 +51,7 @@ craft-io = { path = "crates/io" }
 craft-jpeg = { path = "crates/jpeg" }
 craft-keymap = { path = "crates/keymap" }
 craft-log = { path = "crates/log" }
-craft-media = { path = "crates/media" }
+craft-media = { path = "crates/media", default-features = false }
 craft-media-testkit = { path = "crates/media-testkit" }
 craft-menu = { path = "crates/menu" }
 craft-metafile = { path = "crates/metafile" }
@@ -74,6 +75,8 @@ craft-time = { path = "crates/time" }
 craft-ui = { path = "crates/ui" }
 craft-update = { path = "crates/update" }
 craft-vectorcraft-format = { path = "crates/vectorcraft-format" }
+craft-web-api = { path = "crates/web-api" }
+craft-web-host = { path = "crates/web-host" }
 craft-view = { path = "crates/view" }
 craft-vp8 = { path = "crates/vp8" }
 craft-vp9 = { path = "crates/vp9" }
