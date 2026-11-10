@@ -6,6 +6,8 @@ root=Path('/jobs/work/speedcraft-labs')
 config=json.load(open(sys.argv[1]));label=sys.argv[2]
 driver=root/'wt/313-session-latency/crates/journeys/scripts/lightcraft_real_app.py'
 frozen=hashlib.sha256(driver.read_bytes()).hexdigest()
+def retryable_control_failure(message):
+ return 'ui.clickWidget canceled: widget `button:importAdd` moved before its press; nothing was retargeted' in message
 def workload(c):
  return {key:value for key,value in c.items() if key not in ('pair','side','acquisition_sides','resume_report')}
 def heartbeat():
@@ -64,7 +66,16 @@ for generation in range(start,10000):
   except (OSError,json.JSONDecodeError):continue
   if report.get('failure') and not path.parent.parent.with_suffix('.lease-expired.json').exists():
    fatal.append((str(path),report['failure']))
- if fatal:raise RuntimeError('non-resource failure requires review: '+str(fatal))
+ if fatal:
+  if not all(retryable_control_failure(reason) for path,reason in fatal):
+   raise RuntimeError('non-resource failure requires review: '+str(fatal))
+  failures=[dict(path=path,reason=reason,pair=int(Path(path).parents[1].name.rsplit('-',1)[1]),side=Path(path).parent.name) for path,reason in fatal]
+  (k/(prefix+'.invalid-automation.json')).write_text(json.dumps(dict(policy='no press delivered: reject whole pair; retry both in a fresh lease; never trim successful latency samples',failures=failures),indent=2))
+  for failure in failures:
+   previous=[json.load(open(path)) for path in k.glob(label+'-attempt-*.invalid-automation.json')]
+   count=sum(any(f['pair']==failure['pair'] for f in item['failures']) for item in previous)
+   if count>=3:raise RuntimeError('three invalid import-control pairs require review: '+str(failure))
+  print('invalid automation request: whole pair rejected; retry both builds; raw failure retained',failures,flush=True)
  if config.get('require_contiguous_pair'):
   splits=list(k.glob(prefix+'-*.deferred.json'))+list(k.glob(prefix+'-*.lease-expired.json'))
   if splits:raise RuntimeError('contiguous-pair protocol interrupted; preserve whole acquisition for review: '+str(splits))
