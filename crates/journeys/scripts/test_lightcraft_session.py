@@ -410,6 +410,42 @@ class Boundaries(unittest.TestCase):
                 for x in s['samples']:x.update(frame_ns=41,duration_ns=11)
         self.assertFalse(summarize(sessions,resamples=200,aa=True)[0]['aa_pass'])
 
+    def test_rejected_aa_blocks_unchanged_faster_and_slower_verdicts(self):
+        from lightcraft_session_report import ACTIONS, markdown
+        sessions=[]
+        for side in ('point','main'):
+            for pair in range(10):
+                s=fixture();s.update(side=side,tier='test',pair=pair,startup_library_ns=10)
+                s['samples']=[dict(copy.deepcopy(s['samples'][0]),action=a) for a in ACTIONS]
+                sessions.append(s)
+        aa=summarize(sessions,resamples=20,aa=True)
+        aa[0].update(ci95=[.99,.99],aa_pass=False)
+        for factor in (1,2,.5):
+            comparison=copy.deepcopy(sessions)
+            for s in comparison:
+                if s['side']=='point':
+                    for x in s['samples']:x.update(frame_ns=30+10*factor,duration_ns=10*factor)
+            row=summarize(comparison,resamples=20,calibration={'rows':aa})[0]
+            self.assertEqual(row['speedup'],factor)
+            self.assertEqual(row['verdict'],'A/A control rejected; descriptive only')
+            self.assertFalse(row['calibration_contains_unity'])
+            self.assertIn('descriptive only',markdown([row]))
+
+    def test_wide_unbiased_aa_retains_explicit_sensitivity_floor(self):
+        from lightcraft_session_report import ACTIONS
+        sessions=[]
+        for side in ('point','main'):
+            for pair in range(10):
+                s=fixture();s.update(side=side,tier='test',pair=pair,startup_library_ns=10)
+                s['samples']=[dict(copy.deepcopy(s['samples'][0]),action=a) for a in ACTIONS]
+                sessions.append(s)
+        aa=summarize(sessions,resamples=20,aa=True)
+        aa[0].update(ci95=[.5,2],aa_pass=False,minimum_detectable_effect_pct=100)
+        row=summarize(sessions,resamples=20,calibration={'rows':aa})[0]
+        self.assertTrue(row['calibration_contains_unity'])
+        self.assertEqual(row['verdict'],'no measurable change')
+        self.assertEqual(row['minimum_detectable_effect_pct'],100)
+
     def test_result_rejects_pre_dispatch_and_pre_completion_frames(self):
         from lightcraft_real_app import session_result
         from types import SimpleNamespace

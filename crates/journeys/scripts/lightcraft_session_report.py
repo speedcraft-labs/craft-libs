@@ -160,20 +160,22 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
                 mde = math.expm1((math.log(ci[1])-math.log(ci[0]))/2 * (1.959964+.841621)/1.959964)*100
                 reference = calibrated.get((tier,action,phase))
                 sensitivity = mde if aa and n>=10 else reference.get('minimum_detectable_effect_pct') if reference and n>=10 else None
+                reference_ci = reference.get('ci95') if reference else None
+                calibration_contains_unity = bool(reference_ci and reference_ci[0]<=1<=reference_ci[1]) if reference else None
                 limit = 10 if action in ('import','startup') else 5
                 offenders = {name for group in groups.values() for session in group for name in session.get('gpu_tier_offenders',[])}
-                verdict = 'insufficient paired sessions' if n<10 else 'faster' if ci[0]>1 else 'slower' if ci[1]<1 else 'no measurable change' if sensitivity is not None else 'sensitivity uncalibrated'
+                verdict = 'insufficient paired sessions' if n<10 else 'A/A control rejected; descriptive only' if calibration_contains_unity is False else 'faster' if ci[0]>1 else 'slower' if ci[1]<1 else 'no measurable change' if sensitivity is not None else 'sensitivity uncalibrated'
                 rows.append(dict(tier=tier,action=action,phase=phase,observed_pairs=n,sides=stats,speedup=ratio,ci95=ci,ordinary_ci95=ordinary_ci,pooled_ci95=pooled_ci,pooled_ratio=stats['point']['median_ns']/stats['main']['median_ns'],
                     half_width_pct=half_width,minimum_detectable_effect_pct=sensitivity,estimated_mde_pct=mde,
                     is_aa=aa,aa_pass=aa and n>=10 and ci[0]<=1<=ci[1] and half_width<=limit,
-                    threshold_pct=limit,calibration_pairs=n if aa else reference.get('calibration_pairs') if reference else None,
+                    threshold_pct=limit,calibration_pairs=n if aa else reference.get('calibration_pairs') if reference else None,calibration_contains_unity=calibration_contains_unity,
                     verdict=verdict,provisional=any(s.get('gpu_provisional') for g in groups.values() for s in g),gpu_offenders=sorted(offenders)))
     return rows
 
 
 def markdown(rows):
     lines = ['Ratio = exp(median log paired-session median(point)/median(main)); >1 favors main. Displayed medians/p95 pool all samples. Times in ms. Order-stratified paired-session bootstrap (ordinary CI also retained in JSON); cold = first use in a session, warm = post-warm-up. OS/shader caches are not flushed.',
-             'MDE: A/A-derived approximate two-sided 5% significance, 80% power detectable change on log scale. Uncalibrated comparisons cannot say "no measurable change".']
+             'MDE: A/A-derived approximate two-sided 5% significance, 80% power detectable change on log scale. Uncalibrated comparisons cannot say "no measurable change". An A/A interval excluding 1 rejects comparison verdicts; its width alone is not valid sensitivity.']
     for tier in sorted({r['tier'] for r in rows}):
         selected=[r for r in rows if r['tier']==tier]
         provisional=any(r.get('provisional') for r in selected)

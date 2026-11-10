@@ -349,6 +349,9 @@ alpha .05 and power .80 from log CI width; it is not the CI half-width. A real
 comparison supplies `aa_report`; without it unchanged rows say "sensitivity
 uncalibrated". The formatter rejects "no measurable change" without an A/A MDE.
 Report failed gates and achieved MDE instead of claiming 5% sensitivity.
+If a calibration interval excludes 1, its comparison row is descriptive only:
+the interval width cannot establish sensitivity when identical builds differ.
+A wide interval containing 1 still reports its measured, larger MDE floor.
 
 Agentbox's automatic GPU power state is an additional measurement condition:
 the diagnostic run saw 300–1,350 MHz graphics clocks and 405–7,000 MHz memory

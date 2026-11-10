@@ -98,8 +98,9 @@ zero failures** across 295 reported suites including doctests. After rebasing on
 rapid reset exceeded 300 s and proof long-TRY took 11.281 s against a 10 s limit.
 Both fail on clean integration `cd0f22bc`: H.264 at 300.04 s; proof takes
 14.266 s against the same 10 s assertion. Neither file differs from integration.
-Both runs remain retained rather than substituting the earlier success. Targeted journeys
-tests pass (3 Rust tests including 36 Python tests). Both HEVC tests pass on clean integration. This branch's
+The latest reporting-guard workspace run passes again: 3,835 passed, 127 ignored,
+zero failures. All runs remain retained. Targeted journeys
+tests pass (3 Rust tests including 38 Python tests). Both HEVC tests pass on clean integration. This branch's
 `cargo test -p craft-hevc conformance:: -- --nocapture` passes 43 tests, ignores 2.
 The old HEVC failures are currently **not reproducible**, not established baseline
 failures. Clippy reproduces the two shader assign-op errors (lines 58/78) and the
@@ -180,3 +181,19 @@ action and lifecycle timer. Wrong clocks reject a session; calibration also
 requires matching clock/repeat settings. It starts fresh: no v4 observations
 are pooled into v5. Absolute latencies are conditional on this stated GPU state.
 The scoped controller must restore settings even when its owned unit expires.
+
+## Contiguous-pair calibration
+
+The completed ten-pair v5 A/A passed 3/14 action/state gates, but cold preview
+falsely differed for identical binaries (ratio 1.100, CI 1.015–1.326). Its long
+sessions split pairs across the queue, with between-build gaps up to 789 seconds.
+That failed design is retained at `failed/313-split-session-pairing`.
+
+An independently predeclared replacement uses 20 contiguous AB/BA pairs, four
+repetitions, two warmups and four exposure moves per gesture. Each pair must fit
+one 840-second lease. No split pair enters this calibration. The action clocks,
+GPU condition, bootstrap and all successful numeric observations are unchanged.
+An A/A CI excluding 1 now rejects that action's later comparison verdict; a narrow
+interval alone cannot validate sensitivity. Wide unbiased controls retain their
+explicit, larger MDE floor. This report will be updated with the completed gate,
+independent physical 10% slowdown and both real payload matrices.
