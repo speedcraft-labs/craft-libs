@@ -94,7 +94,8 @@ def main() -> int:
         if not result.get("selection"):
             raise RuntimeError(f"drag lost the selected graphic frame: {result}")
 
-        exported = tool("execute", {"command": "file.exportPdf", "params": {}})
+        # Pin PDF metadata so upstream and fork exports have stable byte identity.
+        exported = tool("execute", {"command": "file.exportPdf", "params": {"created": 0}})
         pdf = base64.b64decode(exported["base64"], validate=True)
         if not pdf.startswith(b"%PDF-"):
             raise RuntimeError("DesignCraft did not return a PDF export")
