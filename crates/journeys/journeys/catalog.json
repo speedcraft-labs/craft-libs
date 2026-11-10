@@ -230,6 +230,14 @@
       "inputs": [{ "name": "us-public-domain-map", "path": "vectorcraft-real-world-2026/us-public-domain-map.svg" }]
     },
     {
+      "name": "figcraft.select-drag-export.ridgeline-app",
+      "app": "figcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/figcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "figcraft-cli"] },
+      "run": { "program": "python3", "args": ["{journey_repo}/crates/journeys/scripts/figcraft_real_app.py", "{target_dir}/release/figcraft-cli", "{input}", "{target_dir}/outputs/{input_name}.svg"], "output": "markers", "wall_time": "process" },
+      "inputs": [{ "name": "ridgeline-app", "path": "figcraft-real-world-2026/ridgeline-app.figcraft" }]
+    },
+    {
       "name": "designcraft.synthetic-performance",
       "app": "designcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/designcraft",
