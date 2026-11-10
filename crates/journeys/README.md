@@ -83,6 +83,8 @@ target root so prepared builds can be reused.
 | `filmcraft.real-world-play-scrub-export` | FilmCraft | Open a pinned 1080p NASA clip as eight contiguous video and soundtrack regions, play and scrub it, then export a 60-second H.264 cut |
 | `soundcraft.real-world-song-play-scrub-midi-bounce` | SoundCraft | Open a 3:06 CC0 song, play/scrub edited regions, convert an 8-second selection to notes, then bounce the song to WAV |
 
+The FilmCraft journey uses a named output-equivalence check because the upstream and fork H.264 encoders choose different compressed frames. It requires exact decoded audio, identical stream and timeline metadata, and pairwise decoded-video PSNR with a finite-frame mean of at least 50 dB and every finite frame at least 45 dB; exact video frames are counted separately. The compare wrapper records these metrics in the raw report and refuses publication if the bound or GPU-process snapshot fails.
+
 Run and compare:
 
 ```sh

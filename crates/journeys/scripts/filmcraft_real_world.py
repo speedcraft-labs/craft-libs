@@ -24,10 +24,68 @@ corpus = Path(os.environ.get("ARTCRAFT_CORPUS", "/jobs/work/speedcraft-labs/hype
 music = corpus / "real-av-media-2026" / "monplaisir-free-to-use-3.ogg"
 music_sha256 = "e179f2c23bda0bb6dcec90bda9d856959724f75335951ca4d2228aff24aa44ea"
 ffmpeg = shutil.which("ffmpeg")
+ffprobe = shutil.which("ffprobe")
 if not ffmpeg:
     raise SystemExit("ffmpeg is required to prepare the 60-second source segment")
+if not ffprobe:
+    raise SystemExit("ffprobe is required to validate the exported media")
 if not music.is_file() or hashlib.sha256(music.read_bytes()).hexdigest() != music_sha256:
     raise SystemExit("the pinned CC0 music source is missing or has the wrong SHA-256")
+
+
+def export_signature(path: Path) -> tuple[dict, str]:
+    probed = subprocess.run(
+        [
+            ffprobe,
+            "-v",
+            "error",
+            "-show_entries",
+            "stream=codec_type,codec_name,profile,width,height,avg_frame_rate,nb_frames,duration,sample_rate,channels",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "json",
+            str(path),
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    metadata = json.loads(probed.stdout)
+    video = next((stream for stream in metadata.get("streams", []) if stream.get("codec_type") == "video"), None)
+    audio = next((stream for stream in metadata.get("streams", []) if stream.get("codec_type") == "audio"), None)
+    if video is None or audio is None:
+        raise SystemExit("FilmCraft export must contain both video and audio")
+    if video.get("codec_name") != "h264" or (video.get("width"), video.get("height")) != (1920, 1080):
+        raise SystemExit("FilmCraft export is not 1080p H.264")
+    if audio.get("codec_name") != "aac" or (audio.get("sample_rate"), audio.get("channels")) != ("48000", 2):
+        raise SystemExit("FilmCraft export is not stereo 48 kHz AAC")
+
+    audio_frames = subprocess.run(
+        [ffmpeg, "-v", "error", "-i", str(path), "-map", "0:a:0", "-f", "framemd5", "-"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    ).stdout
+    video_signature = {
+        key: video[key]
+        for key in ("codec_name", "profile", "width", "height", "avg_frame_rate", "nb_frames", "duration")
+        if key in video
+    }
+    audio_signature = {
+        key: audio[key]
+        for key in ("codec_name", "profile", "sample_rate", "channels", "nb_frames", "duration")
+        if key in audio
+    }
+    signature = {
+        "video": video_signature,
+        "audio": audio_signature,
+        "format_duration": metadata.get("format", {}).get("duration"),
+        "decoded_audio_framemd5_sha256": hashlib.sha256(audio_frames).hexdigest(),
+        "video_equivalence_bound": "pairwise H.264 PSNR mean >=50 dB and every frame >=45 dB",
+    }
+    return signature, hashlib.sha256(audio_frames).hexdigest()
 
 # Keep the NASA video stream untouched and add a pinned CC0 soundtrack, as in a basic edited
 # music-video project. Only the audio is encoded, at a fixed setting, to put it in MP4.
@@ -110,17 +168,17 @@ if any(row.get("clips") != 16 for row in timeline_rows):
 if any(row.get("waveform_streams", 0) < 1 or row.get("waveform_buckets", 0) < 1 for row in timeline_rows):
     raise SystemExit("FilmCraft timeline did not paint waveform data from the pinned soundtrack")
 elapsed = time.perf_counter_ns() - started
-identity_hash = hashlib.sha256(exported.read_bytes())
 timeline_identity = [
     {key: row[key] for key in ("view", "clips", "frames", "waveform_streams", "waveform_buckets", "shapes", "vertices")}
     for row in timeline_rows
 ]
-identity_hash.update(json.dumps(timeline_identity, sort_keys=True, separators=(",", ":")).encode())
-identity = identity_hash.hexdigest()
+media_signature, audio_identity = export_signature(exported)
+identity_payload = {"timeline": timeline_identity, "export": media_signature}
+identity = hashlib.sha256(json.dumps(identity_payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 print(f"CRAFT_JOURNEY_NS={elapsed}")
 print(f"CRAFT_OUTPUT_SHA256={identity}")
 print(
     f"duration_seconds=60 playback_scrub_timeline_rows={len(scenarios)} cut_regions=16 "
     f"waveform_buckets={timeline_rows[0]['waveform_buckets']} export_bytes={exported.stat().st_size} "
-    f"music_sha256={music_sha256}"
+    f"decoded_audio_framemd5_sha256={audio_identity} music_sha256={music_sha256}"
 )
