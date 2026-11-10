@@ -346,6 +346,7 @@ def session_execute(control, command, params=None):
         time.sleep(delay/1000)
     result=control.call('engine.execute', {'command': command, 'params': params or {}})
     if delay:
+        control.last_test_delay=dict(requested_ms=delay,queue_start_ns=started,wire_send_ns=control.last_sent_ns,actual_delay_ns=control.last_sent_ns-started)
         control.last_sent_ns=started
     return result
 
@@ -912,7 +913,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             sent=control.last_sent_ns
             state=session_detail(control,selected)
             end,digest=session_result(control,directory/f'switch-{iteration}.png',sent)
-            session_sample(record,'switch',sent,end,digest,iteration<warmups,photo=selected,loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
+            session_sample(record,'switch',sent,end,digest,iteration<warmups,photo=selected,test_delay=getattr(control,'last_test_delay',None),loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
         for iteration in range(warmups+repetitions):
             output=directory/f'export-{iteration}.jpg'
             session_arm(control,record,'export')
@@ -1073,6 +1074,31 @@ def session_comparison_complete(config,sessions):
     return len(actual)==len(expected) and set(actual)==expected
 
 
+def session_calibration(config):
+    """Only real, complete, guarded A/A evidence can calibrate a production report."""
+    if config.get('aa'):
+        revisions=config['revisions']
+        if revisions['point']['revision']!=revisions['main']['revision']:
+            raise ValueError('A/A requires the same app commit')
+        if revisions['point']['binary']==revisions['main']['binary']:
+            raise ValueError('A/A requires two separately built binary paths')
+        return None
+    if not config.get('aa_report'):return None
+    report=json.loads(Path(config['aa_report']).read_text())
+    if (not report.get('config',{}).get('aa') or not report.get('comparison_complete')
+            or not report.get('output_checked') or not report.get('gpu_process_checks_passed')
+            or report.get('guard',{}).get('contended') is not False
+            or not report.get('prior_acquisitions_passed') or report['config'].get('sessions',0)<10):
+        raise ValueError('calibration requires complete, clean A/A evidence with at least ten pairs')
+    aa_revs=report['config']['revisions']
+    if aa_revs['point']['revision']!=aa_revs['main']['revision'] or aa_revs['main']['revision']!=config['revisions']['main']['revision']:
+        raise ValueError('calibration app commit differs from comparison main')
+    if report.get('driver_sha256')!=file_digest(Path(__file__)):
+        raise ValueError('calibration used a different driver; repeat A/A')
+    from lightcraft_session_report import summarize
+    return {'rows':summarize(report['sessions'],aa=True)}
+
+
 def session_main(args):
     import argparse
     from lightcraft_session_report import summarize, markdown
@@ -1082,6 +1108,7 @@ def session_main(args):
     options=parser.parse_args(args)
     config=json.loads(options.config.read_text())
     config.setdefault('measurement_method','pre-dispatch-v2')
+    calibration=session_calibration(config)
     pair=config.get('pair',0)
     if not isinstance(pair,int) or not 0<=pair<config.get('sessions',10):
         raise ValueError('pair must be an index in 0..sessions')
@@ -1161,7 +1188,7 @@ def session_main(args):
             for image in Path(accepted['directory']).rglob('*.png'):
                 if str(image) not in protected and 'headless-attempt' not in image.name:
                     image.unlink()
-        report['rows']=summarize(paired, calibration=config.get('aa_report'), aa=config.get('aa',False)) if paired else []
+        report['rows']=summarize(paired, calibration=calibration, aa=config.get('aa',False)) if paired else []
         report['secondary_pixel_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream')
         for row in report['rows']:
             row['upstream_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream' and c['tier']==row['tier'])
