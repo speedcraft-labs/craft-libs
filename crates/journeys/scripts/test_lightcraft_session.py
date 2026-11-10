@@ -203,6 +203,11 @@ class Boundaries(unittest.TestCase):
             accepted['gpu_provisional']=False
             with self.assertRaisesRegex(ValueError,'foreign GPU'):validate_session(accepted)
 
+    def test_gpu_ownership_is_by_pid_not_executable_name(self):
+        from lightcraft_real_app import session_gpu_foreign
+        snapshots=[{'processes':[{'pid':123,'name':'same-binary'},{'pid':456,'name':'same-binary'}]}]
+        self.assertEqual(session_gpu_foreign(snapshots,[123]),[{'pid':456,'name':'same-binary'}])
+
     def test_stable_ratio_resamples_sessions(self):
         from lightcraft_session_report import ACTIONS
         sessions=[]
@@ -214,6 +219,10 @@ class Boundaries(unittest.TestCase):
         rows=summarize(sessions)
         self.assertEqual(rows[0]['ci95'],[2,2])
         self.assertEqual(rows[0]['verdict'],'faster')
+        sessions[0].update(gpu_provisional=True,gpu_tier_offenders=['earlier-offender-now-gone'])
+        from lightcraft_session_report import markdown
+        self.assertIn('PROVISIONAL',markdown(summarize(sessions)))
+        self.assertIn('earlier-offender-now-gone',markdown(summarize(sessions)))
 
 
 if __name__=='__main__': unittest.main()
