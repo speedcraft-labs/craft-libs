@@ -263,14 +263,18 @@ the 2048 × 1640 JPEGs differed by at most 11, with mean absolute channel error 
 
 `craft-journeys session --config session.json --out REPORT_DIRECTORY` runs one
 prebuilt revision/session per acquisition when `side` is set; otherwise one pair.
-Binaries must be built before locking. Use Python 3 with Pillow XCB, `xwininfo`,
+Binaries must be built before locking. Use one bounded primary AB/BA pair per
+lease, resetting the owned display for each build. `acquisition_sides` may select
+point/main first and descriptive upstream in later single-session acquisitions;
+`side` and `acquisition_sides` change acquisition selection, not the expected
+complete comparison or workload. Use Python 3 with Pillow XCB, `xwininfo`,
 `xprop`, and an NVIDIA Xorg display large enough for the 1600×1000 app window.
 Existing launch-per-task journeys are unchanged.
 
 Config fields: `revisions` (`point`, `main`, optional `upstream`, each with absolute
 `binary` and pinned `revision`); `sides`; one `payloads` tier/folder; `sessions`
 (at least 10); `pair` (zero-based); optional `side`; `warmups` (2), `repetitions`
-(10), `exposure_steps` (4); `measurement_method: "pre-dispatch-quickack-v3"`. Continue with
+(10), `exposure_steps` (4); `measurement_method: "first-grid-quickack-v4"`. Continue with
 `resume_report` pointing to the preceding acquisition's report. Workloads and
 binary hashes must match. Every acquisition retains its CPU guard and fingerprint;
 incomplete or contaminated reports cannot be published. Reverse ABC/CBA or AB/BA
@@ -313,8 +317,10 @@ observed export completion because an unchanged photo frame cannot prove that a
 file finished writing.
 
 Import removes catalog records, preserves originals, reimports the exact file set
-and visits/checks every grid page. It includes scripted navigation of those pages,
-so it is an **all-thumbnails workflow**, not only engine import time. Preview
+and ends at the first proven usable thumbnail viewport after **all** catalog
+entries are present. It then visits/checks every grid page outside timing. The
+user's import clock excludes scripted scrolling and pixel verification; no file
+is skipped. Rejected first-grid frames are retained without resetting the clock. Preview
 resets to grid/fit then opens the same photo at 100%. Switch resets to the first
 photo and selects the same second photo every time. Exposure is a backpressured
 held slider, with threshold-crossing setup and warm-ups; its first timed step
@@ -325,8 +331,12 @@ the first reopen/idle quit is cold, later lifecycle repetitions are warm. Empty
 library startup and the legacy cold-quit diagnostic are not these rows.
 
 Statistics use whole paired sessions as bootstrap clusters (4,000 resamples,
-seed 313), never individual slider steps as independent sessions. Ratio is point
-median / main median; CI excluding 1 determines faster/slower. Calibration uses
+seed 313), never individual slider steps as independent sessions. Compute one
+point/main median ratio per paired session, then exponentiate the median log
+ratio; this need not equal the ratio of the displayed pooled medians. Resampling
+preserves the FIXED AB/BA counts by drawing within the two order strata. Ordinary
+paired and original pooled-median CIs are retained for audit. CI excluding 1
+determines faster/slower only after at least ten pairs. Calibration uses
 `aa: true` with two separate clean builds of **the same commit**, interleaved
 exactly as the real comparison. The A/A gate requires at least 10 pairs, a 95% CI
 containing 1, and relative half-width ≤5% (≤10% for import/startup), per action and
