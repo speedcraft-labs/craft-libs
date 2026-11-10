@@ -8,10 +8,15 @@ lines=['User-visible results pending editorial interpretation. Ratio = exp(media
 for r in aa['rows']:
  lines.append(f"| {r['action']} / {r['phase']} | {r['speedup']:.3f} | {r['ci95'][0]:.3f}–{r['ci95'][1]:.3f} | {r['ordinary_ci95'][0]:.3f}–{r['ordinary_ci95'][1]:.3f} | {r['half_width_pct']:.2f} | {fmt(r['minimum_detectable_effect_pct'])} | {r['threshold_pct']} | {'PASS' if r['aa_pass'] else 'FAIL'} |")
 if args.slowdown:
- slow=read(args.slowdown);r=next(x for x in slow['rows'] if x['action']=='switch' and x['phase']=='warm')
- delays=[x['evidence']['test_delay'] for s in slow['sessions'] if s['side']=='main' for x in s['samples'] if x['action']=='switch' and not x['warmup']]
- import statistics
- lines+=['',f"Deliberate slowdown: requested {delays[0]['requested_ms']:.3f} ms (10% of calibrated warm switch); actual median queued delay {statistics.median(d['actual_delay_ns'] for d in delays)/1e6:.3f} ms. Ratio {r['speedup']:.3f}, CI {r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}: **{r['verdict']}**."]
+ slow=read(args.slowdown)
+ if slow['config'].get('test_quit_delay_ns') is not None:
+  proof=subprocess.check_output(['python3',str(k/'validate-quit-slowdown.py'),str(args.slowdown)],text=True)
+  lines+=['',proof]
+ else:
+  r=next(x for x in slow['rows'] if x['action']=='switch' and x['phase']=='warm')
+  delays=[x['evidence']['test_delay'] for s in slow['sessions'] if s['side']=='main' for x in s['samples'] if x['action']=='switch' and not x['warmup']]
+  import statistics
+  lines+=['',f"Deliberate slowdown: requested {delays[0]['requested_ms']:.3f} ms (10% of calibrated warm switch); actual median queued delay {statistics.median(d['actual_delay_ns'] for d in delays)/1e6:.3f} ms. Ratio {r['speedup']:.3f}, CI {r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}: **{r['verdict']}**."]
 for report in reports:
  for tier in sorted({r['tier'] for r in report['rows']}):
   lines+=['',f'LightCraft: {tier}. Upstream is descriptive only. MDE cells show A/A calibration / current-comparison approximate MDE; a noisier comparison is not assigned the calibration precision.', '', '| Action / state | Point median/p95 | Main median/p95 | Ratio (95% CI) | Minimum detectable effect % (AA/current) | Upstream median/p95 | Verdict |','|---|---:|---:|---:|---:|---:|---|']
