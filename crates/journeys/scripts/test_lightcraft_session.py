@@ -106,7 +106,7 @@ class Boundaries(unittest.TestCase):
         from lightcraft_real_app import session_drain
         clock=[0];calls=[];record={'samples':copy.deepcopy(fixture()['samples'])}
         original=copy.deepcopy(record['samples'])
-        observations=iter([(181,125),(600,400),(900,500)])
+        observations=iter([(181,125),(600,400),(900,500),(901,500)])
         class Control:
             def call(self,method):
                 calls.append(method);clock[0],done=next(observations)
@@ -114,9 +114,22 @@ class Boundaries(unittest.TestCase):
         with patch('lightcraft_real_app.time.monotonic',side_effect=lambda:clock[0]), patch('lightcraft_real_app.time.perf_counter_ns',side_effect=lambda:clock[0]*1_000_000_000), patch('lightcraft_real_app.time.sleep'):
             session_drain(Control(),record,'before-idle-quit',require_saved=True)
         self.assertEqual(record['samples'],original)
-        self.assertEqual(record['background_drains'][0]['end_ns'],900_000_000_000)
-        self.assertEqual(len(record['background_drains'][0]['progress']),2)
-        self.assertEqual(calls,['ui.inspect']*3)
+        self.assertEqual(record['background_drains'][0]['end_ns'],901_000_000_000)
+        self.assertEqual([p['activity'][0]['done'] for p in record['background_drains'][0]['progress'] if p['activity']],[125,400])
+        self.assertEqual(calls,['ui.inspect']*4)
+
+    def test_empty_activity_snapshot_waits_for_young_background_job(self):
+        from unittest.mock import patch
+        from lightcraft_real_app import session_drain
+        clock=[0];observations=iter([(0,[]),(.6,[{'done':0,'total':500}]),(3,[]),(4,[])])
+        class Control:
+            def call(self,method):
+                clock[0],activity=next(observations)
+                return {'perf':{'renderQueue':0,'rendersInFlight':0,'pendingSlots':[]},'activity':activity,'tasks':[],'unsaved':None}
+        record={}
+        with patch('lightcraft_real_app.time.monotonic',side_effect=lambda:clock[0]), patch('lightcraft_real_app.time.perf_counter_ns',side_effect=lambda:round(clock[0]*1_000_000_000)), patch('lightcraft_real_app.time.sleep'):
+            session_drain(Control(),record,'before-idle-quit',require_saved=True)
+        self.assertEqual(record['background_drains'][0]['end_ns'],4_000_000_000)
 
     def test_empty_texture_queue_shape_is_a_list(self):
         from lightcraft_real_app import session_idle
