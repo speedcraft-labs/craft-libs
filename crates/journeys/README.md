@@ -455,3 +455,7 @@ it misaligns high-ISO noise and is not a valid JPEG-codec reference. The retaine
 typical 50 legacy report passed its original preview-based check; its method stays
 explicitly identified. New validation runs immediately after the untimed PNG,
 before potentially long background draining. Cross-revision bounds are unchanged.
+
+Idle must remain observed for one second: `ui.inspect` omits activity rows younger
+than 0.5 seconds, so one empty snapshot cannot establish that preparation stopped.
+This settling interval is outside every measured clock.

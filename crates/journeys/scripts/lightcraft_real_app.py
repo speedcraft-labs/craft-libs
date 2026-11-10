@@ -361,11 +361,18 @@ def session_drain(control, record, phase, require_saved=False):
     entry=dict(phase=phase,start_ns=time.perf_counter_ns(),progress=[])
     record.setdefault('background_drains',[]).append(entry)
     next_log=time.monotonic()+30
+    idle_since=None
     def ready(state):
-        nonlocal next_log
+        nonlocal next_log,idle_since
+        now=time.monotonic()
         idle=session_idle(state) and not state['activity'] and not state['tasks']
-        if idle and (not require_saved or state.get('unsaved') is None):return True
-        if time.monotonic()>=next_log:
+        if idle and (not require_saved or state.get('unsaved') is None):
+            if idle_since is None:idle_since=now
+            # ui.inspect omits activity rows younger than 0.5s. A single empty
+            # snapshot must not mistake a newly started preparation job for idle.
+            if now-idle_since>=1:return True
+        else:idle_since=None
+        if now>=next_log:
             progress=dict(ns=time.perf_counter_ns(),activity=state['activity'],tasks=state['tasks'],unsaved=state.get('unsaved'))
             entry['progress'].append(progress)
             print(f'background drain {phase}: '+json.dumps(progress),flush=True)
