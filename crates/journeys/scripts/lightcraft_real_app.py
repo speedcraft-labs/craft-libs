@@ -32,7 +32,16 @@ class Control:
         line = self.reader.readline()
         if not line:
             raise RuntimeError(f"LightCraft control closed during {method}")
+        received_ns=time.perf_counter_ns()
         reply = json.loads(line)
+        if hasattr(self,'trace'):
+            entry=dict(method=method,command=(params or {}).get('command'),sent_ns=self.last_sent_ns,reply_ns=received_ns)
+            if method=='ui.inspect' and isinstance(reply.get('result'),dict):
+                state=reply['result']
+                entry['perf']={k:state.get('perf',{}).get(k) for k in ('renderQueue','rendersInFlight','pendingSlots','lastRenderMs','frameMs')}
+                entry['activity_count']=len(state.get('activity',[]))
+                entry['task_count']=len(state.get('tasks',[]))
+            self.trace.append(entry)
         if reply.get("id") != self.ident:
             raise RuntimeError(f"LightCraft control id mismatch during {method}: {reply}")
         if not reply.get("ok"):
@@ -164,6 +173,7 @@ def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *
         process.terminate()
         process.wait(timeout=5)
         raise TimeoutError("LightCraft control channel did not start")
+    control.trace=[]
     control.process_pid=process.pid
     control.session_log=log_path
     return process, control
@@ -820,6 +830,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
     control.test_delay_ms=float(os.environ.get('CRAFT_JOURNEYS_TEST_SWITCH_DELAY_MS','0')) if side=='main' else 0
     record['test_switch_delay_ms']=control.test_delay_ms
     record['process_ids']=[process.pid]
+    record['control_traces']=[dict(pid=process.pid,calls=control.trace)]
     try:
         state=control.call('ui.inspect')
         # ui.inspect deliberately omits transient dialogs. Cancel optional first-run
@@ -958,6 +969,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         started=time.perf_counter_ns()
         process,control=spawn(binary,library,profile,None,log_path=directory/'startup.log',on_started=on_started)
         record['process_ids'].append(process.pid)
+        record['control_traces'].append(dict(pid=process.pid,calls=control.trace))
         control.action_sampler=SessionSampler(control)
         session_detail(control,photo)
         ended,_=session_result(control,directory/'startup-library.png',started)
@@ -979,6 +991,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             started=time.perf_counter_ns()
             process,control=spawn(binary,library,profile,None,log_path=directory/f'startup-repeat-{lifecycle}.log',on_started=on_started)
             record['process_ids'].append(process.pid)
+            record['control_traces'].append(dict(pid=process.pid,calls=control.trace))
             control.action_sampler=SessionSampler(control)
             session_detail(control,photo)
             ended,_=session_result(control,directory/f'startup-repeat-{lifecycle}.png',started)
