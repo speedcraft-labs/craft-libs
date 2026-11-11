@@ -1,0 +1,9 @@
+{
+  "binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/craft-journeys-direct-import",
+  "binary_sha256": "c179b7bc951239eefedfdc053fd43f7eef131afd5f05d222e7a56e6e547ba4fd",
+  "manifest_root": "/jobs/work/speedcraft-labs/wt/313b-direct-import/crates/journeys",
+  "driver_sha256": "191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd",
+  "command": "CARGO_TARGET_DIR=/jobs/work/speedcraft-labs/targets/313b CARGO_BUILD_JOBS=8 SQLX_OFFLINE=true RUST_MIN_STACK=8388608 nice -n19 cargo build --release --locked -p craft-journeys",
+  "app_binaries_unchanged": true,
+  "patch_sha256": "44fe9373aab994e3db26f2e3f95683bcc827fe84e3717709036426430bfbc8c9"
+}

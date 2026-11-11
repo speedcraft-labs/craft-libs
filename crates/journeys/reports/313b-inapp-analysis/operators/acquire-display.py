@@ -27,7 +27,12 @@ try:
   out.with_suffix('.display.json').write_text(json.dumps(info,indent=2))
  env=dict(os.environ,DISPLAY=display)
  if config.get('_lease_selftest_display'):status=subprocess.run(['sleep','300']).returncode
- else:status=subprocess.run(['/jobs/work/speedcraft-labs/tmp/313b-binaries/craft-journeys','session','--config',sys.argv[1],'--out',str(out)],env=env).returncode
+ else:
+  harness=os.environ.get('CRAFT_JOURNEYS_HARNESS_BIN','/jobs/work/speedcraft-labs/tmp/313b-binaries/craft-journeys')
+  status=subprocess.run([harness,'session','--config',sys.argv[1],'--out',str(out)],env=env).returncode
+  report=out/'report.json'
+  if config.get('expected_driver_sha256') and report.exists() and json.loads(report.read_text()).get('driver_sha256')!=config['expected_driver_sha256']:
+   raise RuntimeError('wrong harness manifest/driver selected; expected exact source hash')
 finally:
  try:
   metadata=out.with_suffix('.display.json')
