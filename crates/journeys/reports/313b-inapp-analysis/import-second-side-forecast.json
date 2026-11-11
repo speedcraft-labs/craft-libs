@@ -1,0 +1,23 @@
+{
+  "original_deferred": {
+    "side": "main",
+    "remaining_seconds": 428.201940993,
+    "preceding_side_seconds": 406.858897918,
+    "required_headroom_seconds": 538.5736223975,
+    "forecast_factor": 1.25,
+    "reason": "defer a new side rather than predictably overrun the lease"
+  },
+  "prior_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-1-primary-attempt0/report.json",
+  "prior_complete_second_side_wall_seconds": {
+    "main": [
+      176.442859205
+    ],
+    "point": [
+      182.222066916
+    ]
+  },
+  "new_required_seconds": 294.6642888075,
+  "remaining_seconds": 428.201940993,
+  "hard_lease_seconds_unchanged": 840,
+  "action_clocks_and_statistical_thresholds_unchanged": true
+}
