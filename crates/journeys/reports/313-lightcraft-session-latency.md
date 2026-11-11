@@ -141,7 +141,7 @@ pins are committed; generated reports, per-run JSON and media stay off git.
 The completed replacement A/A passes 0/14 requested gates. Valid warm-action
 approximate MDEs span 12.79–44.36%; cold switch, warm startup and both quit
 controls exclude unity and cannot validate later comparison verdicts. The
-independent physical 10% check and real comparisons remain pending. No 5%
+independent physical 10% check passes; real comparisons remain pending. No 5%
 sensitivity or new LightCraft performance claim is made.
 
 
@@ -228,8 +228,13 @@ cannot be reported as a proven 5% sensitivity.
 The known-delay pilot exposed a separate reference problem: a 97.999 ms delay
 from the hours-long A/A median would add 23.135% to its contemporaneous untreated
 423.593 ms control. That whole pair is retained as diagnostic. A fresh fixed
-20-pair physical check uses 42.35933825 ms (10% of that untreated pilot); it must
-report slower and realize 9–11% of its independent control median. Treatment CIs
+20-pair physical check uses 42.35933825 ms (10% of that untreated pilot). It
+passes both the slower verdict and predeclared 9–11% magnitude gate: actual
+median delay 42.526 ms, 9.69% of the independent 438.944 ms control; ratio 0.875,
+95% CI 0.833–0.923. All 80 measured treatment delays fall inside their action
+clocks. Raw: `sensitivity/switch-slowdown-v6-calibrated-attempt-31-19/report.json`
+and `switch-slowdown-validation.json`. This is a known-delay proof, not evidence
+of universal 5% sensitivity. Treatment CIs
 were not used to choose the dose or stop the pilot. No numeric sample is trimmed.
 
 The initial heavy pilot offered 1,259 of 1,262 files for import and was rejected
@@ -238,3 +243,13 @@ headers; official source SHA-256 matches, and two source descriptions identify
 CHDK. Their pins and failure evidence remain retained, while the measured tier
 uses the other 1,259 distinct files. This is a declared payload-compatibility
 exclusion before A/A, not latency trimming.
+
+
+The successful 1,259-photo pilot passed every catalog/thumbnail/output check in
+385.803 s per app. Import was 92.409 s first use, 41.755 s transitional warmup,
+then 15.633/17.761 s measured warm. Keeping both warmups matters. Heavy A/A and
+real primary use the same predeclared ten-pair alternating AB/BA cadence with
+one build per bounded lease and empty-queue stress admission. They retain the
+same action clocks, two warmups and two repetitions; the lone pilot is not
+seeded into calibration. Actual between-build gaps and MDE floors are reported.
+The real 50-RAW comparison uses the original binaries with zero test delay.

@@ -263,8 +263,10 @@ the 2048 × 1640 JPEGs differed by at most 11, with mean absolute channel error 
 
 `craft-journeys session --config session.json --out REPORT_DIRECTORY` runs one
 prebuilt revision/session per acquisition when `side` is set; otherwise one pair.
-Binaries must be built before locking. Use one bounded primary AB/BA pair per
-lease, resetting the owned display for each build. `acquisition_sides` may select
+Binaries must be built before locking. Use at most one bounded primary AB/BA
+pair per lease, resetting the owned display for each build. If a pair will not
+fit, select one build per lease and use that same declared AB/BA cadence for
+both A/A and the real comparison. `acquisition_sides` may select
 point/main first and descriptive upstream in later single-session acquisitions;
 `side` and `acquisition_sides` change acquisition selection, not the expected
 complete comparison or workload. Use Python 3 with Pillow XCB, `xwininfo`,
@@ -273,8 +275,11 @@ Existing launch-per-task journeys are unchanged.
 
 Config fields: `revisions` (`point`, `main`, optional `upstream`, each with absolute
 `binary` and pinned `revision`); `sides`; one `payloads` tier/folder; `sessions`
-(at least 10); `pair` (zero-based); optional `side`; `warmups` (2), `repetitions`
-(10), `exposure_steps` (4); `measurement_method: "first-grid-quickack-v4"`. Continue with
+(at least 10); `pair` (zero-based); optional `side`; `warmups`, `repetitions`,
+`exposure_steps` and `measurement_method`. The recorded typical protocol uses
+20 pairs, two warmups, four repetitions, four exposure steps and
+`measurement_method: "first-grid-quickack-fixed-gpu-v5"`, with the explicit GPU
+condition below. These settings do not guarantee 5% sensitivity. Continue with
 `resume_report` pointing to the preceding acquisition's report. Workloads and
 binary hashes must match. Every acquisition retains its CPU guard and fingerprint;
 incomplete or contaminated reports cannot be published. Reverse ABC/CBA or AB/BA
@@ -284,7 +289,7 @@ On Agentbox, use `WGPU_BACKEND=vulkan`, an owned NVIDIA Xorg display reset for
 each build, and a shared explicit NVIDIA shader-cache path under this ticket's
 one target directory. GPU initialization
 finishes before actions. Shader and OS caches are never flushed: **cold means
-first use within a fresh app/session**, not cold hardware or a cold disk.
+first timed use after the documented setup within a fresh app/session**, not cold hardware or a cold disk.
 
 Take `bench.lock`, then exclusive `gpu.lock`, then invoke `scripts/bench-run`.
 The lease controller must run **outside** the transient bench service and stop
@@ -295,7 +300,12 @@ the raw-report archive) records the unit identity, caps work at 840 seconds,
 reaps that unit and its private display before releasing the locks, and defers
 a second build if the preceding build predicts an overrun. A forced-expiry
 check verifies that the owned service is inactive after cleanup. Completed,
-guarded sides may be resumed; an incomplete side contributes no samples.
+guarded sides may be resumed under a declared split-acquisition protocol; an
+incomplete side contributes no samples. The recorded typical campaign requires
+both builds in one lease and rejects the whole interrupted pair. The heavy
+protocol uses ten pairs, two warmups, two repetitions and one build per lease: a
+guarded pilot took 385.8 seconds per app. Its A/A and real primary comparison
+use this same alternating AB/BA cadence; the pilot is not seeded into A/A.
 
 Do not hold a lock for more than 15 minutes. Import-heavy stress runs only when
 `sudo lslocks` shows no bench waiters. A timeout is a retained failure, never a
