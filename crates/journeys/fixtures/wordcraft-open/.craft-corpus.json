@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "name": "wordcraft-open",
+  "files": [
+    {
+      "path": "wordcraft-1096.docx",
+      "sha256": "7ad72304ef527465085689118dba3b62f9d4bd9610ce81353b90f84c7bed8070",
+      "bytes": 11751,
+      "tags": [
+        "docx",
+        "synthetic",
+        "wordcraft",
+        "1096-pages"
+      ],
+      "redistributable": true,
+      "licence": "CC0-1.0"
+    }
+  ]
+}

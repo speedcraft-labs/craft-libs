@@ -1,0 +1,618 @@
+{
+  "journeys": [
+    {"name":"photocraft.startup-cold-first-frame","app":"photocraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft","build":{"program":"cargo","args":["build","--release","-p","photocraft"]},"run":{"program":"python3","args":["{journey_repo}/crates/journeys/scripts/desktop_startup.py","photocraft","{target_dir}/release/photocraft","cold","{target_dir}/startup/photocraft-cold"],"output":"markers"}},
+    {"name":"photocraft.startup-warm-first-frame","app":"photocraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft","build":{"program":"cargo","args":["build","--release","-p","photocraft"]},"run":{"program":"python3","args":["{journey_repo}/crates/journeys/scripts/desktop_startup.py","photocraft","{target_dir}/release/photocraft","warm","{target_dir}/startup/photocraft-warm"],"output":"markers"}},
+    {"name":"photocraft.open-typical-psd","app":"photocraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft","build":{"program":"cargo","args":["build","--release","-p","photocraft-ui-egui","--example","large_image_bench"]},"run":{"program":"{target_dir}/release/examples/large_image_bench","args":["--input","{input}","--op","open"],"output":"markers","wall_time":"process"},"app_base_patch":"crates/journeys/patches/photocraft-real-input.patch","inputs":[{"name":"quote-card-misty-beach","path":"real-world-app-2026/quote-card-misty-beach.psd"}]},
+    {"name":"photocraft.apply-gaussian-blur-typical-psd","app":"photocraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft","build":{"program":"cargo","args":["build","--release","-p","photocraft-ui-egui","--example","large_image_bench"]},"run":{"program":"{target_dir}/release/examples/large_image_bench","args":["--input","{input}","--op","filter"],"output":"markers","wall_time":"process"},"app_base_patch":"crates/journeys/patches/photocraft-real-input.patch","inputs":[{"name":"quote-card-misty-beach","path":"real-world-app-2026/quote-card-misty-beach.psd"}]},
+    {"name":"photocraft.save-typical-psd","app":"photocraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft","build":{"program":"cargo","args":["build","--release","-p","photocraft-ui-egui","--example","large_image_bench"]},"run":{"program":"{target_dir}/release/examples/large_image_bench","args":["--input","{input}","--op","psd"],"output":"markers","wall_time":"process"},"app_base_patch":"crates/journeys/patches/photocraft-real-input.patch","inputs":[{"name":"quote-card-misty-beach","path":"real-world-app-2026/quote-card-misty-beach.psd"}]},
+    {"name":"pdfcraft.startup-cold-first-frame","app":"pdfcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft","build":{"program":"cargo","args":["build","--release","-p","pdfcraft"],"cargo_config_overrides":["patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"","patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"","patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"","patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"","patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"","patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"","patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"","patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"","patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""]},"run":{"program":"python3","args":["{journey_repo}/crates/journeys/scripts/desktop_startup.py","pdfcraft","{target_dir}/release/pdfcraft","cold","{target_dir}/startup/pdfcraft-cold"],"output":"markers"}},
+    {"name":"pdfcraft.startup-warm-first-frame","app":"pdfcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft","build":{"program":"cargo","args":["build","--release","-p","pdfcraft"],"cargo_config_overrides":["patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"","patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"","patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"","patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"","patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"","patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"","patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"","patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"","patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""]},"run":{"program":"python3","args":["{journey_repo}/crates/journeys/scripts/desktop_startup.py","pdfcraft","{target_dir}/release/pdfcraft","warm","{target_dir}/startup/pdfcraft-warm"],"output":"markers"}},
+    {"name":"pdfcraft.open-typical-irs-990","app":"pdfcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft","build":{"program":"cargo","args":["build","--release","-p","pdfcraft-engine","--example","edit_bench"],"cargo_config_overrides":["patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"","patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"","patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"","patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"","patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"","patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"","patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"","patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"","patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""]},"run":{"program":"{target_dir}/release/examples/edit_bench","args":["open-real","{input}"],"output":"markers","wall_time":"process"},"app_base_patch":"crates/journeys/patches/pdfcraft-edit-bench.patch","inputs":[{"name":"irs-f990-2023","path":"real-world-app-2026/irs-f990-2023.pdf"}]},
+    {"name":"pdfcraft.edit-typical-irs-990","app":"pdfcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft","build":{"program":"cargo","args":["build","--release","-p","pdfcraft-engine","--example","edit_bench"],"cargo_config_overrides":["patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"","patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"","patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"","patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"","patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"","patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"","patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"","patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"","patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""]},"run":{"program":"{target_dir}/release/examples/edit_bench","args":["edit-real","{input}"],"output":"markers","wall_time":"process"},"app_base_patch":"crates/journeys/patches/pdfcraft-edit-bench.patch","inputs":[{"name":"irs-f990-2023","path":"real-world-app-2026/irs-f990-2023.pdf"}]},
+    {"name":"pdfcraft.save-typical-irs-990","app":"pdfcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft","build":{"program":"cargo","args":["build","--release","-p","pdfcraft-engine","--example","edit_bench"],"cargo_config_overrides":["patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"","patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"","patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"","patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"","patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"","patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"","patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"","patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"","patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""]},"run":{"program":"{target_dir}/release/examples/edit_bench","args":["save-real","{input}","{target_dir}/pdfcraft-save-output.pdf"],"output":"markers","wall_time":"process","verify":{"program":"{target_dir}/release/examples/edit_bench","args":["verify-real","{target_dir}/pdfcraft-save-output.pdf"]}},"app_base_patch":"crates/journeys/patches/pdfcraft-edit-bench.patch","inputs":[{"name":"irs-f990-2023","path":"real-world-app-2026/irs-f990-2023.pdf"}]},
+    {"name":"gridcraft.startup-cold-first-frame","app":"gridcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft","build":{"program":"cargo","args":["build","--release","-p","gridcraft"]},"run":{"program":"python3","args":["{journey_repo}/crates/journeys/scripts/desktop_startup.py","gridcraft","{target_dir}/release/gridcraft","cold","{target_dir}/startup/gridcraft-cold"],"output":"markers"}},
+    {"name":"gridcraft.startup-warm-first-frame","app":"gridcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft","build":{"program":"cargo","args":["build","--release","-p","gridcraft"]},"run":{"program":"python3","args":["{journey_repo}/crates/journeys/scripts/desktop_startup.py","gridcraft","{target_dir}/release/gridcraft","warm","{target_dir}/startup/gridcraft-warm"],"output":"markers"}},
+    {"name":"gridcraft.open-typical-aies-workbook","app":"gridcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft","build":{"program":"cargo","args":["build","--release","-p","gridcraft-engine","--example","edit_single_cell_perf"]},"run":{"program":"{target_dir}/release/examples/edit_single_cell_perf","args":["open","{input_name}","{input}"],"output":"markers","wall_time":"process"},"app_base_patch":"crates/journeys/patches/gridcraft-single-cell.patch","inputs":[{"name":"aies-sample-size-2024","path":"real-world-app-2026/aies-sample-size-2024.xlsx"}]},
+    {"name":"gridcraft.edit-one-cell-typical-aies-workbook","app":"gridcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft","build":{"program":"cargo","args":["build","--release","-p","gridcraft-engine","--example","edit_single_cell_perf"]},"run":{"program":"{target_dir}/release/examples/edit_single_cell_perf","args":["edit","{input_name}","{input}"],"output":"markers","wall_time":"process"},"app_base_patch":"crates/journeys/patches/gridcraft-single-cell.patch","inputs":[{"name":"aies-sample-size-2024","path":"real-world-app-2026/aies-sample-size-2024.xlsx"}]},
+    {"name":"gridcraft.save-typical-aies-workbook","app":"gridcraft","repo":"$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft","build":{"program":"cargo","args":["build","--release","-p","gridcraft-engine","--example","edit_single_cell_perf"]},"run":{"program":"{target_dir}/release/examples/edit_single_cell_perf","args":["save","{input_name}","{input}","A3","Department of Commerce revised","/tmp/craft-journeys-gridcraft.xlsx"],"output":"markers","wall_time":"process"},"app_base_patch":"crates/journeys/patches/gridcraft-single-cell.patch","inputs":[{"name":"aies-sample-size-2024","path":"real-world-app-2026/aies-sample-size-2024.xlsx"}]},
+    {
+      "name": "cadcraft.edit-hatched-drawing.12k",
+      "app": "cadcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
+      "run": { "program": "{target_dir}/release/cadcraft-cli", "args": ["perf", "12000"], "env": { "CADCRAFT_PERF_HATCHED": "1", "CADCRAFT_PERF_HATCHED_MODE": "full" }, "output": "cadcraft-edit" },
+      "run_head": { "program": "{target_dir}/release/cadcraft-cli", "args": ["perf", "12000"], "env": { "CADCRAFT_PERF_HATCHED": "1", "CADCRAFT_PERF_HATCHED_MODE": "incremental" }, "output": "cadcraft-edit" }
+    },
+    {
+      "name": "cadcraft.open-dxf.large-map",
+      "app": "cadcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "cadcraft-cli", "--", "perf", "{input}"], "output": "cadcraft-open" },
+      "inputs": [{ "name": "Graz_10km_3m", "path": "cad-ezdxf/docs/source/tutorials/src/geo/Graz_10km_3m.dxf" }]
+    },
+    {
+      "name": "cadcraft.open-dxf.usa",
+      "app": "cadcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "cadcraft-cli", "--", "perf", "{input}"], "output": "cadcraft-open" },
+      "inputs": [{ "name": "usa", "path": "cad-ezdxf/examples/addons/drawing/data/usa.dxf" }]
+    },
+    {
+      "name": "cadcraft.open-dxf.us-main",
+      "app": "cadcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/cadcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "cadcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "cadcraft-cli", "--", "perf", "{input}"], "output": "cadcraft-open" },
+      "inputs": [{ "name": "3_us_main", "path": "cad-ezdxf/examples/edgeminer/3_us_main.dxf" }]
+    },
+    {
+      "name": "wordcraft.open-office-docx",
+      "app": "wordcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/wordcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "wordcraft-ui-egui", "--example", "perf_probe"] },
+      "run": { "program": "{app_binary}", "args": ["{input}", "--first-page-only"], "output": "wordcraft-probe" },
+      "inputs": [{ "name": "WordCraft-1096-pages", "path": ".journey-fixtures/wordcraft-open/wordcraft-1096.docx" }]
+    },
+    {
+      "name": "deckcraft.open-office-pptx",
+      "app": "deckcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/deckcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "deckcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "deckcraft-cli", "--", "bench", "{input}", "--runs", "10", "--json"], "output": "deckcraft-bench" },
+      "inputs": [{ "name": "2D-Area-O12-PPT-Charts", "path": "office-openxml-sdk/test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/O14ISOStrict/Graphics/2D Area-O12-PPT-Charts.pptx" }]
+    },
+    {
+      "name": "deckcraft.drag-shape.heavy-slide",
+      "app": "deckcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/deckcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "deckcraft-cli"] },
+      "run": { "program": "{target_dir}/release/deckcraft-cli", "args": ["bench-drag", "{input}", "--slide", "23", "--shape", "38", "--frames", "30"], "output": "deckcraft-drag" },
+      "run_head": { "program": "{target_dir}/release/deckcraft-cli", "args": ["bench-drag", "{input}", "--slide", "23", "--shape", "38", "--frames", "30"], "env": { "DECKCRAFT_GPU_DIFF_CHECK": "1", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" }, "output": "deckcraft-drag" },
+      "inputs": [{ "name": "HowWeRefactor-slide-24", "path": "office-poi/slideshow/ca.ubc.cs.people_~emhill_presentations_HowWeRefactor.pptx" }]
+    },
+    {
+      "name": "lightcraft.slider-exposure-latency",
+      "app": "lightcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/lightcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "lightcraft-ui-egui", "--example", "drag_latency"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "lightcraft-ui-egui", "--example", "drag_latency", "--", ".craft-journeys-library", "{input}", "light.exposure"], "env": { "GPU": "0", "TICKS": "30" }, "output": "lightcraft-drag" },
+      "inputs": [{ "name": "ibasn6a16", "path": "pngsuite/ibasn6a16.png" }]
+    },
+    {
+      "name": "pdfcraft.edit-100k-pages",
+      "app": "pdfcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft",
+      "build": {
+        "program": "cargo",
+        "args": ["build", "--release", "-p", "pdfcraft-engine", "--example", "edit_bench"],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ]
+      },
+      "run": {
+        "program": "cargo",
+        "args": ["run", "--quiet", "--release", "-p", "pdfcraft-engine", "--example", "edit_bench", "--", "pages"],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ],
+        "output": "markers"
+      }
+    },
+    {
+      "name": "pdfcraft.edit-acroform-3129",
+      "app": "pdfcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft",
+      "build": {
+        "program": "cargo",
+        "args": ["build", "--release", "-p", "pdfcraft-engine", "--example", "edit_bench"],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ]
+      },
+      "run": {
+        "program": "cargo",
+        "args": ["run", "--quiet", "--release", "-p", "pdfcraft-engine", "--example", "edit_bench", "--", "form"],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ],
+        "output": "markers"
+      }
+    },
+    {
+      "name": "pdfcraft.export-pdf.form-fixture",
+      "app": "pdfcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft",
+      "build": {
+        "program": "cargo",
+        "args": ["build", "--release", "-p", "pdfcraft-engine", "--example", "export_bench"],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ]
+      },
+      "run": {
+        "program": "cargo",
+        "args": ["run", "--quiet", "--release", "-p", "pdfcraft-engine", "--example", "export_bench", "--", "{input}", "72", "png", "5"],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ],
+        "output": "pdfcraft-export"
+      },
+      "inputs": [{ "name": "form", "path": "pdfcraft-fixtures/form.pdf" }]
+    },
+    {
+      "name": "vectorcraft.export-svg.still-life",
+      "app": "vectorcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/vectorcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "vectorcraft-engine", "--example", "export_bench"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "vectorcraft-engine", "--example", "export_bench", "--", "svg", "{input}"], "env": { "ITERS": "5" }, "output": "vectorcraft-export" },
+      "inputs": [{ "name": "still-life", "path": "vectorcraft-fixtures/still-life.vectorcraft" }]
+    },
+    {
+      "name": "designcraft.synthetic-performance",
+      "app": "designcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/designcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "designcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "designcraft-cli", "--", "perf", "--pages", "1", "--frames", "8", "--chars", "10000", "--images", "1", "--runs", "3"], "output": "designcraft-perf" }
+    },
+    {
+      "name": "effectcraft.synthetic-project-open",
+      "app": "effectcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--measure", "open", "--layers", "5000", "--json"], "output": "effectcraft-ops", "measure": "open" }
+    },
+    {
+      "name": "effectcraft.first-frame-heavy-comp",
+      "app": "effectcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--measure", "firstFrame", "--layers", "5000", "--scale", "1.0", "--json"], "output": "effectcraft-ops", "measure": "firstFrame" }
+    },
+    {
+      "name": "photocraft.synthetic-image-open",
+      "app": "photocraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "photocraft-ui-egui", "--example", "large_image_bench"] },
+      "run": { "program": "{target_dir}/release/examples/large_image_bench", "args": ["--size", "4096x2731", "--op", "open", "--cpu", "--json", "/tmp/craft-journeys-photocraft.json"], "output": "photocraft-large-image", "wall_time": "process" }
+    },
+    {
+      "name": "photocraft.layer-opacity-fill-move-styled",
+      "app": "photocraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "photocraft-ui-egui", "--example", "perf_scenarios"] },
+      "run": { "program": "{target_dir}/release/examples/perf_scenarios", "args": ["--group", "layered", "--only", "change opacity / fill / move styled layer + refresh", "--reps", "3", "--no-composite-reuse"], "env": { "CRAFT_JOURNEY_ROW": "change opacity / fill / move styled layer + refresh", "RAYON_NUM_THREADS": "8", "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" } },
+      "run_head": { "program": "{target_dir}/release/examples/perf_scenarios", "args": ["--group", "layered", "--only", "change opacity / fill / move styled layer + refresh", "--reps", "3"], "env": { "CRAFT_JOURNEY_ROW": "change opacity / fill / move styled layer + refresh", "RAYON_NUM_THREADS": "8", "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" } }
+    },
+    {
+      "name": "photocraft.move-layer-16bit-15000x10000",
+      "app": "photocraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "photocraft-ui-egui", "--example", "perf_scenarios"] },
+      "run": { "program": "{target_dir}/release/examples/perf_scenarios", "args": ["--group", "bit depths", "--only", "move layer on 16-bit 15000x10000 + refresh", "--reps", "1", "--no-composite-reuse"], "env": { "CRAFT_JOURNEY_ROW": "move layer on 16-bit 15000x10000 + refresh", "RAYON_NUM_THREADS": "8", "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" } },
+      "run_head": { "program": "{target_dir}/release/examples/perf_scenarios", "args": ["--group", "bit depths", "--only", "move layer on 16-bit 15000x10000 + refresh", "--reps", "1"], "env": { "CRAFT_JOURNEY_ROW": "move layer on 16-bit 15000x10000 + refresh", "RAYON_NUM_THREADS": "8", "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" } }
+    },
+    {
+      "name": "photocraft.content-aware-scale.24mp",
+      "app": "photocraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/photocraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "photocraft-algo", "--example", "bench_seam_cas"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "photocraft-algo", "--example", "bench_seam_cas", "--", "1", "24 MP to 90 % width"], "output": "markers" }
+    },
+    {
+      "name": "figcraft.synthetic-viewport-render",
+      "app": "figcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/figcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "figcraft-cli"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "figcraft-cli", "--", "--no-system-fonts", "perf", "--layers", "100", "--instances", "0"], "output": "figcraft-perf" }
+    },
+    {
+      "name": "figcraft.drag-preview.solid-rectangle",
+      "app": "figcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/figcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "figcraft-cli", "--example", "issue237_drag_preview"] },
+      "run": { "program": "{target_dir}/release/examples/issue237_drag_preview", "args": ["cpu"], "output": "markers" },
+      "run_head": { "program": "{target_dir}/release/examples/issue237_drag_preview", "args": ["gpu"], "env": { "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" }, "output": "markers" }
+    },
+    {
+      "name": "gridcraft.synthetic-workbook-open",
+      "app": "gridcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "gridcraft-engine", "--example", "perf"] },
+      "run": { "program": "{target_dir}/release/examples/perf", "args": ["1000"], "output": "gridcraft-perf" }
+    },
+    {
+      "name": "gridcraft.edit-100k-dependents",
+      "app": "gridcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/gridcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "gridcraft-engine", "--example", "edit_dependents_perf"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "gridcraft-engine", "--example", "edit_dependents_perf", "--", "{input_name}", "{input}"], "output": "markers" },
+      "inputs": [
+        { "name": "synthetic-100k-chain-fanout", "path": "" },
+        { "name": "office-poi-51710", "path": "office-poi/spreadsheet/51710.xlsx" },
+        { "name": "office-poi-2_8mb", "path": "office-poi/spreadsheet/LIBRE_OFFICE-116306-0.xlsx" },
+        { "name": "office-libreoffice-129969-min", "path": "office-libreoffice/sc/qa/unit/data/xlsx/129969-min.xlsx" }
+      ]
+    },
+    {
+      "name": "soundcraft.synthetic-mix-throughput",
+      "app": "soundcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/soundcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "soundcraft-mix", "--example", "render_bench"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "soundcraft-mix", "--example", "render_bench", "--", "32", "4"], "output": "soundcraft-mix" }
+    },
+    {
+      "name": "filmcraft.synthetic-project-open",
+      "app": "filmcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/filmcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "filmcraft-ui-egui", "--example", "bench"] },
+      "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "filmcraft-ui-egui", "--example", "bench", "--", "--section", "project", "--cpu", "--hw", "off"], "env": { "FILMCRAFT_FIXTURES": "/jobs/work/speedcraft-labs/targets/craft-journeys/filmcraft-fixtures" }, "output": "filmcraft-project" }
+    },
+    {
+      "name": "materialcraft.orbit-material-preview",
+      "app": "materialcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/materialcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "materialcraft"] },
+      "run": {
+        "program": "python3",
+        "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}"],
+        "env": { "MATERIALCRAFT_JOURNEY_METADATA_DIR": "{target_dir}/materialcraft-metadata" },
+        "output": "markers"
+      },
+      "run_head": {
+        "program": "python3",
+        "args": ["{journey_repo}/crates/journeys/scripts/materialcraft_orbit.py", "{input}"],
+        "env": {
+          "MATERIALCRAFT_JOURNEY_METADATA_DIR": "{target_dir}/materialcraft-metadata",
+          "MATERIALCRAFT_GPU_DIFF_CHECK": "1",
+          "MATERIALCRAFT_RECORD_GPU_TIMING": "1"
+        },
+        "output": "markers"
+      },
+      "inputs": [{ "name": "Camera_01_CC0", "path": "materialcraft-orbit/Camera_01_1k.gltf" }]
+    }
+,
+    {
+      "name": "pdfcraft.edit-uscode-4211-pages",
+      "app": "pdfcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft",
+      "build": {
+        "program": "cargo",
+        "args": [
+          "build",
+          "--release",
+          "-p",
+          "pdfcraft-engine",
+          "--example",
+          "edit_bench"
+        ],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ]
+      },
+      "run": {
+        "program": "cargo",
+        "args": [
+          "run",
+          "--quiet",
+          "--release",
+          "-p",
+          "pdfcraft-engine",
+          "--example",
+          "edit_bench",
+          "--",
+          "pages-real",
+          "{input}"
+        ],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ],
+        "output": "markers"
+      },
+      "inputs": [
+        {
+          "name": "uscode-title26-2023",
+          "path": "pdfcraft-public-domain/uscode-title26-2023.pdf"
+        }
+      ]
+    },
+    {
+      "name": "pdfcraft.edit-irs-990-1075-fields",
+      "app": "pdfcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft",
+      "build": {
+        "program": "cargo",
+        "args": [
+          "build",
+          "--release",
+          "-p",
+          "pdfcraft-engine",
+          "--example",
+          "edit_bench"
+        ],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ]
+      },
+      "run": {
+        "program": "{target_dir}/release/examples/edit_bench",
+        "args": ["form-real", "{input}"],
+        "output": "markers",
+        "wall_time": "process"
+      },
+      "inputs": [
+        {
+          "name": "irs-f990-2025",
+          "path": "pdfcraft-public-domain/irs-f990-2025.pdf"
+        }
+      ]
+    },
+    {
+      "name": "pdfcraft.edit-irs-1040-199-fields",
+      "app": "pdfcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft",
+      "build": {
+        "program": "cargo",
+        "args": [
+          "build",
+          "--release",
+          "-p",
+          "pdfcraft-engine",
+          "--example",
+          "edit_bench"
+        ],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ]
+      },
+      "run": {
+        "program": "cargo",
+        "args": [
+          "run",
+          "--quiet",
+          "--release",
+          "-p",
+          "pdfcraft-engine",
+          "--example",
+          "edit_bench",
+          "--",
+          "form-real",
+          "{input}"
+        ],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ],
+        "output": "markers"
+      },
+      "inputs": [
+        {
+          "name": "irs-f1040-2025",
+          "path": "pdfcraft-public-domain/irs-f1040-2025.pdf"
+        }
+      ]
+    },
+    {
+      "name": "pdfcraft.edit-opm-sf85p-4128-xfa-fields",
+      "app": "pdfcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft",
+      "build": {
+        "program": "cargo",
+        "args": [
+          "build",
+          "--release",
+          "-p",
+          "pdfcraft-engine",
+          "--example",
+          "edit_bench"
+        ],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ]
+      },
+      "run": {
+        "program": "cargo",
+        "args": [
+          "run",
+          "--quiet",
+          "--release",
+          "-p",
+          "pdfcraft-engine",
+          "--example",
+          "edit_bench",
+          "--",
+          "form-real",
+          "{input}"
+        ],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ],
+        "output": "markers"
+      },
+      "inputs": [
+        {
+          "name": "opm-sf85p-2017",
+          "path": "pdfcraft-public-domain/opm-sf85p-2017.pdf"
+        }
+      ]
+    },
+    {
+      "name": "pdfcraft.edit-osha-300-form-actions",
+      "app": "pdfcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/pdfcraft",
+      "build": {
+        "program": "cargo",
+        "args": [
+          "build",
+          "--release",
+          "-p",
+          "pdfcraft-engine",
+          "--example",
+          "edit_bench"
+        ],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ]
+      },
+      "run": {
+        "program": "cargo",
+        "args": [
+          "run",
+          "--quiet",
+          "--release",
+          "-p",
+          "pdfcraft-engine",
+          "--example",
+          "edit_bench",
+          "--",
+          "form-real",
+          "{input}"
+        ],
+        "cargo_config_overrides": [
+          "patch.crates-io.hayro.path=\"{app_repo}/vendor/hayro\"",
+          "patch.crates-io.hayro-interpret.path=\"{app_repo}/vendor/hayro-interpret\"",
+          "patch.crates-io.hayro-syntax.path=\"{app_repo}/vendor/hayro-syntax\"",
+          "patch.crates-io.hayro-cmap.path=\"{app_repo}/vendor/hayro-cmap\"",
+          "patch.crates-io.hayro-postscript.path=\"{app_repo}/vendor/hayro-postscript\"",
+          "patch.crates-io.hayro-jbig2.path=\"{app_repo}/vendor/hayro-jbig2\"",
+          "patch.crates-io.lopdf.path=\"{app_repo}/vendor/lopdf\"",
+          "patch.crates-io.vello_common.path=\"{app_repo}/vendor/vello_common\"",
+          "patch.crates-io.vello_cpu.path=\"{app_repo}/vendor/vello_cpu\""
+        ],
+        "output": "markers"
+      },
+      "inputs": [
+        {
+          "name": "osha-recordkeeping-forms-2019",
+          "path": "pdfcraft-public-domain/osha-recordkeeping-forms-2019.pdf"
+        }
+      ]
+    },
+    {
+      "name": "designcraft.drag-preview.opaque-rectangle",
+      "app": "designcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/designcraft",
+      "build": { "program": "cargo", "args": ["build", "--release", "-p", "designcraft-cli", "--example", "issue237_drag_preview"] },
+      "run": { "program": "{target_dir}/release/examples/issue237_drag_preview", "args": ["cpu", "{input}"], "output": "markers" },
+      "run_head": { "program": "{target_dir}/release/examples/issue237_drag_preview", "args": ["gpu", "{input}"], "env": { "WGPU_BACKEND": "vulkan", "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/nvidia_icd.json", "CRAFT_EXPECT_GPU_ADAPTER": "RTX 2080 Ti" }, "output": "markers" },
+      "inputs": [
+        {
+          "name": "opm-sf85p-2017",
+          "path": "pdfcraft-public-domain/opm-sf85p-2017.pdf"
+        }
+      ]
+    }
+  ]
+}

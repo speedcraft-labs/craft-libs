@@ -8,7 +8,7 @@ use crate::probe::{Fingerprint, Guard};
 use crate::schedule::Side;
 
 /// Bumped on any change to field names or meaning. Readers reject other versions.
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 /// The evidence standard (research/VERIFICATION.md 1.2) wants at least this many repetitions.
 pub const MIN_REPETITIONS: usize = 10;
 /// ...and the ticket wants at least this many bootstrap resamples.
@@ -121,6 +121,20 @@ pub struct RunRecord {
     pub cpu_ns: Option<u64>,
 }
 
+/// Optional compositor reuse counters aggregated from one app's process invocations, split by side.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PrefixCacheSide {
+    pub observations: usize,
+    pub chunk_hits: u64,
+    pub passes_skipped: u64,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PrefixCacheStats {
+    pub old: PrefixCacheSide,
+    pub new: PrefixCacheSide,
+}
+
 /// The whole result. Field names are the JSON schema (see the crate README).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Report {
@@ -128,6 +142,11 @@ pub struct Report {
     pub name: String,
     pub revs: Revs,
     pub fingerprint: Fingerprint,
+    /// Distinct GPU adapter names observed in the app processes used for this report.
+    /// Empty when the journey did not initialize a GPU.
+    pub gpu_adapters: Vec<String>,
+    /// Optional compositor prefix-cache counters emitted by an application journey.
+    pub prefix_cache: Option<PrefixCacheStats>,
     pub config: ConfigRecord,
     pub guard: Guard,
     /// Mirrors `guard.contended`, for consumers that read one flag.
@@ -178,9 +197,15 @@ impl Report {
     }
 
     pub fn from_json(s: &str) -> Result<Self, ReportError> {
-        let v: serde_json::Value = serde_json::from_str(s).map_err(|e| ReportError::Json(e.to_string()))?;
+        let mut v: serde_json::Value = serde_json::from_str(s).map_err(|e| ReportError::Json(e.to_string()))?;
         let found = v.get("schema_version").and_then(serde_json::Value::as_u64).unwrap_or(0);
-        if found != u64::from(SCHEMA_VERSION) {
+        if found == 1 {
+            if let Some(object) = v.as_object_mut() {
+                object.insert("schema_version".into(), serde_json::Value::from(SCHEMA_VERSION));
+                object.entry("gpu_adapters").or_insert_with(|| serde_json::json!([]));
+                object.entry("prefix_cache").or_insert(serde_json::Value::Null);
+            }
+        } else if found != u64::from(SCHEMA_VERSION) {
             return Err(ReportError::Schema { found: u32::try_from(found).unwrap_or(u32::MAX) });
         }
         serde_json::from_value(v).map_err(|e| ReportError::Json(e.to_string()))
@@ -222,6 +247,21 @@ impl Report {
             self.config.resamples,
             self.config.seed
         );
+        if !self.gpu_adapters.is_empty() {
+            let _ = writeln!(s, "GPU adapters: {}.", self.gpu_adapters.join(", "));
+        }
+        if let Some(stats) = &self.prefix_cache {
+            let _ = writeln!(
+                s,
+                "Prefix cache: old {} hits/{} passes skipped across {} runs; new {} hits/{} passes skipped across {} runs.",
+                stats.old.chunk_hits,
+                stats.old.passes_skipped,
+                stats.old.observations,
+                stats.new.chunk_hits,
+                stats.new.passes_skipped,
+                stats.new.observations
+            );
+        }
         let _ = writeln!(s, "| input | old median | old MAD | new median | new MAD | new/old (95% CI) | verdict |");
         let _ = writeln!(s, "|---|---:|---:|---:|---:|---:|---|");
         for i in &self.inputs {
