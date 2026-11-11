@@ -1,0 +1,13 @@
+{
+  "pr": "https://github.com/speedcraft-labs/craft-libs/pull/37",
+  "head": "88e6735f1cb9ea5c6beacf233a8fa5a25aaa1fa4",
+  "run": "https://github.com/speedcraft-labs/craft-libs/actions/runs/43039397750",
+  "attempt1": {
+    "start": "2026-11-11T14:32:12Z",
+    "end": "2026-11-11T15:32:27Z",
+    "checks": "cancelled during Install native dependencies (14:32:48\u201315:32:25)",
+    "code_checks": "fmt/clippy/workspace tests skipped, never ran",
+    "rustgpu_shader": "success"
+  },
+  "action": "gh run rerun 43039397750 -R speedcraft-labs/craft-libs --failed; succeeded16:09UTC; continue other work"
+}
