@@ -1,0 +1,207 @@
+{
+  "note": "All accepted observations retained. Internal-render/frame diagnostics are descriptive; cached slots may retain earlier render costs. No causal decomposition or outlier removal.",
+  "rows": [
+    {
+      "tier": "typical-50",
+      "side": "point",
+      "action": "import",
+      "n": 120,
+      "app_median_ms": 29.505485,
+      "frames_median": 5.0,
+      "first_frames_median": 4.0,
+      "last_render_median_ms": null,
+      "frame_layout_wall_median_ms": null,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": null,
+      "session_log_latency_render_correlation": null,
+      "session_log_latency_loupe_sharp_correlation": null,
+      "gpu_fallbacks": {
+        "None": 120
+      }
+    },
+    {
+      "tier": "typical-50",
+      "side": "point",
+      "action": "preview",
+      "n": 120,
+      "app_median_ms": 102.464601,
+      "frames_median": 8.0,
+      "first_frames_median": 1.0,
+      "last_render_median_ms": 1112.005271,
+      "frame_layout_wall_median_ms": 2.422056999999768,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": {
+        "render": 120
+      },
+      "session_log_latency_render_correlation": 0.7387088983866736,
+      "session_log_latency_loupe_sharp_correlation": 0.9994007194824605,
+      "gpu_fallbacks": {
+        "None": 120
+      }
+    },
+    {
+      "tier": "typical-50",
+      "side": "point",
+      "action": "exposure",
+      "n": 480,
+      "app_median_ms": 7.6320295,
+      "frames_median": 2.0,
+      "first_frames_median": 2.0,
+      "last_render_median_ms": 1.2959815,
+      "frame_layout_wall_median_ms": 3.324531999998726,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": {
+        "render": 480
+      },
+      "session_log_latency_render_correlation": 0.9641528338312595,
+      "session_log_latency_loupe_sharp_correlation": null,
+      "gpu_fallbacks": {
+        "None": 480
+      }
+    },
+    {
+      "tier": "typical-50",
+      "side": "point",
+      "action": "switch",
+      "n": 120,
+      "app_median_ms": 69.941231,
+      "frames_median": 11.0,
+      "first_frames_median": 1.0,
+      "last_render_median_ms": 63.039789999999996,
+      "frame_layout_wall_median_ms": 2.0455105000000913,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": {
+        "render": 120
+      },
+      "session_log_latency_render_correlation": 0.9987202389493055,
+      "session_log_latency_loupe_sharp_correlation": null,
+      "gpu_fallbacks": {
+        "None": 120
+      }
+    },
+    {
+      "tier": "typical-50",
+      "side": "point",
+      "action": "export",
+      "n": 120,
+      "app_median_ms": 346.8187365,
+      "frames_median": 5.0,
+      "first_frames_median": 5.0,
+      "last_render_median_ms": null,
+      "frame_layout_wall_median_ms": 2.3472825000062585,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": null,
+      "session_log_latency_render_correlation": null,
+      "session_log_latency_loupe_sharp_correlation": null,
+      "gpu_fallbacks": {
+        "None": 120
+      }
+    },
+    {
+      "tier": "typical-50",
+      "side": "main",
+      "action": "import",
+      "n": 120,
+      "app_median_ms": 29.883265,
+      "frames_median": 5.0,
+      "first_frames_median": 4.0,
+      "last_render_median_ms": null,
+      "frame_layout_wall_median_ms": null,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": null,
+      "session_log_latency_render_correlation": null,
+      "session_log_latency_loupe_sharp_correlation": null,
+      "gpu_fallbacks": {
+        "None": 120
+      }
+    },
+    {
+      "tier": "typical-50",
+      "side": "main",
+      "action": "preview",
+      "n": 120,
+      "app_median_ms": 99.85323299999999,
+      "frames_median": 8.0,
+      "first_frames_median": 1.0,
+      "last_render_median_ms": 1195.0842175,
+      "frame_layout_wall_median_ms": 2.2727135000022827,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": {
+        "render": 120
+      },
+      "session_log_latency_render_correlation": 0.7220205375880834,
+      "session_log_latency_loupe_sharp_correlation": 0.9985069367941313,
+      "gpu_fallbacks": {
+        "None": 120
+      }
+    },
+    {
+      "tier": "typical-50",
+      "side": "main",
+      "action": "exposure",
+      "n": 480,
+      "app_median_ms": 7.219002,
+      "frames_median": 2.0,
+      "first_frames_median": 2.0,
+      "last_render_median_ms": 1.209581,
+      "frame_layout_wall_median_ms": 3.1775610000004235,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": {
+        "render": 480
+      },
+      "session_log_latency_render_correlation": 0.9840376187995467,
+      "session_log_latency_loupe_sharp_correlation": null,
+      "gpu_fallbacks": {
+        "None": 480
+      }
+    },
+    {
+      "tier": "typical-50",
+      "side": "main",
+      "action": "switch",
+      "n": 120,
+      "app_median_ms": 71.190483,
+      "frames_median": 11.0,
+      "first_frames_median": 1.0,
+      "last_render_median_ms": 63.14186350000001,
+      "frame_layout_wall_median_ms": 1.9340359999987413,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": {
+        "render": 120
+      },
+      "session_log_latency_render_correlation": 0.9991080968464305,
+      "session_log_latency_loupe_sharp_correlation": null,
+      "gpu_fallbacks": {
+        "None": 120
+      }
+    },
+    {
+      "tier": "typical-50",
+      "side": "main",
+      "action": "export",
+      "n": 120,
+      "app_median_ms": 346.88137,
+      "frames_median": 5.0,
+      "first_frames_median": 5.0,
+      "last_render_median_ms": null,
+      "frame_layout_wall_median_ms": 2.437522500011255,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": null,
+      "session_log_latency_render_correlation": null,
+      "session_log_latency_loupe_sharp_correlation": null,
+      "gpu_fallbacks": {
+        "None": 120
+      }
+    }
+  ]
+}

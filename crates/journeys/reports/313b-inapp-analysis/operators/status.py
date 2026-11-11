@@ -9,6 +9,7 @@ logs=list(root.glob(phase+'-*-attempt*.log'))
 last=''
 if logs:
  p=max(logs,key=lambda p:p.stat().st_mtime);lines=p.read_text().splitlines();last=next((x for x in reversed(lines) if x.strip()),'')
+if last.lstrip().startswith('|'):last='side completed; serializing output checks and cumulative report'
 if last.startswith('Stress tier:') and p.with_suffix('.gpu-state-admission.json').exists():last='Foreign GPU user before admission; both locks released, no app or clocks started'
 # Distinguish the current OS lock queue from a stale admission log line.
 admission='between acquisitions'

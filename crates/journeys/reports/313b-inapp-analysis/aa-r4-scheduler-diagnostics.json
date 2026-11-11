@@ -1,0 +1,725 @@
+{
+  "note": "Supplemental reserved-CPU /proc/stat steal observations every2s; coverage begins after pair0. Correlation is descriptive, not causal attribution. No samples excluded.",
+  "sessions": [
+    {
+      "pair": 0,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 25.0142455,
+        "preview": 97.096867,
+        "exposure": 7.543201,
+        "switch": 75.344872,
+        "export": 325.0124215,
+        "startup": 1082.439303,
+        "quit": 134.9218445
+      },
+      "scheduler_observations": 76,
+      "steal_p50_pct": 0.29448266080419827,
+      "steal_p95_pct": 0.5263013420948166,
+      "steal_max_pct": 0.6694560669456067
+    },
+    {
+      "pair": 0,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 27.8969965,
+        "preview": 99.267556,
+        "exposure": 7.35862,
+        "switch": 163.6574625,
+        "export": 519.613044,
+        "startup": 2272.08789,
+        "quit": 394.13363
+      },
+      "scheduler_observations": 93,
+      "steal_p50_pct": 2.7317880794701987,
+      "steal_p95_pct": 7.5389338656237,
+      "steal_max_pct": 11.093247588424438
+    },
+    {
+      "pair": 1,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 30.2623,
+        "preview": 99.133359,
+        "exposure": 13.2353175,
+        "switch": 122.9782775,
+        "export": 527.5647455,
+        "startup": 1901.335035,
+        "quit": 207.888789
+      },
+      "scheduler_observations": 92,
+      "steal_p50_pct": 1.4913171242002343,
+      "steal_p95_pct": 5.573985329486773,
+      "steal_max_pct": 7.483552631578948
+    },
+    {
+      "pair": 1,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 27.5717805,
+        "preview": 97.8988725,
+        "exposure": 7.684921,
+        "switch": 111.5564505,
+        "export": 356.554934,
+        "startup": 1340.998502,
+        "quit": 162.3870065
+      },
+      "scheduler_observations": 84,
+      "steal_p50_pct": 0.3364173952409246,
+      "steal_p95_pct": 4.087015575444986,
+      "steal_max_pct": 7.660961695191524
+    },
+    {
+      "pair": 2,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 29.564958,
+        "preview": 107.742044,
+        "exposure": 7.20567,
+        "switch": 67.5567985,
+        "export": 339.0933025,
+        "startup": 1619.462594,
+        "quit": 214.682102
+      },
+      "scheduler_observations": 75,
+      "steal_p50_pct": 0.3341687552213868,
+      "steal_p95_pct": 0.615273667438634,
+      "steal_max_pct": 0.7620660457239627
+    },
+    {
+      "pair": 2,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 55.6234195,
+        "preview": 188.1577665,
+        "exposure": 14.3759535,
+        "switch": 154.565735,
+        "export": 534.47523,
+        "startup": 2189.436959,
+        "quit": 247.542934
+      },
+      "scheduler_observations": 99,
+      "steal_p50_pct": 4.556166535742341,
+      "steal_p95_pct": 7.854471764772921,
+      "steal_max_pct": 9.06148867313916
+    },
+    {
+      "pair": 3,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 53.3489075,
+        "preview": 186.2899305,
+        "exposure": 14.2865975,
+        "switch": 160.8221385,
+        "export": 530.0159805,
+        "startup": 1984.821914,
+        "quit": 237.2897515
+      },
+      "scheduler_observations": 107,
+      "steal_p50_pct": 4.457050243111831,
+      "steal_p95_pct": 7.884139784946228,
+      "steal_max_pct": 12.469237079573421
+    },
+    {
+      "pair": 3,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 42.631443,
+        "preview": 133.739741,
+        "exposure": 12.9810775,
+        "switch": 161.77011,
+        "export": 543.4763595,
+        "startup": 1985.579453,
+        "quit": 235.0777935
+      },
+      "scheduler_observations": 110,
+      "steal_p50_pct": 2.6241537265618904,
+      "steal_p95_pct": 6.055337282197535,
+      "steal_max_pct": 10.804224207961008
+    },
+    {
+      "pair": 4,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 27.1516465,
+        "preview": 115.1452345,
+        "exposure": 7.2391865,
+        "switch": 70.051421,
+        "export": 362.1049705,
+        "startup": 1064.979214,
+        "quit": 154.681556
+      },
+      "scheduler_observations": 83,
+      "steal_p50_pct": 0.33698399326032014,
+      "steal_p95_pct": 1.804193220652073,
+      "steal_max_pct": 5.669679539852095
+    },
+    {
+      "pair": 4,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 38.9063465,
+        "preview": 103.252605,
+        "exposure": 7.2324875,
+        "switch": 67.3411845,
+        "export": 372.648127,
+        "startup": 1764.378025,
+        "quit": 211.778649
+      },
+      "scheduler_observations": 77,
+      "steal_p50_pct": 0.2542372881355932,
+      "steal_p95_pct": 2.1522789014044927,
+      "steal_max_pct": 4.833333333333333
+    },
+    {
+      "pair": 5,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 53.010106,
+        "preview": 145.2416,
+        "exposure": 12.052272,
+        "switch": 122.6798245,
+        "export": 356.534353,
+        "startup": 1207.041763,
+        "quit": 153.855553
+      },
+      "scheduler_observations": 90,
+      "steal_p50_pct": 1.2071493692650612,
+      "steal_p95_pct": 4.45987063823518,
+      "steal_max_pct": 7.564422277639235
+    },
+    {
+      "pair": 5,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 28.39562,
+        "preview": 104.4440165,
+        "exposure": 7.716988,
+        "switch": 62.639727,
+        "export": 341.52912,
+        "startup": 1020.025053,
+        "quit": 133.5328775
+      },
+      "scheduler_observations": 79,
+      "steal_p50_pct": 0.25210084033613445,
+      "steal_p95_pct": 0.41974650825321963,
+      "steal_max_pct": 0.9174311926605505
+    },
+    {
+      "pair": 6,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 42.457879,
+        "preview": 147.719102,
+        "exposure": 12.5332485,
+        "switch": 62.2974295,
+        "export": 344.4946815,
+        "startup": 1029.332939,
+        "quit": 125.253291
+      },
+      "scheduler_observations": 79,
+      "steal_p50_pct": 0.4163197335553705,
+      "steal_p95_pct": 1.195942014848155,
+      "steal_max_pct": 2.768729641693811
+    },
+    {
+      "pair": 6,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 34.506153,
+        "preview": 101.306855,
+        "exposure": 7.7170615,
+        "switch": 79.0416685,
+        "export": 349.080985,
+        "startup": 1092.669607,
+        "quit": 148.600762
+      },
+      "scheduler_observations": 82,
+      "steal_p50_pct": 0.4196391842622803,
+      "steal_p95_pct": 1.7921795552441897,
+      "steal_max_pct": 4.176904176904177
+    },
+    {
+      "pair": 7,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 29.33937,
+        "preview": 98.227708,
+        "exposure": 6.947069,
+        "switch": 64.251165,
+        "export": 540.5573065,
+        "startup": 1787.230673,
+        "quit": 211.204988
+      },
+      "scheduler_observations": 79,
+      "steal_p50_pct": 0.1694915254237288,
+      "steal_p95_pct": 2.026812349397791,
+      "steal_max_pct": 4.224207961007311
+    },
+    {
+      "pair": 7,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 49.6356995,
+        "preview": 199.177248,
+        "exposure": 14.0935675,
+        "switch": 167.056422,
+        "export": 575.323195,
+        "startup": 2166.613329,
+        "quit": 249.0136835
+      },
+      "scheduler_observations": 107,
+      "steal_p50_pct": 4.600484261501211,
+      "steal_p95_pct": 8.15866883057005,
+      "steal_max_pct": 11.27331711273317
+    },
+    {
+      "pair": 8,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 32.2763395,
+        "preview": 102.464601,
+        "exposure": 7.530826,
+        "switch": 95.844822,
+        "export": 348.2635795,
+        "startup": 1115.41335,
+        "quit": 135.921876
+      },
+      "scheduler_observations": 77,
+      "steal_p50_pct": 0.42194092827004215,
+      "steal_p95_pct": 1.01377534438361,
+      "steal_max_pct": 2.740863787375415
+    },
+    {
+      "pair": 8,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 30.2236215,
+        "preview": 97.2186475,
+        "exposure": 6.77764,
+        "switch": 60.868549,
+        "export": 342.5768505,
+        "startup": 1014.875255,
+        "quit": 129.5231925
+      },
+      "scheduler_observations": 76,
+      "steal_p50_pct": 0.2505219643432454,
+      "steal_p95_pct": 0.6265664160401002,
+      "steal_max_pct": 0.9046052631578948
+    },
+    {
+      "pair": 9,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 26.860116,
+        "preview": 97.7767755,
+        "exposure": 7.1550595,
+        "switch": 54.7975125,
+        "export": 335.2743325,
+        "startup": 1000.847112,
+        "quit": 125.06022
+      },
+      "scheduler_observations": 73,
+      "steal_p50_pct": 0.2514668901927913,
+      "steal_p95_pct": 0.5031025501105442,
+      "steal_max_pct": 0.6734006734006733
+    },
+    {
+      "pair": 9,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 27.3053735,
+        "preview": 110.733996,
+        "exposure": 7.4470625,
+        "switch": 59.8764,
+        "export": 347.168373,
+        "startup": 1057.054709,
+        "quit": 126.5740405
+      },
+      "scheduler_observations": 75,
+      "steal_p50_pct": 0.25252525252525254,
+      "steal_p95_pct": 0.505008672811622,
+      "steal_max_pct": 0.587248322147651
+    },
+    {
+      "pair": 10,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 27.669478,
+        "preview": 101.3379225,
+        "exposure": 7.650708,
+        "switch": 74.810673,
+        "export": 348.6595665,
+        "startup": 1024.607101,
+        "quit": 134.775589
+      },
+      "scheduler_observations": 79,
+      "steal_p50_pct": 0.3341687552213868,
+      "steal_p95_pct": 0.6754379690541447,
+      "steal_max_pct": 0.9306260575296108
+    },
+    {
+      "pair": 10,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 27.309821,
+        "preview": 97.8515495,
+        "exposure": 7.2288035,
+        "switch": 65.4861415,
+        "export": 338.191236,
+        "startup": 1011.808889,
+        "quit": 128.9474165
+      },
+      "scheduler_observations": 76,
+      "steal_p50_pct": 0.16956340478141485,
+      "steal_p95_pct": 0.35785467421495665,
+      "steal_max_pct": 0.6728343145500421
+    },
+    {
+      "pair": 11,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 25.6505085,
+        "preview": 96.9697165,
+        "exposure": 6.958784,
+        "switch": 113.4939385,
+        "export": 362.6487225,
+        "startup": 1291.247515,
+        "quit": 199.074425
+      },
+      "scheduler_observations": 75,
+      "steal_p50_pct": 0.24916943521594684,
+      "steal_p95_pct": 0.6083228064708204,
+      "steal_max_pct": 0.8340283569641368
+    },
+    {
+      "pair": 11,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 32.1324515,
+        "preview": 125.371341,
+        "exposure": 12.362759,
+        "switch": 105.017693,
+        "export": 487.021928,
+        "startup": 1840.044417,
+        "quit": 218.691391
+      },
+      "scheduler_observations": 97,
+      "steal_p50_pct": 0.5054759898904801,
+      "steal_p95_pct": 1.359340513970214,
+      "steal_max_pct": 2.2332506203473943
+    },
+    {
+      "pair": 12,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 31.390025,
+        "preview": 98.806883,
+        "exposure": 7.4772035,
+        "switch": 69.226363,
+        "export": 345.6978535,
+        "startup": 1013.804938,
+        "quit": 128.990708
+      },
+      "scheduler_observations": 81,
+      "steal_p50_pct": 0.25125628140703515,
+      "steal_p95_pct": 0.41981528127623846,
+      "steal_max_pct": 0.7569386038687973
+    },
+    {
+      "pair": 12,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 32.087828,
+        "preview": 141.3804545,
+        "exposure": 7.880127,
+        "switch": 63.5341155,
+        "export": 339.098396,
+        "startup": 1036.175987,
+        "quit": 128.551633
+      },
+      "scheduler_observations": 75,
+      "steal_p50_pct": 0.2518891687657431,
+      "steal_p95_pct": 0.5035294516426991,
+      "steal_max_pct": 0.7544006705783739
+    },
+    {
+      "pair": 13,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 25.508917,
+        "preview": 108.7498,
+        "exposure": 6.877106,
+        "switch": 73.951523,
+        "export": 340.836422,
+        "startup": 1000.999211,
+        "quit": 126.388022
+      },
+      "scheduler_observations": 73,
+      "steal_p50_pct": 0.16778523489932887,
+      "steal_p95_pct": 0.37019550190130124,
+      "steal_max_pct": 0.5063291139240507
+    },
+    {
+      "pair": 13,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 26.8554925,
+        "preview": 141.339913,
+        "exposure": 12.025793,
+        "switch": 61.108379,
+        "export": 341.973871,
+        "startup": 1011.848633,
+        "quit": 127.881742
+      },
+      "scheduler_observations": 77,
+      "steal_p50_pct": 0.4180602006688963,
+      "steal_p95_pct": 0.9430767153498213,
+      "steal_max_pct": 1.4962593516209477
+    },
+    {
+      "pair": 14,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 29.4696565,
+        "preview": 96.942412,
+        "exposure": 7.465064,
+        "switch": 169.143884,
+        "export": 539.4222115,
+        "startup": 1179.07995,
+        "quit": 134.189953
+      },
+      "scheduler_observations": 80,
+      "steal_p50_pct": 0.33812438146889745,
+      "steal_p95_pct": 5.826765241658858,
+      "steal_max_pct": 8.203445447087777
+    },
+    {
+      "pair": 14,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 29.9263065,
+        "preview": 113.5389215,
+        "exposure": 7.093662,
+        "switch": 61.41472,
+        "export": 331.801949,
+        "startup": 1021.580562,
+        "quit": 125.6769775
+      },
+      "scheduler_observations": 73,
+      "steal_p50_pct": 0.25,
+      "steal_p95_pct": 0.48925224667534595,
+      "steal_max_pct": 1.0033444816053512
+    },
+    {
+      "pair": 15,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 32.5969195,
+        "preview": 117.1609785,
+        "exposure": 6.9052685,
+        "switch": 59.212518,
+        "export": 450.2124975,
+        "startup": 1542.192462,
+        "quit": 190.657888
+      },
+      "scheduler_observations": 78,
+      "steal_p50_pct": 0.25115150529706454,
+      "steal_p95_pct": 0.5045849420849421,
+      "steal_max_pct": 0.9243697478991597
+    },
+    {
+      "pair": 15,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 38.1817645,
+        "preview": 97.397087,
+        "exposure": 7.215392,
+        "switch": 62.0008175,
+        "export": 340.8641315,
+        "startup": 1050.5106,
+        "quit": 131.1952985
+      },
+      "scheduler_observations": 76,
+      "steal_p50_pct": 0.16891891891891891,
+      "steal_p95_pct": 1.5424666110183638,
+      "steal_max_pct": 2.5
+    },
+    {
+      "pair": 16,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 26.9880555,
+        "preview": 102.0410225,
+        "exposure": 7.1458345,
+        "switch": 62.4008015,
+        "export": 332.814786,
+        "startup": 1014.896505,
+        "quit": 122.7128955
+      },
+      "scheduler_observations": 73,
+      "steal_p50_pct": 0.16778523489932887,
+      "steal_p95_pct": 0.41981528127623846,
+      "steal_max_pct": 0.5847953216374269
+    },
+    {
+      "pair": 16,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 29.87058,
+        "preview": 93.384493,
+        "exposure": 7.278554,
+        "switch": 61.639765,
+        "export": 339.4385745,
+        "startup": 1122.347216,
+        "quit": 136.168761
+      },
+      "scheduler_observations": 75,
+      "steal_p50_pct": 0.2508361204013378,
+      "steal_p95_pct": 0.44611241863325035,
+      "steal_max_pct": 0.5892255892255892
+    },
+    {
+      "pair": 17,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 27.943934,
+        "preview": 81.768754,
+        "exposure": 6.964054,
+        "switch": 70.817774,
+        "export": 333.1846915,
+        "startup": 1067.627958,
+        "quit": 133.101061
+      },
+      "scheduler_observations": 79,
+      "steal_p50_pct": 0.16863406408094433,
+      "steal_p95_pct": 0.34545246371116456,
+      "steal_max_pct": 1.9311502938706968
+    },
+    {
+      "pair": 17,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 28.722554,
+        "preview": 81.6106725,
+        "exposure": 7.0873645,
+        "switch": 71.957136,
+        "export": 355.7975175,
+        "startup": 1076.082367,
+        "quit": 140.0075235
+      },
+      "scheduler_observations": 73,
+      "steal_p50_pct": 0.16906170752324598,
+      "steal_p95_pct": 0.5066715173823255,
+      "steal_max_pct": 0.8410428931875525
+    },
+    {
+      "pair": 18,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 30.12215,
+        "preview": 99.5122015,
+        "exposure": 7.053867,
+        "switch": 81.7300795,
+        "export": 340.0116535,
+        "startup": 1094.104124,
+        "quit": 132.9446425
+      },
+      "scheduler_observations": 75,
+      "steal_p50_pct": 0.2510460251046025,
+      "steal_p95_pct": 0.3614956009664488,
+      "steal_max_pct": 0.5037783375314862
+    },
+    {
+      "pair": 18,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 27.5887975,
+        "preview": 97.9924975,
+        "exposure": 7.0543285,
+        "switch": 73.396003,
+        "export": 340.498981,
+        "startup": 1073.755459,
+        "quit": 131.50582
+      },
+      "scheduler_observations": 78,
+      "steal_p50_pct": 0.1687052176944806,
+      "steal_p95_pct": 0.42078782419930444,
+      "steal_max_pct": 0.6717044500419815
+    },
+    {
+      "pair": 19,
+      "side": "main",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 28.6896355,
+        "preview": 99.033582,
+        "exposure": 6.7916035,
+        "switch": 62.250647,
+        "export": 334.5505185,
+        "startup": 1003.187524,
+        "quit": 126.590597
+      },
+      "scheduler_observations": 72,
+      "steal_p50_pct": 0.16877649149993162,
+      "steal_p95_pct": 0.37472963869091963,
+      "steal_max_pct": 0.5008347245409015
+    },
+    {
+      "pair": 19,
+      "side": "point",
+      "tier": "typical-50",
+      "actions_ms": {
+        "import": 24.954212,
+        "preview": 80.536428,
+        "exposure": 6.785979,
+        "switch": 56.189373,
+        "export": 333.4512775,
+        "startup": 1022.671453,
+        "quit": 120.5473335
+      },
+      "scheduler_observations": 72,
+      "steal_p50_pct": 0.16764459346186086,
+      "steal_p95_pct": 0.4165324059156213,
+      "steal_max_pct": 0.7413509060955519
+    }
+  ]
+}

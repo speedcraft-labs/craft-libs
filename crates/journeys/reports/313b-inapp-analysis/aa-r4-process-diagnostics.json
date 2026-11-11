@@ -1,0 +1,1235 @@
+{
+  "note": "Partial observer coverage,2-second snapshots; only observed same-thread counter deltas, no extrapolation. Run-queue wait is runnable CPU scheduling delay, not sleeping/GPU wait. Includes untimed verification and startup, so this is session context, not decomposition of measured action intervals. No causal attribution or sample exclusion.",
+  "sessions": [
+    {
+      "pair": 0,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 0,
+      "threads": {}
+    },
+    {
+      "pair": 0,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 0,
+      "threads": {}
+    },
+    {
+      "pair": 1,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 89,
+      "threads": {
+        "ui": {
+          "cpu_ns": 116082878531,
+          "runqueue_wait_ns": 11593464043,
+          "minor_faults": 68754,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.080354127688564
+        },
+        "workers": {
+          "cpu_ns": 237104619258,
+          "runqueue_wait_ns": 71134730039,
+          "minor_faults": 2926704,
+          "major_faults": 0,
+          "threads": 35,
+          "runnable_wait_share_pct": 23.07775765853277
+        },
+        "latency-fence": {
+          "cpu_ns": 23449027,
+          "runqueue_wait_ns": 22208129,
+          "minor_faults": 24,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 48.641069540117655
+        }
+      }
+    },
+    {
+      "pair": 1,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 81,
+      "threads": {
+        "ui": {
+          "cpu_ns": 96160421088,
+          "runqueue_wait_ns": 9411218793,
+          "minor_faults": 69509,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.914533110983495
+        },
+        "workers": {
+          "cpu_ns": 217389692625,
+          "runqueue_wait_ns": 58465926393,
+          "minor_faults": 3580164,
+          "major_faults": 0,
+          "threads": 36,
+          "runnable_wait_share_pct": 21.19439386485182
+        },
+        "latency-fence": {
+          "cpu_ns": 15673354,
+          "runqueue_wait_ns": 15553218,
+          "minor_faults": 19,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 49.80763818711833
+        }
+      }
+    },
+    {
+      "pair": 2,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 74,
+      "threads": {
+        "ui": {
+          "cpu_ns": 78601672886,
+          "runqueue_wait_ns": 7403188238,
+          "minor_faults": 64979,
+          "major_faults": 1,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.607871858924623
+        },
+        "workers": {
+          "cpu_ns": 169619602569,
+          "runqueue_wait_ns": 39161756805,
+          "minor_faults": 1568044,
+          "major_faults": 0,
+          "threads": 36,
+          "runnable_wait_share_pct": 18.7573052126975
+        },
+        "latency-fence": {
+          "cpu_ns": 13113883,
+          "runqueue_wait_ns": 9091408,
+          "minor_faults": 21,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 40.94253031856236
+        }
+      }
+    },
+    {
+      "pair": 2,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 91,
+      "threads": {
+        "ui": {
+          "cpu_ns": 141313048344,
+          "runqueue_wait_ns": 13654511833,
+          "minor_faults": 84181,
+          "major_faults": 1,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.811206563105314
+        },
+        "workers": {
+          "cpu_ns": 290050354825,
+          "runqueue_wait_ns": 99461638653,
+          "minor_faults": 3433294,
+          "major_faults": 0,
+          "threads": 28,
+          "runnable_wait_share_pct": 25.534936104250583
+        },
+        "latency-fence": {
+          "cpu_ns": 21019322,
+          "runqueue_wait_ns": 12730204,
+          "minor_faults": 20,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 37.71965271452998
+        }
+      }
+    },
+    {
+      "pair": 3,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 102,
+      "threads": {
+        "ui": {
+          "cpu_ns": 145345732783,
+          "runqueue_wait_ns": 13548872311,
+          "minor_faults": 61182,
+          "major_faults": 1,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.526955526894486
+        },
+        "workers": {
+          "cpu_ns": 297701185052,
+          "runqueue_wait_ns": 95213918060,
+          "minor_faults": 4727908,
+          "major_faults": 1,
+          "threads": 35,
+          "runnable_wait_share_pct": 24.23269487629224
+        },
+        "latency-fence": {
+          "cpu_ns": 24148541,
+          "runqueue_wait_ns": 29505864,
+          "minor_faults": 23,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 54.99243538345081
+        }
+      }
+    },
+    {
+      "pair": 3,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 107,
+      "threads": {
+        "ui": {
+          "cpu_ns": 146829152713,
+          "runqueue_wait_ns": 14498091674,
+          "minor_faults": 149987,
+          "major_faults": 131,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.98675963200688
+        },
+        "workers": {
+          "cpu_ns": 305042109049,
+          "runqueue_wait_ns": 103855783065,
+          "minor_faults": 4524801,
+          "major_faults": 1926,
+          "threads": 36,
+          "runnable_wait_share_pct": 25.39895290926205
+        },
+        "latency-fence": {
+          "cpu_ns": 24203534,
+          "runqueue_wait_ns": 8209278,
+          "minor_faults": 1,
+          "major_faults": 6,
+          "threads": 1,
+          "runnable_wait_share_pct": 25.32726256518564
+        }
+      }
+    },
+    {
+      "pair": 4,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 82,
+      "threads": {
+        "ui": {
+          "cpu_ns": 91667555024,
+          "runqueue_wait_ns": 9825444751,
+          "minor_faults": 85433,
+          "major_faults": 1,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.680908804333347
+        },
+        "workers": {
+          "cpu_ns": 211059623857,
+          "runqueue_wait_ns": 56467367784,
+          "minor_faults": 2445663,
+          "major_faults": 0,
+          "threads": 35,
+          "runnable_wait_share_pct": 21.10716658443748
+        },
+        "latency-fence": {
+          "cpu_ns": 13416749,
+          "runqueue_wait_ns": 9666808,
+          "minor_faults": 19,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 41.87746281909673
+        }
+      }
+    },
+    {
+      "pair": 4,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 76,
+      "threads": {
+        "ui": {
+          "cpu_ns": 82845525236,
+          "runqueue_wait_ns": 8405661924,
+          "minor_faults": 76584,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.211564458072745
+        },
+        "workers": {
+          "cpu_ns": 169715131748,
+          "runqueue_wait_ns": 40959389054,
+          "minor_faults": 1596614,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.442023125565907
+        },
+        "latency-fence": {
+          "cpu_ns": 13650320,
+          "runqueue_wait_ns": 8101468,
+          "minor_faults": 21,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 37.245066934267655
+        }
+      }
+    },
+    {
+      "pair": 5,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 88,
+      "threads": {
+        "ui": {
+          "cpu_ns": 110013796278,
+          "runqueue_wait_ns": 11038803453,
+          "minor_faults": 91642,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.119013947267673
+        },
+        "workers": {
+          "cpu_ns": 212294752279,
+          "runqueue_wait_ns": 56522401757,
+          "minor_faults": 3459346,
+          "major_faults": 1,
+          "threads": 35,
+          "runnable_wait_share_pct": 21.026337385236403
+        },
+        "latency-fence": {
+          "cpu_ns": 18593949,
+          "runqueue_wait_ns": 11530416,
+          "minor_faults": 24,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 38.276046648618156
+        }
+      }
+    },
+    {
+      "pair": 5,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 79,
+      "threads": {
+        "ui": {
+          "cpu_ns": 86981031993,
+          "runqueue_wait_ns": 9397841372,
+          "minor_faults": 115589,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.75093507931877
+        },
+        "workers": {
+          "cpu_ns": 175024853995,
+          "runqueue_wait_ns": 43106176955,
+          "minor_faults": 1929622,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.76159777325804
+        },
+        "latency-fence": {
+          "cpu_ns": 14122235,
+          "runqueue_wait_ns": 5086229,
+          "minor_faults": 25,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 26.479103170352403
+        }
+      }
+    },
+    {
+      "pair": 6,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 77,
+      "threads": {
+        "ui": {
+          "cpu_ns": 93942165319,
+          "runqueue_wait_ns": 9041967098,
+          "minor_faults": 64996,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.779961422976854
+        },
+        "workers": {
+          "cpu_ns": 186686672088,
+          "runqueue_wait_ns": 44045810972,
+          "minor_faults": 1724973,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.08955791046823
+        },
+        "latency-fence": {
+          "cpu_ns": 18568973,
+          "runqueue_wait_ns": 4873122,
+          "minor_faults": 24,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 20.787911660625895
+        }
+      }
+    },
+    {
+      "pair": 6,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 81,
+      "threads": {
+        "ui": {
+          "cpu_ns": 92463469110,
+          "runqueue_wait_ns": 9983031663,
+          "minor_faults": 63047,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.744629233477001
+        },
+        "workers": {
+          "cpu_ns": 205646792369,
+          "runqueue_wait_ns": 56888925412,
+          "minor_faults": 1536478,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 21.669023130580335
+        },
+        "latency-fence": {
+          "cpu_ns": 19625229,
+          "runqueue_wait_ns": 13318811,
+          "minor_faults": 19,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 40.428590421818335
+        }
+      }
+    },
+    {
+      "pair": 7,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 78,
+      "threads": {
+        "ui": {
+          "cpu_ns": 83172484581,
+          "runqueue_wait_ns": 8872969985,
+          "minor_faults": 116199,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.639769858095223
+        },
+        "workers": {
+          "cpu_ns": 176775039298,
+          "runqueue_wait_ns": 42241186695,
+          "minor_faults": 3680140,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.28678411998117
+        },
+        "latency-fence": {
+          "cpu_ns": 13495350,
+          "runqueue_wait_ns": 8531781,
+          "minor_faults": 23,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 38.73305606617585
+        }
+      }
+    },
+    {
+      "pair": 7,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 102,
+      "threads": {
+        "ui": {
+          "cpu_ns": 145452319475,
+          "runqueue_wait_ns": 14320504857,
+          "minor_faults": 90297,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.963041691772752
+        },
+        "workers": {
+          "cpu_ns": 306673975492,
+          "runqueue_wait_ns": 102009458681,
+          "minor_faults": 4562329,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 24.960507363706434
+        },
+        "latency-fence": {
+          "cpu_ns": 24994697,
+          "runqueue_wait_ns": 14052371,
+          "minor_faults": 24,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 35.98828726397588
+        }
+      }
+    },
+    {
+      "pair": 8,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 76,
+      "threads": {
+        "ui": {
+          "cpu_ns": 82366370294,
+          "runqueue_wait_ns": 7749710006,
+          "minor_faults": 59782,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.599697168586237
+        },
+        "workers": {
+          "cpu_ns": 176346342474,
+          "runqueue_wait_ns": 41454188211,
+          "minor_faults": 3922984,
+          "major_faults": 0,
+          "threads": 28,
+          "runnable_wait_share_pct": 19.033097890360175
+        },
+        "latency-fence": {
+          "cpu_ns": 12907345,
+          "runqueue_wait_ns": 10194719,
+          "minor_faults": 20,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 44.129039725627976
+        }
+      }
+    },
+    {
+      "pair": 8,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 75,
+      "threads": {
+        "ui": {
+          "cpu_ns": 78519242740,
+          "runqueue_wait_ns": 7825284675,
+          "minor_faults": 63032,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.062861201832892
+        },
+        "workers": {
+          "cpu_ns": 172525046913,
+          "runqueue_wait_ns": 40630271307,
+          "minor_faults": 1223998,
+          "major_faults": 1,
+          "threads": 35,
+          "runnable_wait_share_pct": 19.06134533554778
+        },
+        "latency-fence": {
+          "cpu_ns": 12090066,
+          "runqueue_wait_ns": 10487229,
+          "minor_faults": 22,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 46.450334284953094
+        }
+      }
+    },
+    {
+      "pair": 9,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 72,
+      "threads": {
+        "ui": {
+          "cpu_ns": 74764455607,
+          "runqueue_wait_ns": 7385465377,
+          "minor_faults": 64065,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.990228217551708
+        },
+        "workers": {
+          "cpu_ns": 164856955629,
+          "runqueue_wait_ns": 37473715257,
+          "minor_faults": 1599238,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 18.521025553320076
+        },
+        "latency-fence": {
+          "cpu_ns": 11596356,
+          "runqueue_wait_ns": 1786058,
+          "minor_faults": 23,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 13.346306578170426
+        }
+      }
+    },
+    {
+      "pair": 9,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 74,
+      "threads": {
+        "ui": {
+          "cpu_ns": 77758815576,
+          "runqueue_wait_ns": 8183762638,
+          "minor_faults": 65226,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.522361102109537
+        },
+        "workers": {
+          "cpu_ns": 173105835273,
+          "runqueue_wait_ns": 39947745572,
+          "minor_faults": 2548769,
+          "major_faults": 0,
+          "threads": 28,
+          "runnable_wait_share_pct": 18.750093480504624
+        },
+        "latency-fence": {
+          "cpu_ns": 12214585,
+          "runqueue_wait_ns": 3318124,
+          "minor_faults": 24,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 21.362171917339083
+        }
+      }
+    },
+    {
+      "pair": 10,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 77,
+      "threads": {
+        "ui": {
+          "cpu_ns": 86006753932,
+          "runqueue_wait_ns": 9498739165,
+          "minor_faults": 61587,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.945751659909886
+        },
+        "workers": {
+          "cpu_ns": 203970412493,
+          "runqueue_wait_ns": 50669183733,
+          "minor_faults": 2869262,
+          "major_faults": 2,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.898391485049967
+        },
+        "latency-fence": {
+          "cpu_ns": 12588859,
+          "runqueue_wait_ns": 11982793,
+          "minor_faults": 23,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 48.766737376876414
+        }
+      }
+    },
+    {
+      "pair": 10,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 75,
+      "threads": {
+        "ui": {
+          "cpu_ns": 79406021051,
+          "runqueue_wait_ns": 7914565089,
+          "minor_faults": 61703,
+          "major_faults": 12,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.063802064166952
+        },
+        "workers": {
+          "cpu_ns": 171696804217,
+          "runqueue_wait_ns": 39843264254,
+          "minor_faults": 1836695,
+          "major_faults": 17,
+          "threads": 29,
+          "runnable_wait_share_pct": 18.83485457009867
+        },
+        "latency-fence": {
+          "cpu_ns": 11880836,
+          "runqueue_wait_ns": 9006487,
+          "minor_faults": 24,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 43.119393519217375
+        }
+      }
+    },
+    {
+      "pair": 11,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 74,
+      "threads": {
+        "ui": {
+          "cpu_ns": 78671983628,
+          "runqueue_wait_ns": 7758756586,
+          "minor_faults": 69912,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.976848476351753
+        },
+        "workers": {
+          "cpu_ns": 173336531458,
+          "runqueue_wait_ns": 41533724073,
+          "minor_faults": 2887011,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.329675934139615
+        },
+        "latency-fence": {
+          "cpu_ns": 13109635,
+          "runqueue_wait_ns": 20070799,
+          "minor_faults": 20,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 60.489862790824255
+        }
+      }
+    },
+    {
+      "pair": 11,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 95,
+      "threads": {
+        "ui": {
+          "cpu_ns": 120070841423,
+          "runqueue_wait_ns": 12098751238,
+          "minor_faults": 128786,
+          "major_faults": 265,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.153959692553434
+        },
+        "workers": {
+          "cpu_ns": 245615314111,
+          "runqueue_wait_ns": 62862703986,
+          "minor_faults": 5016187,
+          "major_faults": 23,
+          "threads": 36,
+          "runnable_wait_share_pct": 20.37834150186773
+        },
+        "latency-fence": {
+          "cpu_ns": 19916867,
+          "runqueue_wait_ns": 14167799,
+          "minor_faults": 0,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 41.56648916553854
+        }
+      }
+    },
+    {
+      "pair": 12,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 80,
+      "threads": {
+        "ui": {
+          "cpu_ns": 88508574567,
+          "runqueue_wait_ns": 8830378731,
+          "minor_faults": 75765,
+          "major_faults": 26,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.071783116432417
+        },
+        "workers": {
+          "cpu_ns": 181677455716,
+          "runqueue_wait_ns": 44625088684,
+          "minor_faults": 2143819,
+          "major_faults": 1,
+          "threads": 36,
+          "runnable_wait_share_pct": 19.719216503868882
+        },
+        "latency-fence": {
+          "cpu_ns": 13473698,
+          "runqueue_wait_ns": 13840553,
+          "minor_faults": 24,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 50.67154504804105
+        }
+      }
+    },
+    {
+      "pair": 12,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 74,
+      "threads": {
+        "ui": {
+          "cpu_ns": 81597364872,
+          "runqueue_wait_ns": 8025831565,
+          "minor_faults": 66349,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.955082929497724
+        },
+        "workers": {
+          "cpu_ns": 172400329877,
+          "runqueue_wait_ns": 41587442224,
+          "minor_faults": 1586864,
+          "major_faults": 1,
+          "threads": 28,
+          "runnable_wait_share_pct": 19.434494698309752
+        },
+        "latency-fence": {
+          "cpu_ns": 14420252,
+          "runqueue_wait_ns": 7784920,
+          "minor_faults": 21,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 35.05903939856895
+        }
+      }
+    },
+    {
+      "pair": 13,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 72,
+      "threads": {
+        "ui": {
+          "cpu_ns": 74646286137,
+          "runqueue_wait_ns": 7862665510,
+          "minor_faults": 68068,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.5294696551703
+        },
+        "workers": {
+          "cpu_ns": 167934356822,
+          "runqueue_wait_ns": 39873881228,
+          "minor_faults": 1267472,
+          "major_faults": 0,
+          "threads": 28,
+          "runnable_wait_share_pct": 19.18782508439636
+        },
+        "latency-fence": {
+          "cpu_ns": 10848289,
+          "runqueue_wait_ns": 5326760,
+          "minor_faults": 20,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 32.93195587846442
+        }
+      }
+    },
+    {
+      "pair": 13,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 76,
+      "threads": {
+        "ui": {
+          "cpu_ns": 89855411229,
+          "runqueue_wait_ns": 8450846734,
+          "minor_faults": 61525,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.59644839414057
+        },
+        "workers": {
+          "cpu_ns": 183953408785,
+          "runqueue_wait_ns": 44581130619,
+          "minor_faults": 1457289,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.50739294605711
+        },
+        "latency-fence": {
+          "cpu_ns": 15756005,
+          "runqueue_wait_ns": 4499512,
+          "minor_faults": 24,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 22.21376033008686
+        }
+      }
+    },
+    {
+      "pair": 14,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 79,
+      "threads": {
+        "ui": {
+          "cpu_ns": 91026731726,
+          "runqueue_wait_ns": 8467254678,
+          "minor_faults": 71341,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 8.51031804436734
+        },
+        "workers": {
+          "cpu_ns": 189525827429,
+          "runqueue_wait_ns": 52843077143,
+          "minor_faults": 2967179,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 21.80274620472282
+        },
+        "latency-fence": {
+          "cpu_ns": 16057005,
+          "runqueue_wait_ns": 31994186,
+          "minor_faults": 20,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 66.58354420393034
+        }
+      }
+    },
+    {
+      "pair": 14,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 72,
+      "threads": {
+        "ui": {
+          "cpu_ns": 74320158477,
+          "runqueue_wait_ns": 7468391359,
+          "minor_faults": 88660,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.131340968846372
+        },
+        "workers": {
+          "cpu_ns": 162236889191,
+          "runqueue_wait_ns": 39122922553,
+          "minor_faults": 1416014,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.429359917528707
+        },
+        "latency-fence": {
+          "cpu_ns": 12043858,
+          "runqueue_wait_ns": 6097435,
+          "minor_faults": 23,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 33.61080712383621
+        }
+      }
+    },
+    {
+      "pair": 15,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 76,
+      "threads": {
+        "ui": {
+          "cpu_ns": 82328354996,
+          "runqueue_wait_ns": 8691186895,
+          "minor_faults": 64536,
+          "major_faults": 3,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.548704283095697
+        },
+        "workers": {
+          "cpu_ns": 171163593211,
+          "runqueue_wait_ns": 41552225720,
+          "minor_faults": 1529501,
+          "major_faults": 11,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.534149330698607
+        },
+        "latency-fence": {
+          "cpu_ns": 13912999,
+          "runqueue_wait_ns": 8870207,
+          "minor_faults": 22,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 38.933093964036495
+        }
+      }
+    },
+    {
+      "pair": 15,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 75,
+      "threads": {
+        "ui": {
+          "cpu_ns": 80202555143,
+          "runqueue_wait_ns": 8206187069,
+          "minor_faults": 84987,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.282099104319288
+        },
+        "workers": {
+          "cpu_ns": 165459041213,
+          "runqueue_wait_ns": 39510470995,
+          "minor_faults": 1418772,
+          "major_faults": 0,
+          "threads": 28,
+          "runnable_wait_share_pct": 19.276267269888102
+        },
+        "latency-fence": {
+          "cpu_ns": 13336517,
+          "runqueue_wait_ns": 8849717,
+          "minor_faults": 24,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 39.8883244447886
+        }
+      }
+    },
+    {
+      "pair": 16,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 72,
+      "threads": {
+        "ui": {
+          "cpu_ns": 75358637984,
+          "runqueue_wait_ns": 7616239305,
+          "minor_faults": 61796,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.178970254421438
+        },
+        "workers": {
+          "cpu_ns": 162492159957,
+          "runqueue_wait_ns": 36982664202,
+          "minor_faults": 1436623,
+          "major_faults": 0,
+          "threads": 28,
+          "runnable_wait_share_pct": 18.540015943325947
+        },
+        "latency-fence": {
+          "cpu_ns": 11302298,
+          "runqueue_wait_ns": 6803827,
+          "minor_faults": 21,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 37.577488280899416
+        }
+      }
+    },
+    {
+      "pair": 16,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 74,
+      "threads": {
+        "ui": {
+          "cpu_ns": 78561260829,
+          "runqueue_wait_ns": 8317699205,
+          "minor_faults": 65046,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.573893612152903
+        },
+        "workers": {
+          "cpu_ns": 170278216409,
+          "runqueue_wait_ns": 40545503401,
+          "minor_faults": 1908322,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.231945740043244
+        },
+        "latency-fence": {
+          "cpu_ns": 12199293,
+          "runqueue_wait_ns": 7099575,
+          "minor_faults": 21,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 36.78752038720613
+        }
+      }
+    },
+    {
+      "pair": 17,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 78,
+      "threads": {
+        "ui": {
+          "cpu_ns": 79242040303,
+          "runqueue_wait_ns": 9041248977,
+          "minor_faults": 95462,
+          "major_faults": 5,
+          "threads": 1,
+          "runnable_wait_share_pct": 10.241178201148239
+        },
+        "workers": {
+          "cpu_ns": 172964109725,
+          "runqueue_wait_ns": 40951640985,
+          "minor_faults": 3295270,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.143817530536623
+        },
+        "latency-fence": {
+          "cpu_ns": 10659120,
+          "runqueue_wait_ns": 6478332,
+          "minor_faults": 22,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 37.80218903020122
+        }
+      }
+    },
+    {
+      "pair": 17,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 72,
+      "threads": {
+        "ui": {
+          "cpu_ns": 75054116397,
+          "runqueue_wait_ns": 7809145163,
+          "minor_faults": 61896,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.424134430607127
+        },
+        "workers": {
+          "cpu_ns": 163340356745,
+          "runqueue_wait_ns": 36906844600,
+          "minor_faults": 1611743,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 18.43064190266224
+        },
+        "latency-fence": {
+          "cpu_ns": 12976635,
+          "runqueue_wait_ns": 5478532,
+          "minor_faults": 22,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 29.685626794924154
+        }
+      }
+    },
+    {
+      "pair": 18,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 75,
+      "threads": {
+        "ui": {
+          "cpu_ns": 78296431459,
+          "runqueue_wait_ns": 7836934917,
+          "minor_faults": 81366,
+          "major_faults": 2,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.098605159340046
+        },
+        "workers": {
+          "cpu_ns": 168286037917,
+          "runqueue_wait_ns": 40830625262,
+          "minor_faults": 2520921,
+          "major_faults": 0,
+          "threads": 28,
+          "runnable_wait_share_pct": 19.525285379601595
+        },
+        "latency-fence": {
+          "cpu_ns": 12371428,
+          "runqueue_wait_ns": 667168,
+          "minor_faults": 20,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 5.116869945199621
+        }
+      }
+    },
+    {
+      "pair": 18,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 76,
+      "threads": {
+        "ui": {
+          "cpu_ns": 79548312422,
+          "runqueue_wait_ns": 8962557846,
+          "minor_faults": 92028,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 10.12594025893371
+        },
+        "workers": {
+          "cpu_ns": 169784126987,
+          "runqueue_wait_ns": 41658660055,
+          "minor_faults": 1813586,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 19.702095605997247
+        },
+        "latency-fence": {
+          "cpu_ns": 12461372,
+          "runqueue_wait_ns": 1897842,
+          "minor_faults": 19,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 13.216893348062086
+        }
+      }
+    },
+    {
+      "pair": 19,
+      "side": "main",
+      "tier": "typical-50",
+      "observations": 71,
+      "threads": {
+        "ui": {
+          "cpu_ns": 71169027766,
+          "runqueue_wait_ns": 7522450753,
+          "minor_faults": 59944,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.559422309219554
+        },
+        "workers": {
+          "cpu_ns": 160348709232,
+          "runqueue_wait_ns": 36979871466,
+          "minor_faults": 1494496,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 18.740251075233523
+        },
+        "latency-fence": {
+          "cpu_ns": 10910470,
+          "runqueue_wait_ns": 3250329,
+          "minor_faults": 23,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 22.953005688450208
+        }
+      }
+    },
+    {
+      "pair": 19,
+      "side": "point",
+      "tier": "typical-50",
+      "observations": 71,
+      "threads": {
+        "ui": {
+          "cpu_ns": 70939667136,
+          "runqueue_wait_ns": 7536835324,
+          "minor_faults": 65621,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 9.603938870544818
+        },
+        "workers": {
+          "cpu_ns": 160663717966,
+          "runqueue_wait_ns": 36223293707,
+          "minor_faults": 1176488,
+          "major_faults": 0,
+          "threads": 29,
+          "runnable_wait_share_pct": 18.39801081808357
+        },
+        "latency-fence": {
+          "cpu_ns": 11196625,
+          "runqueue_wait_ns": 6451728,
+          "minor_faults": 20,
+          "major_faults": 0,
+          "threads": 1,
+          "runnable_wait_share_pct": 36.557111023334585
+        }
+      }
+    }
+  ]
+}
