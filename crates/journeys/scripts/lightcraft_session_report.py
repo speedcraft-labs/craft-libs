@@ -35,7 +35,7 @@ def validate_session(session):
             before,after=quits[index],quits[index+1]
             if not before['exit_ns']<start['sent_ns']<start['frame_ns']<=start['capture']['verified_ns']<after['sent_ns']<after['exit_ns']:
                 raise ValueError('repeated startup/quit lifecycle overlap')
-            if start['duration_ns']!=start['frame_ns']-start['sent_ns'] or start['capture']['frame_ns']!=start['frame_ns']:
+            if start.get('driver_duration_ns',start['duration_ns'])!=start['frame_ns']-start['sent_ns'] or start['capture']['frame_ns']!=start['frame_ns']:
                 raise ValueError('repeated startup duration differs from frame clock')
             if not start['capture'].get('native'):
                 raise ValueError('repeated startup lacks a native frame')

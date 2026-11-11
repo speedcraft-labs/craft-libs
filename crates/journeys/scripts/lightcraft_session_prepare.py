@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Prepare one LightCraft session build; run before acquiring benchmark/GPU locks."""
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -43,13 +44,25 @@ def main():
     patch_sha256=digest(patch)
     status = apply_app_base_patch(args.checkout, patch)
     env = dict(os.environ, CARGO_TARGET_DIR=str(args.target.resolve()), CARGO_BUILD_JOBS='8', SQLX_OFFLINE='true', RUST_MIN_STACK='8388608')
-    subprocess.run(['taskset', '-c', '0-21', 'nice', '-n', '19', 'cargo', 'build', '--release', '--locked', '-p', 'lightcraft'], cwd=args.checkout, env=env, check=True)
-    if digest(patch)!=patch_sha256: raise RuntimeError('common recorder patch changed during build; reject artifact and rebuild all sides')
-    args.binary.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(args.target / 'release/lightcraft', args.binary)
+    args.target.mkdir(parents=True,exist_ok=True)
+    # Cargo can reuse stale path-workspace artifacts across revisions in a shared target.
+    # Lock the entire clean/build/copy transaction, not just the cargo invocation.
+    with (args.target/'.session-prepare.lock').open('w') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX)
+        metadata=json.loads(subprocess.check_output(['cargo','metadata','--locked','--no-deps','--format-version','1'],cwd=args.checkout,env=env))
+        members=set(metadata['workspace_members'])
+        packages=[p['name'] for p in metadata['packages'] if p['id'] in members]
+        clean=['cargo','clean','--release']
+        for package in packages:clean+=['-p',package]
+        prefix=['taskset','-c','0-21','nice','-n','19']
+        subprocess.run(prefix+clean,cwd=args.checkout,env=env,check=True)
+        subprocess.run(prefix+['cargo','build','--release','--locked','-p','lightcraft'],cwd=args.checkout,env=env,check=True)
+        if digest(patch)!=patch_sha256: raise RuntimeError('common recorder patch changed during build; reject artifact and rebuild all sides')
+        args.binary.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(args.target / 'release/lightcraft', args.binary)
     # Binaries stay outside prunable targets, but never go in NAS evidence directories.
     provenance = dict(revision=revision, app_base_patch=str(patch), patch_sha256=patch_sha256,
-                      binary_sha256=digest(args.binary), patch_status=status, checkout=str(args.checkout),
+                      binary_sha256=digest(args.binary), workspace_clean=True, patch_status=status, checkout=str(args.checkout),
                       command=['cargo', 'build', '--release', '--locked', '-p', 'lightcraft'])
     args.binary.with_suffix('.provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
 

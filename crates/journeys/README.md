@@ -465,3 +465,10 @@ roots. Compilation happens before lock acquisition. Existing reset, cold/warm,
 whole-session bootstrap, AB/BA order and output gates are retained. Calibration
 and real configs must use a new matching measurement_method; older polling
 A/A reports cannot calibrate in-app results.
+
+Build preparation serializes the whole clean/build/copy transaction in the one
+ticket target. It cleans only release artifacts of packages from the selected
+LightCraft workspace (`cargo metadata --no-deps`), as required by the retained
+313 build notes: Cargo otherwise reuses incompatible path-workspace artifacts
+across revisions. Third-party dependencies and debug harness artifacts remain.
+`workspace_clean: true` is mandatory in binary provenance.

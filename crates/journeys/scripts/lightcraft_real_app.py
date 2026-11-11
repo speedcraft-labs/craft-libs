@@ -1106,7 +1106,9 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         ended,_=session_result(control,directory/'startup-library.png',started)
         record['startup_library_ns']=ended-started
         record['startup_samples']=[dict(duration_ns=ended-started,phase='cold',sent_ns=started,frame_ns=ended,capture=control.last_capture_proof)]
-        if startup_inapp is not None: record['startup_samples'][0]['in_app']=startup_inapp
+        if startup_inapp is not None:
+            sample=record['startup_samples'][0]
+            sample.update(in_app=startup_inapp,driver_duration_ns=sample['duration_ns'],duration_ns=startup_inapp['duration_ns'])
         record['quit_samples']=[dict(duration_ns=record['exit_ns']-record['quit_request_ns'],phase='cold',sent_ns=record['quit_request_ns'],exit_ns=record['exit_ns'],exit_code=0)]
         record['startup_capture']=control.last_capture_proof
         record['startup_state']=control.call('ui.inspect')
@@ -1131,7 +1133,9 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             session_detail(control,photo)
             ended,_=session_result(control,directory/f'startup-repeat-{lifecycle}.png',started)
             record['startup_samples'].append(dict(duration_ns=ended-started,phase='warm',sent_ns=started,frame_ns=ended,capture=control.last_capture_proof))
-            if startup_inapp is not None: record['startup_samples'][-1]['in_app']=startup_inapp
+            if startup_inapp is not None:
+                sample=record['startup_samples'][-1]
+                sample.update(in_app=startup_inapp,driver_duration_ns=sample['duration_ns'],duration_ns=startup_inapp['duration_ns'])
         process=None
         record['gpu_processes_after']=session_gpu_processes()
         validate_session(record)
@@ -1273,7 +1277,7 @@ def session_main(args):
         for revision in config['revisions'].values():
             binary=Path(revision['binary'])
             proof=json.loads(binary.with_suffix('.provenance.json').read_text())
-            if proof['patch_sha256']!=file_digest(patch) or proof['binary_sha256']!=file_digest(binary) or proof['revision']!=revision['revision']:
+            if proof.get('workspace_clean') is not True or proof['patch_sha256']!=file_digest(patch) or proof['binary_sha256']!=file_digest(binary) or proof['revision']!=revision['revision']:
                 raise ValueError('recorder/build provenance differs; rebuild every side')
     calibration=session_calibration(config)
     pair=config.get('pair',0)
