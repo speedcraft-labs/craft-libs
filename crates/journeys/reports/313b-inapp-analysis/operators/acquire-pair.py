@@ -1,5 +1,5 @@
 # One bounded pair, but an independently reset NVIDIA X server for each build.
-import json,subprocess,sys,shutil,os,time,statistics
+import json,subprocess,sys,shutil,os,time,statistics,hashlib
 from pathlib import Path
 k=Path(__file__).parent;cfg=Path(sys.argv[1]);out=Path(sys.argv[2]);config=json.load(open(cfg))
 unit=Path('/proc/self/cgroup').read_text().strip().split('/')[-1]
@@ -16,13 +16,36 @@ forecast_factor=1.25 if config.get('import_only') else 1.5
 # File-cache preparation can make the first build much longer. Forecast the
 # second from previous complete second-side wall times when available. The
 # hard lease still rejects/retains every incomplete whole pair.
-second_history={}
+second_history={};calibration_history={}
 if config.get('import_only'):
  for pair in sorted({s['pair'] for s in existing}):
   primary=[s for s in existing if s['pair']==pair and s['side'] in ('point','main')]
   if len(primary)==2:
    second=max(primary,key=lambda s:s['launch_ns'])
    second_history.setdefault(second['side'],[]).append((second['exit_ns']-second['launch_ns'])/1e9)
+ # An initial real pair has no local history. Its main binary is identical to
+ # the closed A/A B build; use its observed second-side lifecycle wall times
+ # rather than multiplying the much slower fork-point first side. Never borrow
+ # from a different binary, protocol, corpus tier, or unfinished control.
+ if config.get('aa_report'):
+  calibration=json.load(open(config['aa_report']))
+  fields=('measurement_method','tiers','repetitions','warmups','import_only','gpu_state')
+  assert calibration['comparison_complete'] and calibration['publishable']
+  assert all(config.get(f)==calibration['config'].get(f) for f in fields)
+  # k lives in keep/<ticket>/operators; derive the shared speedcraft-labs root.
+  driver=k.parents[2]/'wt/313b-libs/crates/journeys/scripts/lightcraft_real_app.py'
+  assert hashlib.sha256(driver.read_bytes()).hexdigest()==calibration['driver_sha256']
+  for role,revision in config['revisions'].items():
+   if second_history.get(role):continue
+   with open(revision['binary'],'rb') as binary:actual=hashlib.file_digest(binary,'sha256').hexdigest()
+   compatible={side for side,digest in calibration['binary_sha256'].items() if digest==actual}
+   history=[]
+   for pair in sorted({s['pair'] for s in calibration['sessions']}):
+    primary=[s for s in calibration['sessions'] if s['pair']==pair and s['side'] in ('point','main')]
+    if len(primary)!=2:continue
+    second=max(primary,key=lambda s:s['launch_ns'])
+    if second['side'] in compatible:history.append((second['exit_ns']-second['launch_ns'])/1e9)
+   if history:second_history[role]=history;calibration_history[role]=str(config['aa_report'])
 
 for side in order:
  if side not in selected:continue
@@ -30,7 +53,7 @@ for side in order:
  remaining=(int(os.environ.get('SESSION_LEASE_DEADLINE_NS','9999999999999999999'))-time.monotonic_ns())/1e9
  historical=second_history.get(side,[])[-6:]
  required=(statistics.median(historical)*1.5+30 if historical else last_duration*forecast_factor+30 if last_duration is not None else 0)
- prediction=dict(side=side,remaining_seconds=remaining,preceding_side_seconds=last_duration,required_headroom_seconds=required,historical_second_side_seconds=historical,method='prior complete same-role second-side median *1.5+30s' if historical else 'preceding side *factor+30s',forecast_factor=1.5 if historical else forecast_factor)
+ prediction=dict(side=side,remaining_seconds=remaining,preceding_side_seconds=last_duration,required_headroom_seconds=required,historical_second_side_seconds=historical,calibration_history=calibration_history.get(side),method='matching-binary complete second-side median *1.5+30s' if historical else 'preceding side *factor+30s',forecast_factor=1.5 if historical else forecast_factor)
  if last_duration is not None:
   out.with_suffix('.admission-forecast.json').write_text(json.dumps(prediction))
   if remaining<required:

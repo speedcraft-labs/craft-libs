@@ -1,0 +1,25 @@
+{
+  "actual_deferral": {
+    "side": "main",
+    "remaining_seconds": 380.885687458,
+    "preceding_side_seconds": 448.039436304,
+    "required_headroom_seconds": 590.04929538,
+    "historical_second_side_seconds": [],
+    "method": "preceding side *factor+30s",
+    "forecast_factor": 1.25,
+    "reason": "defer a new side rather than predictably overrun the lease"
+  },
+  "matching_main_binary": "ae86f8f72a885bdeb4055a31ae77b263997c45ac026471d2f2fcc97d31fb65df",
+  "last_six_actual_second_side_lifecycle_seconds": [
+    197.284553573,
+    179.602189004,
+    204.493554469,
+    173.160273286,
+    207.276983716,
+    191.884304386
+  ],
+  "required_headroom_seconds": 321.87664346925,
+  "hard_lease_seconds": 840,
+  "action_clocks_or_thresholds_changed": false,
+  "checks": "binary SHA, driver SHA, closed publishable A/A and identical method/tier/repeats/warmups/importOnly/GPU condition; no history borrowed for fork point or upstream"
+}
