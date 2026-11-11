@@ -1,0 +1,1 @@
+{"side": "main", "remaining_seconds": 380.885687458, "preceding_side_seconds": 448.039436304, "required_headroom_seconds": 590.04929538, "historical_second_side_seconds": [], "method": "preceding side *factor+30s", "forecast_factor": 1.25, "reason": "defer a new side rather than predictably overrun the lease"}
