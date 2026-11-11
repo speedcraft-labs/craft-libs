@@ -2,7 +2,7 @@
   "app_pr": "https://github.com/speedcraft-labs/lightcraft/pull/8",
   "libs_pr": "https://github.com/speedcraft-labs/craft-libs/pull/37",
   "app_head": "be68fb49482096d0a4b3def38e5938b3d731480d",
-  "libs_head": "b0863549de0783b1436429d23b62c09de537d94e",
+  "libs_head": "ad0f520c5bf295cfd20091d36c9baf4f7a701b1c",
   "method": "in-app-frame-gpu-v2",
   "proofs": [
     "patch-pristine-proof-r3.json",
@@ -36,10 +36,9 @@
   "scheduler": "scheduling-observations.jsonl",
   "binary_root_local_only": "/jobs/work/speedcraft-labs/tmp/313b-binaries",
   "next": [
-    "Finish fresh direct-import20pairAA then10pairreal; prototype191b35 frozen",
-    "After ALL fastforward algo libs to wip/313b-direct-import; do NOT reapply old after-all patch already included there",
-    "Update final operators for both import protocols/driver hashes; preserve all legacy5pairs",
-    "AAidentityproof/tables/plots/prune/NASonce/PRready+mergequeues"
+    "Finish fresh direct20AA then10real; active WT191b35 remains frozen",
+    "After ALL run final identity proof/tables/diagnostics/plots/prune/NASonce",
+    "Production PR already ad0f520c tested55; finalize descriptions, ready+merge queues; no additional runtime changes planned"
   ],
   "pipeline": "operators/post-direct-import.py",
   "pipeline_log": "post-direct-import.log",
@@ -67,12 +66,12 @@
     "real1259": "real-import-1259-direct: queued10pairs after freshAA",
     "legacy1259": "confirmation AA20pairs and real5pairs preserved separately, retired"
   },
-  "reporting_patch": "Already included in direct-import ad0f520c; do NOT apply again",
+  "reporting_patch": "ALREADY INTEGRATED in production ad0f520c; never reapply",
   "native_driver_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
   "real50_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-derived-report.json",
   "real50_complete": "10pairs +10upstream; developedpixels unequal, descriptive only",
   "ci_fix": "ci-lts-pin.json",
-  "archive_branch": "wip/313b-inapp-analysis 44aa0ae5",
+  "archive_branch": "wip/313b-inapp-analysis 5d7dfc4f",
   "heavy_aa_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-19-primary-attempt0/report.json",
   "heavy_aa_summary": "20pairs COMPLETE; ratio.9852 CI[.8908,1.1158], half-width11.42% FAIL(limit10), MDE17.46%",
   "failed_precision_branch": "failed/313b-warm-precision e7b0c5f5",
@@ -102,5 +101,7 @@
   "driver_sha256_by_cohort": {
     "typical": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
     "direct_import": "191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd"
-  }
+  },
+  "source_integration": "production-integration-safe.json; current measurement WT unchanged",
+  "unit_tests": "final-journeys-tests.log: 3Rust/55Python PASS; cargo fmt/diff checks PASS"
 }

@@ -1,7 +1,7 @@
 {
   "branch": "algo/313b-inapp-timing",
   "app_head": "be68fb49482096d0a4b3def38e5938b3d731480d",
-  "libs_head": "b0863549de0783b1436429d23b62c09de537d94e",
+  "libs_head": "ad0f520c5bf295cfd20091d36c9baf4f7a701b1c",
   "prs": [
     "https://github.com/speedcraft-labs/lightcraft/pull/8",
     "https://github.com/speedcraft-labs/craft-libs/pull/37"
@@ -13,12 +13,11 @@
     "libs_workspace": "3835 pass,0 fail,127 ignored",
     "app_workspace": "6365 pass;4 matching-clean-main-reproduced denoise GPU failures; UI32 pass before full-suite exit SIGSEGV (targeted baseline UI exits0)"
   },
-  "status": "aa-import-1259-direct: 2/20 complete pairs",
+  "status": "aa-import-1259-direct: 5/20 complete pairs",
   "next": [
-    "Finish fresh direct-import20pairAA then10pairreal; prototype191b35 frozen",
-    "After ALL fastforward algo libs to wip/313b-direct-import; do NOT reapply old after-all patch already included there",
-    "Update final operators for both import protocols/driver hashes; preserve all legacy5pairs",
-    "AAidentityproof/tables/plots/prune/NASonce/PRready+mergequeues"
+    "Finish fresh direct20AA then10real; active WT191b35 remains frozen",
+    "After ALL run final identity proof/tables/diagnostics/plots/prune/NASonce",
+    "Production PR already ad0f520c tested55; finalize descriptions, ready+merge queues; no additional runtime changes planned"
   ],
   "target": "/jobs/work/speedcraft-labs/targets/313b",
   "operator": "operators/lease.py",
@@ -46,9 +45,9 @@
   "controller_resume": "operators/campaign-v2.py aa-r4-config.json aa-inapp-r4 (resume latest cumulative into a new campaign name, never overwrite)",
   "controller_log": "aa-inapp-r4-campaign.log",
   "controller_policy": "flock bench.lock then flock -x -w5 -E76 gpu.lock; release/retry without app start when sharedGPU tests hold lock",
-  "unit_tests": "3 recorder+socket;48Python;3Rust previouslypass; final MDE tests pending",
+  "unit_tests": "final-journeys-tests.log: 3Rust/55Python PASS; cargo fmt/diff checks PASS",
   "libs_workspace": "3835 pass,0fail,127ignored",
-  "latest_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-1-primary-attempt0/report.json",
+  "latest_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-4-primary-attempt0/report.json",
   "app_workspace": "6365pass;4 GPUdenoise baseline-reproduced failures; UI32pass; prior full-suite exit segfault not reproduced in targeted baseline UI",
   "scheduling_observer": "operators/scheduling_observer.py on CPUs0-21, read-only /proc/stat and pressure every2s; supplemental coverage starts after pair0, no sample selection",
   "harness_binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/craft-journeys",
@@ -65,7 +64,7 @@
   "failed_lease_protocol_branch": "failed/313b-lease12 f54d0a17",
   "process_observer": "operators/process-observer.py; read-only thread schedstat/page faults every2s on CPUs0-21; partial R4 coverage, never filters",
   "foreign_process_rule": "User steering08:32UTC: never stop another worker process. Daily upstream-sync GPUtests legitimate. After>45min foreign GPU block AND about0%CPU, report PID/age/CPU%/command and continue lock-free work; otherwise wait.",
-  "archive_branch": "wip/313b-inapp-analysis 44aa0ae5",
+  "archive_branch": "wip/313b-inapp-analysis 5d7dfc4f",
   "metadata_updated_utc": "2026-11-11T12:06:59.725596+00:00",
   "pipeline_phase": "aa-import-1259-direct",
   "pipeline_config": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-config.json",
@@ -89,7 +88,7 @@
     "real1259": "real-import-1259-direct: queued10pairs after freshAA",
     "legacy1259": "confirmation AA20pairs and real5pairs preserved separately, retired"
   },
-  "reporting_patch": "Already included in direct-import ad0f520c; do NOT apply again",
+  "reporting_patch": "ALREADY INTEGRATED in production ad0f520c; never reapply",
   "native_driver_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
   "real50_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-derived-report.json",
   "real50_complete": "10pairs +10upstream; developedpixels unequal, descriptive only",
@@ -133,5 +132,6 @@
   "driver_sha256_by_cohort": {
     "typical": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
     "direct_import": "191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd"
-  }
+  },
+  "source_integration": "production-integration-safe.json; current measurement WT unchanged"
 }

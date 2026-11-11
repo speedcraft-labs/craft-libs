@@ -1,0 +1,56 @@
+warning: patch `egui_demo_lib v0.37.0 (https://github.com/storytold/egui.git?rev=6d518fc799681571963842f95b55a6b68431b15a#6d518fc7)` was not used in the crate graph
+warning: patch `egui_inspection v0.37.0 (https://github.com/storytold/egui.git?rev=6d518fc799681571963842f95b55a6b68431b15a#6d518fc7)` was not used in the crate graph
+help: Check that the patched package version and available features are compatible
+      with the dependency requirements. If the patch has a different version from
+      what is locked in the Cargo.lock file, run `cargo update` to use the new
+      version. This may also occur with an optional dependency that is not enabled.
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.26
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling serde_core v1.0.229
+   Compiling autocfg v1.5.1
+   Compiling zmij v1.0.23
+   Compiling libc v0.2.190
+   Compiling serde v1.0.229
+   Compiling generic-array v0.14.7
+   Compiling thiserror v2.0.21
+   Compiling num-traits v0.2.19
+   Compiling serde_json v1.0.154
+   Compiling itoa v1.0.18
+   Compiling craft-bench v0.1.0 (/jobs/work/speedcraft-labs/wt/313b-libs/crates/bench)
+   Compiling memchr v2.8.3
+   Compiling syn v3.0.6
+   Compiling cfg-if v1.0.5
+   Compiling cpufeatures v0.2.17
+   Compiling chrono v0.4.45
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling cpu-time v1.0.0
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+   Compiling craft-journeys v0.1.0 (/jobs/work/speedcraft-labs/wt/313b-libs/crates/journeys)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.82s
+     Running unittests src/main.rs (/jobs/work/speedcraft-labs/targets/313b/debug/deps/craft_journeys-1581fa91031f78ad)
+
+running 3 tests
+test tests::process_wall_time_uses_runner_measurement_and_defaults_to_app_time ... ok
+test session_refuses_to_rewrite_an_existing_report ... ok
+...............discard typical pair 0 main attempt 0: unlocked-test
+.......background drain before-idle-quit: {"ns": 181000000000, "activity": [{"done": 125, "total": 500}], "tasks": [], "unsaved": null}
+background drain before-idle-quit: {"ns": 600000000000, "activity": [{"done": 400, "total": 500}], "tasks": [], "unsaved": null}
+background drain before-idle-quit: {"ns": 900000000000, "activity": [], "tasks": [], "unsaved": null}
+...........PROVISIONAL typical: GPU-clean session budget exhausted; offenders unlocked-test
+....discard typical pair 0 main attempt 0: short-unlocked-test
+..................
+----------------------------------------------------------------------
+Ran 55 tests in 1.504s
+
+OK
+test lightcraft_session_boundaries_and_statistics ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.59s
+

@@ -1,0 +1,14 @@
+{
+  "head": "be68fb49482096d0a4b3def38e5938b3d731480d",
+  "parent_recorder_code": "62b1627cef9f8a9d9ac51de6595e29185bb2361e",
+  "source_change_from_green_code": "docs/control-protocol.md only;7 additions3deletions",
+  "run": 43108717617,
+  "failed_test": "tests::folder_drop::dont_ask_again_moves_the_next_drop_at_once",
+  "failure": "moved without a question: did not satisfy existing20-second step_until condition",
+  "ui_result": "1931 passed,1failed,4ignored",
+  "recorder_tests_passed": true,
+  "log": "app-be68-windows-ci-failure.log",
+  "log_sha256": "b6c16bd155f46f77c82b8ce012b1e836741db4ca7a28117c1be219024dc39820",
+  "action": "Reran failed Windows job on same head, no test/threshold/CI/source edits",
+  "underlying_cause": "unresolved; do not infer infrastructure or recorder regression without evidence"
+}

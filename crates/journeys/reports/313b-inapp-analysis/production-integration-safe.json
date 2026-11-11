@@ -1,0 +1,10 @@
+{
+  "legacy_driver_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+  "legacy_source_commit": "b0863549de0783b1436429d23b62c09de537d94e",
+  "legacy_frozen_copy": "driver-frozen-0e541934.py",
+  "no_legacy_runtime_active": true,
+  "active_driver_sha256": "191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd",
+  "active_worktree": "/jobs/work/speedcraft-labs/wt/313b-direct-import",
+  "active_worktree_will_not_change": true,
+  "reason": "independent active worktree permits production source/CI progress without changing any collected or future active observations"
+}
