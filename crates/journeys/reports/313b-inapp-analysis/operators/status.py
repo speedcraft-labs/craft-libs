@@ -3,7 +3,7 @@ from pathlib import Path
 root=Path(__file__).parent.parent
 state=json.loads((root/'CURRENT-STATE.json').read_text());phase=state.get('pipeline_phase',state.get('active_campaign','aa-inapp-r4'))
 errors=[]
-for path in [root/(phase+'-campaign.log'),root/'post-r4-controller.log']:
+for path in [root/(phase+'-campaign.log'),root/state.get('pipeline_log','post-r4-controller.log')]:
  if path.exists() and 'Traceback' in path.read_text():errors.append(str(path))
 logs=list(root.glob(phase+'-*-attempt*.log'))
 last=''

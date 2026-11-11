@@ -1,0 +1,21 @@
+{
+  "method": "unchanged partial reference acquisition; actual role retained in derived alias map; no duration adjustment",
+  "driver_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+  "all_roles_same_command_metadata_with_both_delays_zero": true,
+  "metadata": {
+    "point": {
+      "id": "switch-1",
+      "action": "switch"
+    },
+    "main": {
+      "id": "switch-1",
+      "action": "switch"
+    },
+    "upstream": {
+      "id": "switch-1",
+      "action": "switch"
+    }
+  },
+  "side_condition_audit": "Only timing uses of side in frozen source are disabled delay selection at lines520/947; other side uses label records/directories and publication grouping. Every derived samples array asserted exactly equal to its immutable raw array.",
+  "quality_gate": "Original check_pixels run afterwards; unequal remains failed; publishable=false; rows descriptive only"
+}

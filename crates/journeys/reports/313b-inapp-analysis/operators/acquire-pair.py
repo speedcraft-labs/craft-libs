@@ -10,12 +10,15 @@ selected={config['side']} if config.get('side') else set(config.get('acquisition
 prior=config.get('resume_report')
 existing=json.load(open(prior))['sessions'] if prior else []
 last_duration=None
+# The hard840s lease is authoritative. Import-only gets25%+30s prediction
+# headroom;50% rejected a325s first side with511s still available.
+forecast_factor=1.25 if config.get('import_only') else 1.5
 for side in order:
  if side not in selected:continue
  if any(s['pair']==config['pair'] and s['side']==side for s in existing):continue
  remaining=(int(os.environ.get('SESSION_LEASE_DEADLINE_NS','9999999999999999999'))-time.monotonic_ns())/1e9
- if last_duration is not None and remaining<last_duration*1.5+30:
-  out.with_suffix('.deferred.json').write_text(json.dumps(dict(side=side,remaining_seconds=remaining,preceding_side_seconds=last_duration,required_headroom_seconds=last_duration*1.5+30,reason='defer a new side rather than predictably overrun the lease')))
+ if last_duration is not None and remaining<last_duration*forecast_factor+30:
+  out.with_suffix('.deferred.json').write_text(json.dumps(dict(side=side,remaining_seconds=remaining,preceding_side_seconds=last_duration,required_headroom_seconds=last_duration*forecast_factor+30,forecast_factor=forecast_factor,reason='defer a new side rather than predictably overrun the lease')))
   sys.exit(75)
  c=dict(config,side=side)
  if prior:c['resume_report']=prior

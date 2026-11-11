@@ -1,0 +1,44 @@
+{
+  "revisions": {
+    "point": {
+      "revision": "fc97c728644d399843d8201f83d25ccf81b89669",
+      "binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/lightcraft-r3-point"
+    },
+    "main": {
+      "revision": "d97557e02188f6466c448773d98127222e702daf",
+      "binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/lightcraft-r3-aa-b"
+    },
+    "upstream": {
+      "revision": "c2e9c456c9bfdcd4d56d8b88b8a5b546b69a3223",
+      "binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/lightcraft-r3-upstream"
+    }
+  },
+  "payloads": {
+    "typical-50": "/jobs/work/speedcraft-labs/hyper/corpus/lightcraft-session-tiers-2026/typical-50"
+  },
+  "sessions": 10,
+  "warmups": 2,
+  "repetitions": 6,
+  "exposure_steps": 4,
+  "sides": [
+    "point",
+    "main",
+    "upstream"
+  ],
+  "aa": false,
+  "measurement_method": "in-app-frame-gpu-v2",
+  "acquisition": "contiguous-AB-BA-one-pair-per-lease",
+  "import_endpoint": "UI-confirmation-to-all-visible-thumbnails-after-complete-import",
+  "statistic": "paired-session-median-log-ratio-stratified-by-order",
+  "gpu_state": {
+    "graphics_mhz": 1350,
+    "memory_mhz": 7000,
+    "power_mizer_mode": 1
+  },
+  "require_contiguous_pair": true,
+  "app_base_patch": "/jobs/work/speedcraft-labs/wt/313b-libs/crates/journeys/patches/lightcraft-session-latency.patch",
+  "aa_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-19-primary-attempt0/report.json",
+  "descriptive_seed_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-r4-0-primary-attempt0/main/report.json",
+  "descriptive_seed_acquisition": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-r4-0-primary-attempt0",
+  "descriptive_independent": true
+}

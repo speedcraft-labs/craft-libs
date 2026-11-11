@@ -12,7 +12,7 @@ if config.get('stress_only_when_queue_empty'):
   sys.exit(77)
 def run_lease():
  started=time.monotonic();limit=840
- command=['/jobs/work/speedcraft-labs/scripts/bench-run','python3',str(k/('smoke-pair.py' if config.get('development_smoke') else 'acquire-pair.py')),str(cfg),str(out)]
+ command=['/jobs/work/speedcraft-labs/scripts/bench-run','python3',str(k/('smoke-pair.py' if config.get('development_smoke') else 'acquire-descriptive.py' if config.get('descriptive_independent') else 'acquire-pair.py')),str(cfg),str(out)]
  probe=json.load(open(cfg)).get('clock_probe',False)
  if probe:
   limit=180

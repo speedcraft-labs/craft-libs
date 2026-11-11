@@ -1,0 +1,84 @@
+{
+  "original_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-0-primary-attempt1/main/report.json",
+  "recovered_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-recovered-pair0.json",
+  "validation_revision": "88e6735f",
+  "all_session_and_duration_fields_unchanged": true,
+  "per_import_checks": [
+    {
+      "side": "point",
+      "final_ids": [
+        3778,
+        5036
+      ],
+      "imports": [
+        {
+          "count": 1259,
+          "covered": 1259,
+          "min_id": 1,
+          "max_id": 1259
+        },
+        {
+          "count": 1259,
+          "covered": 1259,
+          "min_id": 1260,
+          "max_id": 2518
+        },
+        {
+          "count": 1259,
+          "covered": 1259,
+          "min_id": 2519,
+          "max_id": 3777
+        },
+        {
+          "count": 1259,
+          "covered": 1259,
+          "min_id": 3778,
+          "max_id": 5036
+        }
+      ]
+    },
+    {
+      "side": "main",
+      "final_ids": [
+        3778,
+        5036
+      ],
+      "imports": [
+        {
+          "count": 1259,
+          "covered": 1259,
+          "min_id": 1,
+          "max_id": 1259
+        },
+        {
+          "count": 1259,
+          "covered": 1259,
+          "min_id": 1260,
+          "max_id": 2518
+        },
+        {
+          "count": 1259,
+          "covered": 1259,
+          "min_id": 2519,
+          "max_id": 3777
+        },
+        {
+          "count": 1259,
+          "covered": 1259,
+          "min_id": 3778,
+          "max_id": 5036
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "tier": "import-1259",
+      "pair": 0,
+      "side": "main",
+      "equivalent": true,
+      "method": "exact-catalog-membership-and-every-non-placeholder-thumbnail",
+      "photos": 1259
+    }
+  ]
+}
