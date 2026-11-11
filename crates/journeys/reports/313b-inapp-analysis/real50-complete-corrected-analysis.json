@@ -1,0 +1,901 @@
+{
+  "raw_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-derived-report.json",
+  "rows": [
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "import",
+      "phase": "cold",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 10,
+          "median_ns": 226655505.0,
+          "p95_ns": 309194182.8499999,
+          "max_ns": 364969139,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "main": {
+          "n": 10,
+          "median_ns": 204111963.0,
+          "p95_ns": 343192488.4499999,
+          "max_ns": 370517334,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "upstream": {
+          "n": 10,
+          "median_ns": 218236037.5,
+          "p95_ns": 288950073.2,
+          "max_ns": 296594495,
+          "within_log_sd": null,
+          "between_log_sd": null
+        }
+      },
+      "speedup": 1.0465464596092673,
+      "ci95": [
+        0.9806676167282006,
+        1.1966024191120865
+      ],
+      "ordinary_ci95": [
+        0.9708187942784671,
+        1.1966024191120865
+      ],
+      "pooled_ci95": [
+        0.8642452347732416,
+        1.203247009022221
+      ],
+      "pooled_ratio": 1.1104469413191622,
+      "half_width_pct": 10.316541630865874,
+      "minimum_detectable_effect_pct": 29.006254678337594,
+      "estimated_mde_pct": 15.284360912607141,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 10,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "no measurable change",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 19.732933601741625,
+      "aa_pair_count_adjusted_mde_pct": 29.006254678337594,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "import",
+      "phase": "warm",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 60,
+          "median_ns": 220595363.5,
+          "p95_ns": 319365971.1999999,
+          "max_ns": 354647143,
+          "within_log_sd": 0.0757639472916044,
+          "between_log_sd": 0.14514080723555428
+        },
+        "main": {
+          "n": 60,
+          "median_ns": 28443997.0,
+          "p95_ns": 44982385.049999975,
+          "max_ns": 56883504,
+          "within_log_sd": 0.11288880211767463,
+          "between_log_sd": 0.17290563795360128
+        },
+        "upstream": {
+          "n": 60,
+          "median_ns": 29139027.0,
+          "p95_ns": 51671127.199999996,
+          "max_ns": 57936162,
+          "within_log_sd": 0.10954961812437339,
+          "between_log_sd": 0.1915931741246681
+        }
+      },
+      "speedup": 8.008386461592242,
+      "ci95": [
+        7.604900659573765,
+        8.292243785522288
+      ],
+      "ordinary_ci95": [
+        7.558878080819371,
+        8.744930211758401
+      ],
+      "pooled_ci95": [
+        6.9348560441766365,
+        8.412168181752312
+      ],
+      "pooled_ratio": 7.755427744560654,
+      "half_width_pct": 4.29139583388602,
+      "minimum_detectable_effect_pct": 18.011670844664884,
+      "estimated_mde_pct": 6.379387370821423,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 10,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "faster",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 12.423894691011048,
+      "aa_pair_count_adjusted_mde_pct": 18.011670844664884,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "preview",
+      "phase": "cold",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 10,
+          "median_ns": 1522182908.0,
+          "p95_ns": 2127512323.9,
+          "max_ns": 2136128113,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "main": {
+          "n": 10,
+          "median_ns": 1761757154.0,
+          "p95_ns": 3653345212.799998,
+          "max_ns": 4583638005,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "upstream": {
+          "n": 10,
+          "median_ns": 1751211160.0,
+          "p95_ns": 2582286140.5,
+          "max_ns": 2601574324,
+          "within_log_sd": null,
+          "between_log_sd": null
+        }
+      },
+      "speedup": 0.8469961940107292,
+      "ci95": [
+        0.7020745451628605,
+        0.8668205685892949
+      ],
+      "ordinary_ci95": [
+        0.7020745451628605,
+        0.8790824503997343
+      ],
+      "pooled_ci95": [
+        0.7419369650642959,
+        0.9140389007177273
+      ],
+      "pooled_ratio": 0.8640140353873086,
+      "half_width_pct": 9.72531072697757,
+      "minimum_detectable_effect_pct": 29.336176656418147,
+      "estimated_mde_pct": 16.259433762105637,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 5,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "slower",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 19.94937314107563,
+      "aa_pair_count_adjusted_mde_pct": 29.336176656418147,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "preview",
+      "phase": "warm",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 60,
+          "median_ns": 36840834.0,
+          "p95_ns": 75002618.3,
+          "max_ns": 76466466,
+          "within_log_sd": 0.07685291303769613,
+          "between_log_sd": 0.2524497458053215
+        },
+        "main": {
+          "n": 60,
+          "median_ns": 98723144.5,
+          "p95_ns": 141797610.15,
+          "max_ns": 175167977,
+          "within_log_sd": 0.07714057911979488,
+          "between_log_sd": 0.15286027092548501
+        },
+        "upstream": {
+          "n": 60,
+          "median_ns": 102722475.5,
+          "p95_ns": 132602732.94999997,
+          "max_ns": 148255448,
+          "within_log_sd": 0.07801779338647939,
+          "between_log_sd": 0.11848929212802504
+        }
+      },
+      "speedup": 0.39757184107093824,
+      "ci95": [
+        0.3366667893084203,
+        0.5255301304816463
+      ],
+      "ordinary_ci95": [
+        0.3366667893084203,
+        0.5255301304816463
+      ],
+      "pooled_ci95": [
+        0.34457380561196455,
+        0.5155562159942947
+      ],
+      "pooled_ratio": 0.3731732228201058,
+      "half_width_pct": 23.75210234513658,
+      "minimum_detectable_effect_pct": 37.474356667458025,
+      "estimated_mde_pct": 37.474356667458025,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 5,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "slower",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 20.179560067951364,
+      "aa_pair_count_adjusted_mde_pct": 29.687324655291388,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "exposure",
+      "phase": "cold",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 10,
+          "median_ns": 7724925.5,
+          "p95_ns": 13057096.999999996,
+          "max_ns": 14530028,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "main": {
+          "n": 10,
+          "median_ns": 11797943.5,
+          "p95_ns": 17276855.04999999,
+          "max_ns": 21229291,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "upstream": {
+          "n": 10,
+          "median_ns": 12011157.0,
+          "p95_ns": 17040325.599999998,
+          "max_ns": 18417142,
+          "within_log_sd": null,
+          "between_log_sd": null
+        }
+      },
+      "speedup": 0.7473609573782306,
+      "ci95": [
+        0.6031340862285097,
+        0.8440519238545617
+      ],
+      "ordinary_ci95": [
+        0.5758097754043852,
+        0.8589182099669963
+      ],
+      "pooled_ci95": [
+        0.5903419072779337,
+        0.809596190091565
+      ],
+      "pooled_ratio": 0.6547688162771758,
+      "half_width_pct": 16.117903621243514,
+      "minimum_detectable_effect_pct": 31.08487507744322,
+      "estimated_mde_pct": 27.149515646649824,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 5,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "slower",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 21.093889732608453,
+      "aa_pair_count_adjusted_mde_pct": 31.08487507744322,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "exposure",
+      "phase": "warm",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 240,
+          "median_ns": 7871741.5,
+          "p95_ns": 14279044.45,
+          "max_ns": 18540164,
+          "within_log_sd": 0.15926329443349566,
+          "between_log_sd": 0.19879342745985737
+        },
+        "main": {
+          "n": 240,
+          "median_ns": 7381758.0,
+          "p95_ns": 14703624.2,
+          "max_ns": 20520886,
+          "within_log_sd": 0.12524176913792126,
+          "between_log_sd": 0.2543133306372074
+        },
+        "upstream": {
+          "n": 240,
+          "median_ns": 7684883.5,
+          "p95_ns": 13607252.799999995,
+          "max_ns": 17221745,
+          "within_log_sd": 0.1647784667793104,
+          "between_log_sd": 0.18220378024592643
+        }
+      },
+      "speedup": 1.0429835765099735,
+      "ci95": [
+        0.9644813113022973,
+        1.1124262116065167
+      ],
+      "ordinary_ci95": [
+        0.9644813113022973,
+        1.157587915327244
+      ],
+      "pooled_ci95": [
+        0.8788192733362332,
+        1.2323836136811406
+      ],
+      "pooled_ratio": 1.0663776162805663,
+      "half_width_pct": 7.092388779470135,
+      "minimum_detectable_effect_pct": 10.737685541423145,
+      "estimated_mde_pct": 10.737685541423145,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 5,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "no measurable change",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 4.642478652723225,
+      "aa_pair_count_adjusted_mde_pct": 6.6280204485442225,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "switch",
+      "phase": "cold",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 10,
+          "median_ns": 538769132.0,
+          "p95_ns": 893260823.2999995,
+          "max_ns": 1106607842,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "main": {
+          "n": 10,
+          "median_ns": 641052082.5,
+          "p95_ns": 1298192542.05,
+          "max_ns": 1352371404,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "upstream": {
+          "n": 10,
+          "median_ns": 624741768.0,
+          "p95_ns": 1049638580.5999997,
+          "max_ns": 1188696398,
+          "within_log_sd": null,
+          "between_log_sd": null
+        }
+      },
+      "speedup": 0.8381419343716638,
+      "ci95": [
+        0.6944397305546104,
+        0.9985747397692033
+      ],
+      "ordinary_ci95": [
+        0.610008532633662,
+        0.9998588610379862
+      ],
+      "pooled_ci95": [
+        0.5670925571046219,
+        0.9886433184461262
+      ],
+      "pooled_ratio": 0.8404451786489595,
+      "half_width_pct": 18.143407264462677,
+      "minimum_detectable_effect_pct": 29.640763156098004,
+      "estimated_mde_pct": 29.640763156098004,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 5,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "slower",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 17.990853840841694,
+      "aa_pair_count_adjusted_mde_pct": 26.35979201489241,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "switch",
+      "phase": "warm",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 60,
+          "median_ns": 401949046.5,
+          "p95_ns": 757205342.6999998,
+          "max_ns": 878168452,
+          "within_log_sd": 0.10598904055126476,
+          "between_log_sd": 0.2524487977057182
+        },
+        "main": {
+          "n": 60,
+          "median_ns": 79432307.5,
+          "p95_ns": 151178571.54999998,
+          "max_ns": 177443564,
+          "within_log_sd": 0.16095023562041127,
+          "between_log_sd": 0.29164156757531745
+        },
+        "upstream": {
+          "n": 60,
+          "median_ns": 69356907.0,
+          "p95_ns": 188481522.25,
+          "max_ns": 299778323,
+          "within_log_sd": 0.193846970511436,
+          "between_log_sd": 0.32975637336087155
+        }
+      },
+      "speedup": 5.460621278609963,
+      "ci95": [
+        3.9244692141256876,
+        6.679939905483078
+      ],
+      "ordinary_ci95": [
+        3.9064628295571975,
+        6.679939905483078
+      ],
+      "pooled_ci95": [
+        3.836515113459702,
+        7.064656035020325
+      ],
+      "pooled_ratio": 5.060271558899381,
+      "half_width_pct": 25.230377193076585,
+      "minimum_detectable_effect_pct": 46.248173651532454,
+      "estimated_mde_pct": 46.248173651532454,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 5,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "faster",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 14.313944233484316,
+      "aa_pair_count_adjusted_mde_pct": 20.827194123795454,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "export",
+      "phase": "cold",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 10,
+          "median_ns": 342865449.5,
+          "p95_ns": 395076087.09999996,
+          "max_ns": 410112280,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "main": {
+          "n": 10,
+          "median_ns": 342966300.5,
+          "p95_ns": 418178165.3499999,
+          "max_ns": 468981238,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "upstream": {
+          "n": 10,
+          "median_ns": 330547117.5,
+          "p95_ns": 534879288.89999986,
+          "max_ns": 585322839,
+          "within_log_sd": null,
+          "between_log_sd": null
+        }
+      },
+      "speedup": 1.003799091328316,
+      "ci95": [
+        0.9816459342091937,
+        1.0738975161995448
+      ],
+      "ordinary_ci95": [
+        0.9816459342091937,
+        1.0738975161995448
+      ],
+      "pooled_ci95": [
+        0.9650277133606445,
+        1.05819837121209
+      ],
+      "pooled_ratio": 0.9997059448702308,
+      "half_width_pct": 4.595121812088694,
+      "minimum_detectable_effect_pct": 13.160612139045652,
+      "estimated_mde_pct": 6.62992827953134,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 5,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "no measurable change",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 9.136067885448991,
+      "aa_pair_count_adjusted_mde_pct": 13.160612139045652,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "export",
+      "phase": "warm",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 60,
+          "median_ns": 339959260.5,
+          "p95_ns": 398959739.65,
+          "max_ns": 427439517,
+          "within_log_sd": 0.07308471165396896,
+          "between_log_sd": 0.08177498737407456
+        },
+        "main": {
+          "n": 60,
+          "median_ns": 332964003.5,
+          "p95_ns": 480287380.15,
+          "max_ns": 512383699,
+          "within_log_sd": 0.07505404069813114,
+          "between_log_sd": 0.13405706023491987
+        },
+        "upstream": {
+          "n": 60,
+          "median_ns": 330796349.0,
+          "p95_ns": 486910437.09999996,
+          "max_ns": 537639450,
+          "within_log_sd": 0.05443619521351978,
+          "between_log_sd": 0.16048553778542268
+        }
+      },
+      "speedup": 1.038967716935415,
+      "ci95": [
+        1.0011426345562173,
+        1.0929217745547157
+      ],
+      "ordinary_ci95": [
+        0.9918241412868744,
+        1.0929217745547157
+      ],
+      "pooled_ci95": [
+        0.9761839609788318,
+        1.0590322445394147
+      ],
+      "pooled_ratio": 1.0210090488054815,
+      "half_width_pct": 4.416842722948804,
+      "minimum_detectable_effect_pct": 6.469514912229665,
+      "estimated_mde_pct": 6.469514912229665,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 5,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "faster",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 3.785299427509301,
+      "aa_pair_count_adjusted_mde_pct": 5.394883344340191,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "startup",
+      "phase": "cold",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 10,
+          "median_ns": 1010756196.0,
+          "p95_ns": 1456709076.8999999,
+          "max_ns": 1480860909,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "main": {
+          "n": 10,
+          "median_ns": 1193631445.5,
+          "p95_ns": 1536192701.9499996,
+          "max_ns": 1686008488,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "upstream": {
+          "n": 10,
+          "median_ns": 1121727591.0,
+          "p95_ns": 2278553444.45,
+          "max_ns": 2434212440,
+          "within_log_sd": null,
+          "between_log_sd": null
+        }
+      },
+      "speedup": 0.7819772093791304,
+      "ci95": [
+        0.7659827783138793,
+        1.0964140384001444
+      ],
+      "ordinary_ci95": [
+        0.7214545743316069,
+        1.0964140384001444
+      ],
+      "pooled_ci95": [
+        0.7007399402515805,
+        1.128816291792895
+      ],
+      "pooled_ratio": 0.8467908581083038,
+      "half_width_pct": 21.127934172699163,
+      "minimum_detectable_effect_pct": 29.216808288722547,
+      "estimated_mde_pct": 29.216808288722547,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 10,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "no measurable change",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 12.450895309439295,
+      "aa_pair_count_adjusted_mde_pct": 18.0517553605242,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "in-app-gpu-completion",
+      "tier": "typical-50",
+      "action": "startup",
+      "phase": "warm",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 50,
+          "median_ns": 926706157.5,
+          "p95_ns": 1646502206.4499998,
+          "max_ns": 1880757594,
+          "within_log_sd": 0.04952107244200954,
+          "between_log_sd": 0.23267241085706752
+        },
+        "main": {
+          "n": 50,
+          "median_ns": 1205487748.5,
+          "p95_ns": 1794020656.6999998,
+          "max_ns": 2222345162,
+          "within_log_sd": 0.10246834178483114,
+          "between_log_sd": 0.16163047615195303
+        },
+        "upstream": {
+          "n": 50,
+          "median_ns": 1078525143.0,
+          "p95_ns": 1838983102.9999995,
+          "max_ns": 2129218498,
+          "within_log_sd": 0.05677458742051119,
+          "between_log_sd": 0.20955103485175536
+        }
+      },
+      "speedup": 0.7530914992718029,
+      "ci95": [
+        0.7203077202795323,
+        1.0176969195901908
+      ],
+      "ordinary_ci95": [
+        0.7203077202795323,
+        1.0176969195901908
+      ],
+      "pooled_ci95": [
+        0.7178551764072845,
+        1.0189205893549134
+      ],
+      "pooled_ratio": 0.7687395899735268,
+      "half_width_pct": 19.744559565352763,
+      "minimum_detectable_effect_pct": 28.01982407954513,
+      "estimated_mde_pct": 28.01982407954513,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 10,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "no measurable change",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 11.594713183881407,
+      "aa_pair_count_adjusted_mde_pct": 16.78263066673038,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "external-process-exit",
+      "tier": "typical-50",
+      "action": "quit",
+      "phase": "cold",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 10,
+          "median_ns": 223667017.5,
+          "p95_ns": 312642891.9999999,
+          "max_ns": 354786634,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "main": {
+          "n": 10,
+          "median_ns": 242141943.5,
+          "p95_ns": 357560784.1999999,
+          "max_ns": 376250663,
+          "within_log_sd": null,
+          "between_log_sd": null
+        },
+        "upstream": {
+          "n": 10,
+          "median_ns": 270507110.0,
+          "p95_ns": 483156878.9999999,
+          "max_ns": 534969159,
+          "within_log_sd": null,
+          "between_log_sd": null
+        }
+      },
+      "speedup": 0.8518241975721911,
+      "ci95": [
+        0.7220620982264018,
+        1.0313028828788888
+      ],
+      "ordinary_ci95": [
+        0.7220620982264018,
+        1.0313028828788888
+      ],
+      "pooled_ci95": [
+        0.7235254873012668,
+        1.0867115596550452
+      ],
+      "pooled_ratio": 0.9237020826175041,
+      "half_width_pct": 18.151678804961353,
+      "minimum_detectable_effect_pct": 29.01624619256508,
+      "estimated_mde_pct": 29.01624619256508,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 5,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "no measurable change",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 18.697647276960065,
+      "aa_pair_count_adjusted_mde_pct": 27.431572625696425,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    },
+    {
+      "timing_source": "external-process-exit",
+      "tier": "typical-50",
+      "action": "quit",
+      "phase": "warm",
+      "observed_pairs": 10,
+      "sides": {
+        "point": {
+          "n": 60,
+          "median_ns": 127069108.0,
+          "p95_ns": 278527653.5499997,
+          "max_ns": 564758285,
+          "within_log_sd": 0.2351607936756001,
+          "between_log_sd": 0.24828402158859153
+        },
+        "main": {
+          "n": 60,
+          "median_ns": 145323279.5,
+          "p95_ns": 223256032.6,
+          "max_ns": 246243818,
+          "within_log_sd": 0.12153413871521472,
+          "between_log_sd": 0.13953265257157774
+        },
+        "upstream": {
+          "n": 60,
+          "median_ns": 134799422.0,
+          "p95_ns": 224039433.09999996,
+          "max_ns": 278028506,
+          "within_log_sd": 0.08078440158934676,
+          "between_log_sd": 0.2041868259913299
+        }
+      },
+      "speedup": 0.8516745446872724,
+      "ci95": [
+        0.7787818797560044,
+        1.0677873135548903
+      ],
+      "ordinary_ci95": [
+        0.7787818797560044,
+        1.0677873135548903
+      ],
+      "pooled_ci95": [
+        0.8004512448153878,
+        1.0361117288354507
+      ],
+      "pooled_ratio": 0.8743892130510308,
+      "half_width_pct": 16.966893962118252,
+      "minimum_detectable_effect_pct": 25.303612470937953,
+      "estimated_mde_pct": 25.303612470937953,
+      "is_aa": false,
+      "aa_pass": false,
+      "threshold_pct": 5,
+      "calibration_pairs": 20,
+      "calibration_contains_unity": true,
+      "verdict": "outputs differ; descriptive only",
+      "provisional": false,
+      "gpu_offenders": [],
+      "statistical_verdict_before_quality_gate": "no measurable change",
+      "primary_equivalent": false,
+      "upstream_equivalent": false,
+      "original_reported_mde_pct": 12.932226696900084,
+      "aa_pair_count_adjusted_mde_pct": 18.76699770819963,
+      "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+    }
+  ]
+}
