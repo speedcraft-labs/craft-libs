@@ -47,7 +47,7 @@ def validate_session(session):
             r=sample.get('in_app')
             if not r or r.get('control_wait_ns')!=0 or r.get('endpoint')!='reflecting-frame-gpu-work-confirmed-complete':
                 raise ValueError('missing in-app GPU timing evidence')
-            if not r['accepted_ns']<=r['first_reflecting_frame_presented_ns']<=r['completed_ns'] or r['duration_ns']!=r['completed_ns']-r['accepted_ns']:
+            if not r['accepted_ns']<=r['first_reflecting_frame_presented_ns']<=r['completed_ns'] or r['duration_ns']!=r['completed_ns']-r['accepted_ns'] or sample['duration_ns']!=r['duration_ns']:
                 raise ValueError('invalid in-app monotonic clock')
     used_clock_checks=set()
     for action in session['samples']:
@@ -55,7 +55,7 @@ def validate_session(session):
             raise ValueError('unknown action')
         if not session['interactive_ns'] <= action['sent_ns'] < action['frame_ns'] <= session['quit_request_ns']:
             raise ValueError('launch or exit inside action')
-        if action['duration_ns'] != action['frame_ns'] - action['sent_ns']:
+        if action.get('driver_duration_ns',action['duration_ns']) != action['frame_ns'] - action['sent_ns']:
             raise ValueError('duration includes work outside input-to-frame boundary')
         if not action['checked'] or not action['frame_sha256']:
             raise ValueError('unchecked output')
@@ -183,9 +183,28 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
     return rows
 
 
+def timing_comparison(sessions):
+    """Paired app/external observations; RPC wait share is zero only for app clocks."""
+    rows=[]
+    for tier in sorted({s['tier'] for s in sessions}):
+        for side in ('point','main','upstream'):
+            group=[s for s in sessions if s['tier']==tier and s['side']==side]
+            for action in ACTIONS:
+                samples=[x for s in group for x in s['samples'] if x['action']==action and not x['warmup'] and 'in_app' in x]
+                if samples:
+                    rows.append(dict(tier=tier,side=side,action=action,n=len(samples),
+                        driver_median_ms=statistics.median(x['driver_duration_ns'] for x in samples)/1e6,
+                        app_first_response_median_ms=statistics.median(x['in_app']['first_response_ns'] for x in samples)/1e6,
+                        app_completion_median_ms=statistics.median(x['in_app']['duration_ns'] for x in samples)/1e6,
+                        control_wait_share_pct=0))
+    return rows
+
+
 def markdown(rows):
     lines = ['Ratio = exp(median log paired-session median(point)/median(main)); >1 favors main. Displayed medians/p95 pool all samples. Times in ms. Order-stratified paired-session bootstrap (ordinary CI also retained in JSON); cold = first use in a session, warm = post-warm-up. OS/shader caches are not flushed.',
              'MDE: A/A-derived approximate two-sided 5% significance, 80% power detectable change on log scale. Uncalibrated comparisons cannot say "no measurable change". An A/A interval excluding 1 rejects comparison verdicts; its width alone is not valid sensitivity.']
+    if any(r.get('timing_source')=='in-app-gpu-completion' for r in rows):
+        lines.append('Action/startup times use in-app GPU completion; quit is explicitly external process exit. Driver/capture medians are secondary in timing_comparison JSON.')
     for tier in sorted({r['tier'] for r in rows}):
         selected=[r for r in rows if r['tier']==tier]
         provisional=any(r.get('provisional') for r in selected)

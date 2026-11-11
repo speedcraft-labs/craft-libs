@@ -141,10 +141,10 @@ index 6d9faaaf..ec6af927 100644
              pending_gestures: vec![],
              layout_epoch: 0,
 diff --git a/crates/ui-egui/src/app/control.rs b/crates/ui-egui/src/app/control.rs
-index 76352410..5c354c9b 100644
+index 76352410..757622a6 100644
 --- a/crates/ui-egui/src/app/control.rs
 +++ b/crates/ui-egui/src/app/control.rs
-@@ -14,7 +14,34 @@ impl LightcraftApp {
+@@ -14,7 +14,35 @@ impl LightcraftApp {
                  continue;
              }
              let reply = req.reply.clone();
@@ -170,11 +170,12 @@ index 76352410..5c354c9b 100644
 +                }
 +            }
 +            let outcome = control::handle(self, ctx, &req);
-+            if req.params.get("_latency").is_some_and(|m| m["action"] == "preview") && req.params["command"] == "view.detail" {
-+                if let Err(e) = self.run("view.zoom100", serde_json::json!({})) {
-+                    let _ = reply.send(control::failure(e));
-+                    continue;
-+                }
++            if req.params.get("_latency").is_some_and(|m| m["action"] == "preview")
++                && req.params["command"] == "view.detail"
++                && let Err(e) = self.run("view.zoom100", serde_json::json!({}))
++            {
++                let _ = reply.send(control::failure(e));
++                continue;
 +            }
 +            match outcome {
                  control::Outcome::Done(v) => {
@@ -182,10 +183,10 @@ index 76352410..5c354c9b 100644
                  }
 diff --git a/crates/ui-egui/src/latency.rs b/crates/ui-egui/src/latency.rs
 new file mode 100644
-index 00000000..3be4898f
+index 00000000..12e4399c
 --- /dev/null
 +++ b/crates/ui-egui/src/latency.rs
-@@ -0,0 +1,234 @@
+@@ -0,0 +1,246 @@
 +//! Opt-in UI-acceptance → reflecting-frame GPU completion observations.
 +//! No transport clocks are used. A host without a completion hook cannot finish a record.
 +use crate::{LightcraftApp, control, render::Slot};
@@ -256,6 +257,18 @@ index 00000000..3be4898f
 +        state.records.push(json!({"id":id,"action":kind,"accepted_ns":accepted,"first_reflecting_frame_presented_ns":null,"completed_ns":null,
 +            "endpoint":"reflecting-frame-gpu-work-confirmed-complete","control_wait_ns":0}));
 +        self.active = Some(Action { id: id.into(), kind: kind.into(), accepted, frame: self.frame, initial_key });
++        // Explicit harness-only physical slowdown, inside the acceptance clock. Both compared
++        // binaries contain this code; ordinary requests and disabled frames do not sleep.
++        if kind == "switch"
++            && let Some(delay) = meta["test_delay_ns"].as_u64().filter(|n| *n > 0 && *n <= 1_000_000_000)
++        {
++            let before = ns(self.epoch);
++            std::thread::sleep(std::time::Duration::from_nanos(delay));
++            if let Some(r) = state.records.last_mut() {
++                r["test_delay_requested_ns"] = json!(delay);
++                r["test_delay_actual_ns"] = json!(ns(self.epoch).saturating_sub(before));
++            }
++        }
 +        Ok(())
 +    }
 +    pub(crate) fn wait(&mut self, params: &Value, reply: Sender<Value>) -> Result<(), &'static str> {

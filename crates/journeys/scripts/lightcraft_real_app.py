@@ -517,6 +517,8 @@ def session_arm(control, record, action):
         if not idle['idle']:
             raise RuntimeError(f'app idle gate failed before {action}: {idle}')
         control.pending_latency = dict(id=f'{action}-{control.ident}', action=action)
+        delay=int(os.environ.get('CRAFT_JOURNEYS_INAPP_SWITCH_DELAY_NS','0')) if record['side']=='main' and action=='switch' else 0
+        if delay: control.pending_latency['test_delay_ns']=delay
         control.last_latency = None
         record.setdefault('in_app_records', {})
         control.latency_records = record['in_app_records']
@@ -658,6 +660,7 @@ def session_sample(record, action, sent, end, digest, warmup, **evidence):
         if observation is None: raise RuntimeError('missing in-app timing record')
         record['samples'][-1]['in_app']=observation
         record['samples'][-1]['driver_duration_ns']=end-sent
+        record['samples'][-1]['duration_ns']=observation['duration_ns']
     (Path(record['directory'])/'partial-session.json').write_text(json.dumps(record,indent=2)+'\n')
 
 
@@ -971,12 +974,14 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
                 control.call('ui.scroll', {'dy': 100000})
             session_execute(control,'view.squareGrid')
             control.call('ui.set',{'thumbSize':100})
-            session_arm(control,record,'import')
+            if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')!='1': session_arm(control,record,'import')
             control.call('ui.dropFiles',{'paths':[str(payload)]})
             sent=control.last_sent_ns
             review=session_wait(control,lambda s:any(w['id']=='label:importSource' for w in control.call('ui.widgets',{'filter':'label:importSource'})))
             control.call('ui.clickWidget',{'id':'button:importAdd'})
+            if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1': session_arm(control,record,'import')
             result=control.call('ui.dialog.confirm')
+            if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1': sent=control.last_sent_ns
             if result.get('importing')!=len(paths):
                 raise RuntimeError(f'incomplete import request: {result}')
             session_wait(control,lambda s:s.get('import') is None and s.get('scan') is None)
@@ -1259,6 +1264,17 @@ def session_main(args):
     options=parser.parse_args(args)
     config=json.loads(options.config.read_text())
     config.setdefault('measurement_method','first-grid-quickack-v4')
+    if (config['measurement_method']=='in-app-frame-gpu-v1') != (os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1'):
+        raise ValueError('declared timing method and enabled clock source differ')
+    if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1':
+        if config['measurement_method']!='in-app-frame-gpu-v1':
+            raise ValueError('in-app clocks require measurement_method in-app-frame-gpu-v1')
+        patch=Path(config['app_base_patch'])
+        for revision in config['revisions'].values():
+            binary=Path(revision['binary'])
+            proof=json.loads(binary.with_suffix('.provenance.json').read_text())
+            if proof['patch_sha256']!=file_digest(patch) or proof['binary_sha256']!=file_digest(binary) or proof['revision']!=revision['revision']:
+                raise ValueError('recorder/build provenance differs; rebuild every side')
     calibration=session_calibration(config)
     pair=config.get('pair',0)
     if not isinstance(pair,int) or not 0<=pair<config.get('sessions',10):
@@ -1342,6 +1358,8 @@ def session_main(args):
             for image in Path(accepted['directory']).rglob('*.png'):
                 if str(image) not in protected and 'headless-attempt' not in image.name and '.rejected.' not in image.name:
                     image.unlink()
+        from lightcraft_session_report import timing_comparison
+        report['timing_comparison']=timing_comparison(paired)
         report['rows']=summarize(paired, calibration=calibration, aa=config.get('aa',False)) if paired else []
         report['secondary_pixel_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream')
         for row in report['rows']:

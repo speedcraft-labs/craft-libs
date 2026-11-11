@@ -40,13 +40,15 @@ def main():
     if args.checkout.exists():
         raise RuntimeError('checkout must be fresh for an independently prepared build')
     subprocess.run(['git', '-C', str(args.repo), 'worktree', 'add', '--detach', str(args.checkout), revision], check=True)
+    patch_sha256=digest(patch)
     status = apply_app_base_patch(args.checkout, patch)
     env = dict(os.environ, CARGO_TARGET_DIR=str(args.target.resolve()), CARGO_BUILD_JOBS='8', SQLX_OFFLINE='true', RUST_MIN_STACK='8388608')
     subprocess.run(['taskset', '-c', '0-21', 'nice', '-n', '19', 'cargo', 'build', '--release', '--locked', '-p', 'lightcraft'], cwd=args.checkout, env=env, check=True)
+    if digest(patch)!=patch_sha256: raise RuntimeError('common recorder patch changed during build; reject artifact and rebuild all sides')
     args.binary.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(args.target / 'release/lightcraft', args.binary)
     # Binaries stay outside prunable targets, but never go in NAS evidence directories.
-    provenance = dict(revision=revision, app_base_patch=str(patch), patch_sha256=digest(patch),
+    provenance = dict(revision=revision, app_base_patch=str(patch), patch_sha256=patch_sha256,
                       binary_sha256=digest(args.binary), patch_status=status, checkout=str(args.checkout),
                       command=['cargo', 'build', '--release', '--locked', '-p', 'lightcraft'])
     args.binary.with_suffix('.provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
