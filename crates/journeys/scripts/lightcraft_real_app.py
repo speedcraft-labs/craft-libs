@@ -48,7 +48,7 @@ class Control:
         meta = getattr(self, 'pending_latency', None)
         action = meta['action'] if meta else None
         command = (params or {}).get('command')
-        measured = bool(meta and ((action == 'import' and method == 'ui.dialog.confirm')
+        measured = bool(meta and ((action == 'import' and method in ('ui.dialog.confirm','ui.dropFiles'))
             or (action == 'preview' and command == 'view.detail')
             or (action == 'switch' and command == 'library.select')
             or (action == 'exposure' and method == 'ui.pointer')
@@ -933,7 +933,7 @@ def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,ru
         return record
 
 
-def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False, on_started=None, exposure_steps=10, gpu_state=None, import_only=False):
+def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False, on_started=None, exposure_steps=10, gpu_state=None, import_only=False, direct_import=False):
     from lightcraft_session_report import validate_session, check_export_pixels
     directory.mkdir(parents=True,exist_ok=False)
     library,profile = directory/'library',directory/'profile'
@@ -954,7 +954,8 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         state=control.call('ui.inspect')
         # ui.inspect deliberately omits transient dialogs. Cancel optional first-run
         # onboarding through the supported dialog API before any action is timed.
-        control.call('ui.set',{'settings':{'previewLimit':0,'lensDatabase':'declined'}})
+        control.call('ui.set',{'settings':{'previewLimit':0,'lensDatabase':'declined','importDroppedDirectly':direct_import}})
+        record['import_boundary']='folder-drop-to-usable-grid' if direct_import else 'confirmation-to-usable-grid' if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1' else 'folder-drop-to-usable-grid'
         control.call('ui.dialog.cancel')
         record['interactive_ns'],_=session_frame(control,directory/'interactive.png')
         record['interactive_capture']=control.last_capture_proof
@@ -974,16 +975,26 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
                 control.call('ui.scroll', {'dy': 100000})
             session_execute(control,'view.squareGrid')
             control.call('ui.set',{'thumbSize':100})
-            if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')!='1': session_arm(control,record,'import')
-            control.call('ui.dropFiles',{'paths':[str(payload)]})
-            sent=control.last_sent_ns
-            review=session_wait(control,lambda s:any(w['id']=='label:importSource' for w in control.call('ui.widgets',{'filter':'label:importSource'})))
-            control.call('ui.clickWidget',{'id':'button:importAdd'})
-            if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1': session_arm(control,record,'import')
-            result=control.call('ui.dialog.confirm')
-            if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1': sent=control.last_sent_ns
-            if result.get('importing')!=len(paths):
-                raise RuntimeError(f'incomplete import request: {result}')
+            if direct_import:
+                # The app's existing direct-drop setting starts the same Add worker.
+                # Time the folder drop itself, including expansion/preparation, with
+                # no review-dialog scan or driver confirmation inside that clock.
+                session_arm(control,record,'import')
+                if control.call('ui.widgets',{'filter':'thumb:'}):
+                    raise RuntimeError('direct import reset left thumbnail widgets before the drop')
+                control.call('ui.dropFiles',{'paths':[str(payload)]})
+                sent=control.last_sent_ns
+            else:
+                if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')!='1': session_arm(control,record,'import')
+                control.call('ui.dropFiles',{'paths':[str(payload)]})
+                sent=control.last_sent_ns
+                review=session_wait(control,lambda s:any(w['id']=='label:importSource' for w in control.call('ui.widgets',{'filter':'label:importSource'})))
+                control.call('ui.clickWidget',{'id':'button:importAdd'})
+                if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1': session_arm(control,record,'import')
+                result=control.call('ui.dialog.confirm')
+                if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1': sent=control.last_sent_ns
+                if result.get('importing')!=len(paths):
+                    raise RuntimeError(f'incomplete import request: {result}')
             session_wait(control,lambda s:s.get('import') is None and s.get('scan') is None)
             import_completed_ns=time.perf_counter_ns()
             catalog=session_execute(control,'catalog.query',{'limit':len(paths)+1})
@@ -999,7 +1010,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             # verification cannot inflate the user's import-to-usable-grid clock.
             _,_,frames=session_grid(control,ids,grid_dir)
             record.pop('pending_import_check')
-            session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),frames=frames,first_viewport=viewport,completion_observed_ns=import_completed_ns,capture=proof)
+            session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),imported_ids=ids,frames=frames,first_viewport=viewport,completion_observed_ns=import_completed_ns,capture=proof)
         record['photo_ids']=ids
         record['photos']=photos
         if import_only:
@@ -1262,7 +1273,7 @@ def session_calibration(config):
         raise ValueError('calibration app commit differs from comparison main')
     if report.get('driver_sha256')!=file_digest(Path(__file__)):
         raise ValueError('calibration used a different driver; repeat A/A')
-    for key in ('gpu_state','measurement_method','warmups','repetitions','exposure_steps','import_only'):
+    for key in ('gpu_state','measurement_method','warmups','repetitions','exposure_steps','import_only','direct_import'):
         if report['config'].get(key)!=config.get(key):
             raise ValueError(f'calibration condition differs: {key}')
     if any(s.get('gpu_state')!=report['config'].get('gpu_state') for s in report['sessions']):
@@ -1280,6 +1291,8 @@ def session_main(args):
     options=parser.parse_args(args)
     config=json.loads(options.config.read_text())
     config.setdefault('measurement_method','first-grid-quickack-v4')
+    if config.get('direct_import') and (not config.get('import_only') or os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')!='1'):
+        raise ValueError('direct_import requires import_only and in-app clocks')
     if (config['measurement_method']=='in-app-frame-gpu-v2') != (os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1'):
         raise ValueError('declared timing method and enabled clock source differ')
     if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1':
@@ -1305,7 +1318,7 @@ def session_main(args):
     report=dict(discarded_sessions=[],failed_sessions=[],gpu_wait_events=[],provisional_tiers={},gpu_policy=dict(wait_poll_seconds=30,attempt_budget_seconds=1800,during_session_poll_seconds=2),schema='lightcraft-session-v1',publish_scope='fork-point-to-fork-main',config=config,sessions=sessions,publishable=False,
                 statistics=dict(resamples=4000,seed=313,bootstrap_unit='paired-session-stratified-by-fixed-AB-BA-order',ordinary_ci_retained=True,pooled_ci_retained=True,ratio='exp(median(log(session_point_median/session_main_median)))',percentiles='linear'),
                 environment={key:os.environ.get(key) for key in ('DISPLAY','WGPU_BACKEND','LIGHTCRAFT_GPU_BACKEND','LIGHTCRAFT_GPU_ADAPTER','__GL_SHADER_DISK_CACHE_PATH','CRAFT_BENCH_ISOLATED')},
-                timing_scope=('UI-thread acceptance to reflecting-frame GPU completion; startup/quit external, driver times secondary' if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1' else 'external control/capture'),
+                timing_scope=('UI-thread acceptance to reflecting-frame GPU completion; startup from native entry, quit external, driver times secondary' if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1' else 'external control/capture'),
                 driver_sha256=file_digest(Path(__file__)),
                 harness_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=Path(__file__).resolve().parents[3],text=True).strip(),
                 binary_sha256=binary_hashes,comparison_complete=False,prior_acquisitions_passed=True)
@@ -1358,7 +1371,7 @@ def session_main(args):
                     revision=config['revisions'][side]
                     binary=Path(revision['binary'])
                     record=session_guarded_attempt(report,checkpoint,binary,options.out/f'{tier}-{pair}-{side}',tier,side,pair,
-                        lambda directory,provisional,on_started:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional,on_started=on_started,exposure_steps=config.get('exposure_steps',10),gpu_state=config.get('gpu_state'),import_only=config.get('import_only',False)))
+                        lambda directory,provisional,on_started:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional,on_started=on_started,exposure_steps=config.get('exposure_steps',10),gpu_state=config.get('gpu_state'),import_only=config.get('import_only',False),direct_import=config.get('direct_import',False)))
                     sessions.append(record)
                     checkpoint()
         from lightcraft_session_report import check_pixels

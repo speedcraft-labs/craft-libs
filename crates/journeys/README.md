@@ -362,6 +362,23 @@ Report failed gates and achieved MDE instead of claiming 5% sensitivity.
 If a calibration interval excludes 1, its comparison row is descriptive only:
 the interval width cannot establish sensitivity when identical builds differ.
 A wide interval containing 1 still reports its measured, larger MDE floor.
+For a real comparison, report the larger of its own CI-derived MDE and the A/A
+floor adjusted for pair counts: scale the log effect by
+`sqrt(calibration_pairs / comparison_pairs)`. A 20-pair control does not grant
+its precision unchanged to a 10-pair comparison.
+
+Reimported photos receive new catalog IDs. Each import records its own
+`imported_ids` for exact thumbnail coverage; only the last import uses the final
+catalog IDs. Legacy records retain distinct-ID counts plus the collector's
+per-import filename and grid-coverage assertions. They must not be compared
+against a later import's IDs.
+
+Strict developed-pixel equivalence gates primary speed verdicts. Defaults can
+change their rendering process between revisions (for example V4 to V7); retain
+such timings as descriptive observations and report the output difference.
+The pixel bound stays fixed. Import-only checks establish catalog membership
+and non-placeholder thumbnail coverage, a narrower claim than developed-pixel
+identity.
 
 Agentbox's automatic GPU power state is an additional measurement condition:
 the diagnostic run saw 300–1,350 MHz graphics clocks and 405–7,000 MHz memory
@@ -421,6 +438,16 @@ reports and unsuccessful approaches remain in ticket 313's NAS archive.
 
 ### LightCraft in-app session timing (313b)
 
+The in-app campaign supersedes the legacy collection recipe above: both A/A
+tiers use 20 independent-build pairs. The 50-RAW tier uses two warmups, six
+measured repetitions per action and four exposure steps per repetition; the
+1,259-RAW import-only tier uses two warmups and two measured repetitions.
+Real comparisons use ten primary pairs plus separately acquired, descriptive
+upstream samples. Each contiguous primary pair holds bench.lock then exclusive
+gpu.lock for at most 840 seconds, releasing both between pairs. Heavy imports
+admit only with an empty benchmark queue. Incomplete pairs remain diagnostic;
+successful pairs are never removed based on their measured durations.
+
 Set `CRAFT_JOURNEYS_INAPP_TIMING=1` for the session driver. Only session processes
 receive `LIGHTCRAFT_LATENCY=1`; ordinary app launches have no recorder. Each
 measured request carries `_latency: {id, action}`. Acceptance is stamped on the
@@ -448,8 +475,9 @@ after the import has finished. A virtualized grid cannot present offscreen
 thumbnails; exact catalog membership and every page remain checked outside
 timing. Detail plus zoom100 is dispatched atomically on the UI thread for the
 recorded preview request. Switch completion requires the active photo's full
-render, including a pending region render at 100%. Background work at each
-endpoint is retained. The existing one-second empty-queue gate, plus
+render, including a pending region render at 100%. Pending-work lists are captured while the reflecting frame is assembled; its
+GPU completion timestamp is taken later by the host callback. The existing
+one-second empty-queue gate, plus
 `ui.latency.idle`, runs before every action; failure rejects the sample.
 
 Prepare **every** compared app revision with the same `app_base_patch`, using
@@ -483,3 +511,15 @@ into a measurement of 1,259 background Detail-preview preparations; the normal
 A/A and real comparisons must use the same declared repeat settings and action
 subset. Its output gate is semantic import/thumbnail coverage, explicitly
 labelled separately from the full session's developed-photo/JPEG parity gate.
+
+An import-only native-clock campaign can also declare `direct_import: true`.
+This selects the app's existing "Import dropped files without review" setting
+and records folder-drop acceptance through the ready grid. Directory expansion
+and import preparation are inside the app clock; the review dialog and scripted
+confirmation are absent. Exact filenames and every thumbnail page are still
+verified afterward. Each repetition permanently removes the prior catalog
+records while preserving originals, and requires an empty grid before dropping.
+This mode needs its own matching A/A: a confirmation-to-grid control cannot
+calibrate a folder-drop-to-grid comparison. The clock source, bootstrap, and
+5%/10% precision thresholds are unchanged. Legacy confirmation measurements
+remain a separately labelled protocol.

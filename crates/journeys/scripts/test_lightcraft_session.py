@@ -446,6 +446,29 @@ class Boundaries(unittest.TestCase):
         self.assertEqual(row['verdict'],'no measurable change')
         self.assertEqual(row['minimum_detectable_effect_pct'],100)
 
+    def test_fewer_comparison_pairs_raise_the_calibrated_noise_floor(self):
+        from lightcraft_session_report import calibrated_mde
+        reference = dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=10, calibration_pairs=20)
+        self.assertGreater(calibrated_mde(reference, 10, 1), 14)
+        self.assertLess(calibrated_mde(reference, 10, 1), 15)
+
+    def test_current_comparison_noise_cannot_be_hidden_by_a_quiet_control(self):
+        from lightcraft_session_report import calibrated_mde
+        reference = dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=10, calibration_pairs=20)
+        self.assertEqual(calibrated_mde(reference, 10, 30), 30)
+
+    def test_more_comparison_pairs_can_reduce_the_control_noise_floor(self):
+        from lightcraft_session_report import calibrated_mde
+        reference = dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=10, calibration_pairs=20)
+        self.assertGreater(calibrated_mde(reference, 40, 1), 6)
+        self.assertLess(calibrated_mde(reference, 40, 1), 8)
+
+    def test_rejected_missing_or_insufficient_control_cannot_calibrate_mde(self):
+        from lightcraft_session_report import calibrated_mde
+        for reference in (None, {}, dict(ci95=[1.01, 1.02], minimum_detectable_effect_pct=1, calibration_pairs=20),
+                          dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=1, calibration_pairs=2)):
+            self.assertIsNone(calibrated_mde(reference, 10, 2))
+
     def test_result_rejects_pre_dispatch_and_pre_completion_frames(self):
         from lightcraft_real_app import session_result
         from types import SimpleNamespace
@@ -621,6 +644,56 @@ class InAppTimingTests(unittest.TestCase):
         self.assertEqual([r['method'] for r in stream.requests],['engine.execute','ui.latency.wait'])
         self.assertEqual(control.last_latency['duration_ns'],4000000)
         self.assertEqual(stream.requests[0]['params']['_latency']['id'],'switch-1')
+
+    def test_direct_folder_drop_waits_once_without_review_polling(self):
+        import io,json
+        from lightcraft_real_app import Control
+        class Stream:
+            def __init__(self):self.requests=[]
+            def makefile(self,*args,**kwargs):
+                return io.StringIO(''.join(json.dumps(r)+'\n' for r in [
+                    {'id':1,'ok':True,'result':None},
+                    {'id':2,'ok':True,'result':{'duration_ns':4000000}}]))
+            def sendall(self,data):self.requests.append(json.loads(data))
+        stream=Stream();control=Control(stream)
+        control.pending_latency={'id':'import-1','action':'import'}
+        control.latency_records={}
+        control.call('ui.dropFiles',{'paths':['/photos']})
+        self.assertEqual([r['method'] for r in stream.requests],['ui.dropFiles','ui.latency.wait'])
+        self.assertEqual(control.last_latency['duration_ns'],4000000)
+        self.assertEqual(stream.requests[0]['params']['_latency']['id'],'import-1')
+
+    def test_direct_import_requires_the_import_only_native_protocol(self):
+        import json,os,tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from lightcraft_real_app import session_main
+        for import_only,inapp in ((False,'1'),(True,'0')):
+            with self.subTest(import_only=import_only,inapp=inapp), tempfile.TemporaryDirectory() as tmp:
+                path=Path(tmp)/'config.json'
+                path.write_text(json.dumps(dict(direct_import=True,import_only=import_only)))
+                with patch.dict(os.environ,{'CRAFT_JOURNEYS_INAPP_TIMING':inapp}):
+                    with self.assertRaisesRegex(ValueError,'direct_import requires'):
+                        session_main(['--config',str(path),'--out',str(Path(tmp)/'out')])
+
+    def test_confirmation_control_cannot_calibrate_direct_folder_drop(self):
+        import json,tempfile
+        from pathlib import Path
+        import lightcraft_real_app as app
+        conditions=dict(gpu_state=None,measurement_method='in-app-frame-gpu-v2',warmups=2,
+                        repetitions=2,exposure_steps=4,import_only=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'aa.json'
+            control=dict(config=dict(conditions,aa=True,sessions=20,direct_import=False,
+                revisions={'point':{'revision':'same'},'main':{'revision':'same'}}),
+                comparison_complete=True,output_checked=True,gpu_process_checks_passed=True,
+                guard={'contended':False},prior_acquisitions_passed=True,sessions=[],
+                driver_sha256=app.file_digest(Path(app.__file__)))
+            path.write_text(json.dumps(control))
+            comparison=dict(conditions,aa_report=str(path),direct_import=True,
+                            revisions={'main':{'revision':'same'}})
+            with self.assertRaisesRegex(ValueError,'direct_import'):
+                app.session_calibration(comparison)
 
     def test_common_patch_is_idempotent_and_rejects_drift(self):
         import tempfile,subprocess

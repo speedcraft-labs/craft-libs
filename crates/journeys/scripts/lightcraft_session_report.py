@@ -111,6 +111,19 @@ def variance_components(clusters):
     return dict(within_log_sd=math.sqrt(within), between_log_sd=math.sqrt(between))
 
 
+def calibrated_mde(reference, pairs, estimated):
+    """Conservative comparison floor; a quieter or larger A/A cannot hide current noise."""
+    ci = reference.get('ci95') if reference else None
+    if pairs < 10 or not ci or not ci[0] <= 1 <= ci[1]:
+        return None
+    baseline_pairs = reference.get('calibration_pairs', reference.get('observed_pairs'))
+    effect = reference.get('minimum_detectable_effect_pct')
+    if not baseline_pairs or baseline_pairs < 10 or effect is None:
+        return None
+    adjusted = math.expm1(math.log1p(effect / 100) * math.sqrt(baseline_pairs / pairs)) * 100
+    return max(estimated, adjusted)
+
+
 def summarize(sessions, resamples=4000, calibration=None, aa=False):
     # A/A precision is empirical; MDE additionally assumes asymptotic log-normal
     # location errors, two-sided alpha=.05 and power=.80. Never call CI width power.
@@ -172,7 +185,7 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
                 # CI-derived MDE on log scale, with 80% power explicitly declared.
                 mde = math.expm1((math.log(ci[1])-math.log(ci[0]))/2 * (1.959964+.841621)/1.959964)*100
                 reference = calibrated.get((tier,action,phase))
-                sensitivity = mde if aa and n>=10 else reference.get('minimum_detectable_effect_pct') if reference and n>=10 else None
+                sensitivity = mde if aa and n>=10 else calibrated_mde(reference, n, mde)
                 reference_ci = reference.get('ci95') if reference else None
                 calibration_contains_unity = bool(reference_ci and reference_ci[0]<=1<=reference_ci[1]) if reference else None
                 limit = 10 if action in ('import','startup') else 5
