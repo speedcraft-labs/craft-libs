@@ -45,6 +45,17 @@ class Control:
 
     def call(self, method: str, params: dict | None = None):
         self.ident += 1
+        meta = getattr(self, 'pending_latency', None)
+        action = meta['action'] if meta else None
+        command = (params or {}).get('command')
+        measured = bool(meta and ((action == 'import' and method == 'ui.dialog.confirm')
+            or (action == 'preview' and command == 'view.detail')
+            or (action == 'switch' and command == 'library.select')
+            or (action == 'exposure' and method == 'ui.pointer')
+            or (action == 'export' and command == 'app.export')))
+        if measured:
+            params = dict(params or {}, _latency=meta)
+            self.pending_latency = None
         request = {"id": self.ident, "method": method, "params": params or {}}
         encoded = (json.dumps(request, separators=(",", ":")) + "\n").encode()
         self.last_sent_ns = time.perf_counter_ns()
@@ -66,7 +77,13 @@ class Control:
             raise RuntimeError(f"LightCraft control id mismatch during {method}: {reply}")
         if not reply.get("ok"):
             raise RuntimeError(f"LightCraft {method}: {reply.get('error', 'request failed')}")
-        return reply.get("result")
+        result = reply.get("result")
+        if measured:
+            sent = self.last_sent_ns
+            self.last_latency = self.call('ui.latency.wait', {'id': meta['id']})
+            self.last_sent_ns = sent
+            self.latency_records[meta['id']] = self.last_latency
+        return result
 
 
 def free_port() -> int:
@@ -164,6 +181,8 @@ def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *
         "XDG_CACHE_HOME": str(profile / ".cache"),
         "LIGHTCRAFT_CONFIG_DIR": str(profile / "lightcraft-config"),
     })
+    if log_path is not None and os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING') == '1':
+        env['LIGHTCRAFT_LATENCY'] = '1'
     if log_path is not None:
         # Session-only profile: a launcher-managed pin suppresses asynchronous update
         # prompts/network checks without changing the app or the legacy journeys.
@@ -184,7 +203,7 @@ def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *
             raise RuntimeError(f"LightCraft exited during startup with status {process.returncode}")
         try:
             stream = socket.create_connection(("127.0.0.1", port), timeout=0.25)
-            stream.settimeout(max(1.0, deadline - time.monotonic()))
+            stream.settimeout(600 if os.environ.get("CRAFT_JOURNEYS_INAPP_TIMING") == "1" else max(1.0, deadline - time.monotonic()))
             control = Control(stream)
             break
         except OSError:
@@ -493,7 +512,16 @@ def session_arm(control, record, action):
     session_check_gpu_condition(record, 'before-' + action)
     if getattr(control, 'action_sampler', None) is not None:
         raise RuntimeError('previous action observer still running')
-    control.action_sampler = SessionSampler(control)
+    if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING') == '1':
+        idle = control.call('ui.latency.idle')
+        if not idle['idle']:
+            raise RuntimeError(f'app idle gate failed before {action}: {idle}')
+        control.pending_latency = dict(id=f'{action}-{control.ident}', action=action)
+        control.last_latency = None
+        record.setdefault('in_app_records', {})
+        control.latency_records = record['in_app_records']
+    else:
+        control.action_sampler = SessionSampler(control)
     control.armed_action = action
 
 
@@ -625,6 +653,11 @@ def session_sample(record, action, sent, end, digest, warmup, **evidence):
     phase='cold' if not any(x['action']==action for x in record['samples']) else 'warm'
     record['samples'].append(dict(action=action, phase=phase, sent_ns=sent, frame_ns=end, duration_ns=end-sent,
                                   frame_sha256=digest, warmup=warmup, checked=True, evidence=evidence))
+    if 'in_app_records' in record:
+        observation=next(reversed(record['in_app_records'].values()),None)
+        if observation is None: raise RuntimeError('missing in-app timing record')
+        record['samples'][-1]['in_app']=observation
+        record['samples'][-1]['driver_duration_ns']=end-sent
     (Path(record['directory'])/'partial-session.json').write_text(json.dumps(record,indent=2)+'\n')
 
 
@@ -909,6 +942,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
     record=dict(side=side,tier=tier,pair=pair,directory=str(directory),samples=[],gpu_state=gpu_state,gpu_provisional=gpu_provisional,gpu_processes_before=gpu_before,launch_ns=time.perf_counter_ns())
     process,control=spawn(binary,library,profile,None,log_path=log_path,on_started=on_started)
     control.test_delay_ms=float(os.environ.get('CRAFT_JOURNEYS_TEST_SWITCH_DELAY_MS','0')) if side=='main' else 0
+    record['timing_source']='in-app-gpu-completion' if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1' else 'external-control-and-capture'
     record['test_switch_delay_ms']=control.test_delay_ms
     record['process_ids']=[process.pid]
     record['control_transport']=dict(tcp_nodelay=control.low_latency,tcp_quickack=control.low_latency and hasattr(socket,'TCP_QUICKACK'))
@@ -973,7 +1007,7 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             session_arm(control,record,'preview')
             session_execute(control,'view.detail')
             sent=control.last_sent_ns
-            session_execute(control,'view.zoom100')
+            if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')!='1': session_execute(control,'view.zoom100')
             state=session_detail(control,photo)
             end,digest=session_result(control,directory/f'preview-{iteration}.png',sent)
             session_sample(record,'preview',sent,end,digest,iteration<warmups,loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
@@ -1061,11 +1095,13 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
         process,control=spawn(binary,library,profile,None,log_path=directory/'startup.log',on_started=on_started)
         record['process_ids'].append(process.pid)
         record['control_traces'].append(dict(pid=process.pid,calls=control.trace))
+        startup_inapp=control.call('ui.latency.wait',{'id':'startup'}) if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1' else None
         control.action_sampler=SessionSampler(control)
         session_detail(control,photo)
         ended,_=session_result(control,directory/'startup-library.png',started)
         record['startup_library_ns']=ended-started
         record['startup_samples']=[dict(duration_ns=ended-started,phase='cold',sent_ns=started,frame_ns=ended,capture=control.last_capture_proof)]
+        if startup_inapp is not None: record['startup_samples'][0]['in_app']=startup_inapp
         record['quit_samples']=[dict(duration_ns=record['exit_ns']-record['quit_request_ns'],phase='cold',sent_ns=record['quit_request_ns'],exit_ns=record['exit_ns'],exit_code=0)]
         record['startup_capture']=control.last_capture_proof
         record['startup_state']=control.call('ui.inspect')
@@ -1085,10 +1121,12 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             process,control=spawn(binary,library,profile,None,log_path=directory/f'startup-repeat-{lifecycle}.log',on_started=on_started)
             record['process_ids'].append(process.pid)
             record['control_traces'].append(dict(pid=process.pid,calls=control.trace))
+            startup_inapp=control.call('ui.latency.wait',{'id':'startup'}) if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1' else None
             control.action_sampler=SessionSampler(control)
             session_detail(control,photo)
             ended,_=session_result(control,directory/f'startup-repeat-{lifecycle}.png',started)
             record['startup_samples'].append(dict(duration_ns=ended-started,phase='warm',sent_ns=started,frame_ns=ended,capture=control.last_capture_proof))
+            if startup_inapp is not None: record['startup_samples'][-1]['in_app']=startup_inapp
         process=None
         record['gpu_processes_after']=session_gpu_processes()
         validate_session(record)
@@ -1235,7 +1273,7 @@ def session_main(args):
     report=dict(discarded_sessions=[],failed_sessions=[],gpu_wait_events=[],provisional_tiers={},gpu_policy=dict(wait_poll_seconds=30,attempt_budget_seconds=1800,during_session_poll_seconds=2),schema='lightcraft-session-v1',publish_scope='fork-point-to-fork-main',config=config,sessions=sessions,publishable=False,
                 statistics=dict(resamples=4000,seed=313,bootstrap_unit='paired-session-stratified-by-fixed-AB-BA-order',ordinary_ci_retained=True,pooled_ci_retained=True,ratio='exp(median(log(session_point_median/session_main_median)))',percentiles='linear'),
                 environment={key:os.environ.get(key) for key in ('DISPLAY','WGPU_BACKEND','LIGHTCRAFT_GPU_BACKEND','LIGHTCRAFT_GPU_ADAPTER','__GL_SHADER_DISK_CACHE_PATH','CRAFT_BENCH_ISOLATED')},
-                timing_scope='control send to first X11 capture proven pixel-identical to the native control PNG; mismatches fall back to the later native capture upper bound',
+                timing_scope=('UI-thread acceptance to reflecting-frame GPU completion; startup/quit external, driver times secondary' if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1' else 'external control/capture'),
                 driver_sha256=file_digest(Path(__file__)),
                 harness_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=Path(__file__).resolve().parents[3],text=True).strip(),
                 binary_sha256=binary_hashes,comparison_complete=False,prior_acquisitions_passed=True)

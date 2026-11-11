@@ -42,6 +42,13 @@ def validate_session(session):
         for quit in quits:
             if quit['exit_code']!=0 or quit['duration_ns']!=quit['exit_ns']-quit['sent_ns']:
                 raise ValueError('repeated quit failure or fabricated duration')
+    if session.get('timing_source')=='in-app-gpu-completion':
+        for sample in session['samples']:
+            r=sample.get('in_app')
+            if not r or r.get('control_wait_ns')!=0 or r.get('endpoint')!='reflecting-frame-gpu-work-confirmed-complete':
+                raise ValueError('missing in-app GPU timing evidence')
+            if not r['accepted_ns']<=r['first_reflecting_frame_presented_ns']<=r['completed_ns'] or r['duration_ns']!=r['completed_ns']-r['accepted_ns']:
+                raise ValueError('invalid in-app monotonic clock')
     used_clock_checks=set()
     for action in session['samples']:
         if action['action'] not in ACTIONS:
@@ -83,12 +90,12 @@ def percentile(xs, p):
 
 def durations(session, action):
     if action in ('startup','quit') and action+'_samples' in session:
-        return [x['duration_ns'] for x in session[action+'_samples'] if x['phase']=='warm']
+        return [x.get('in_app',x)['duration_ns'] for x in session[action+'_samples'] if x['phase']=='warm']
     if action == 'quit':
         return [session['exit_ns'] - session['quit_request_ns']]
     if action == 'startup':
         return [session['startup_library_ns']]
-    return [x['duration_ns'] for x in session['samples'] if x['action'] == action and not x['warmup']]
+    return [x.get('in_app',x)['duration_ns'] for x in session['samples'] if x['action'] == action and not x['warmup']]
 
 
 def variance_components(clusters):
@@ -111,6 +118,9 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
         calibration = json.load(open(calibration))
     calibrated = {(r['tier'], r['action'], r.get('phase','warm')): r
                   for r in (calibration or {}).get('rows', [])} if calibration else {}
+    sources={s.get('timing_source','external-control-and-capture') for s in sessions}
+    if len(sources)>1: raise ValueError('mixed timing sources')
+    source=next(iter(sources),'external-control-and-capture')
     rows = []
     for tier in sorted({s['tier'] for s in sessions}):
         sides = tuple(side for side in ('point','main','upstream')
@@ -126,9 +136,9 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
             for phase in phases:
                 def values(session):
                     if action in ('startup','quit'):
-                        if action+'_samples' in session:return [x['duration_ns'] for x in session[action+'_samples'] if x['phase']==phase]
+                        if action+'_samples' in session:return [x.get('in_app',x)['duration_ns'] for x in session[action+'_samples'] if x['phase']==phase]
                         return durations(session,action)
-                    if phase=='cold': return [x['duration_ns'] for x in session['samples'] if x['action']==action and x.get('phase')=='cold']
+                    if phase=='cold': return [x.get('in_app',x)['duration_ns'] for x in session['samples'] if x['action']==action and x.get('phase')=='cold']
                     return durations(session,action)
                 clusters = {side:[values(session) for session in group] for side,group in groups.items()}
                 if not all(all(cluster for cluster in group) for group in clusters.values()):
@@ -165,7 +175,7 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
                 limit = 10 if action in ('import','startup') else 5
                 offenders = {name for group in groups.values() for session in group for name in session.get('gpu_tier_offenders',[])}
                 verdict = 'insufficient paired sessions' if n<10 else 'A/A control rejected; descriptive only' if calibration_contains_unity is False else 'faster' if ci[0]>1 else 'slower' if ci[1]<1 else 'no measurable change' if sensitivity is not None else 'sensitivity uncalibrated'
-                rows.append(dict(tier=tier,action=action,phase=phase,observed_pairs=n,sides=stats,speedup=ratio,ci95=ci,ordinary_ci95=ordinary_ci,pooled_ci95=pooled_ci,pooled_ratio=stats['point']['median_ns']/stats['main']['median_ns'],
+                rows.append(dict(timing_source=('external-process-exit' if source=='in-app-gpu-completion' and action=='quit' else source),tier=tier,action=action,phase=phase,observed_pairs=n,sides=stats,speedup=ratio,ci95=ci,ordinary_ci95=ordinary_ci,pooled_ci95=pooled_ci,pooled_ratio=stats['point']['median_ns']/stats['main']['median_ns'],
                     half_width_pct=half_width,minimum_detectable_effect_pct=sensitivity,estimated_mde_pct=mde,
                     is_aa=aa,aa_pass=aa and n>=10 and ci[0]<=1<=ci[1] and half_width<=limit,
                     threshold_pct=limit,calibration_pairs=n if aa else reference.get('calibration_pairs') if reference else None,calibration_contains_unity=calibration_contains_unity,

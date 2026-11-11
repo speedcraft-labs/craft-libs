@@ -590,4 +590,50 @@ class Boundaries(unittest.TestCase):
             self.assertEqual(session_resume(current,{'point':'same'})['sessions'],[])
 
 
+
+class InAppTimingTests(unittest.TestCase):
+    def test_app_duration_is_not_control_round_trip(self):
+        from lightcraft_session_report import durations
+        s={'samples':[dict(action='switch',warmup=False,duration_ns=900000000,
+                          in_app={'duration_ns':4000000})]}
+        self.assertEqual(durations(s,'switch'),[4000000])
+
+    def test_mixed_clock_sources_rejected(self):
+        from lightcraft_session_report import summarize
+        with self.assertRaisesRegex(ValueError,'mixed timing'):
+            summarize([{'timing_source':'in-app-gpu-completion'},{}])
+
+    def test_command_waits_for_record_once_without_inspect(self):
+        import io,json
+        from lightcraft_real_app import Control
+        class Stream:
+            def __init__(self):
+                self.requests=[]
+            def makefile(self,*args,**kwargs):
+                return io.StringIO(''.join(json.dumps(r)+'\n' for r in [
+                    {'id':1,'ok':True,'result':None},
+                    {'id':2,'ok':True,'result':{'duration_ns':4000000}}]))
+            def sendall(self,data):self.requests.append(json.loads(data))
+        stream=Stream();control=Control(stream)
+        control.pending_latency={'id':'switch-1','action':'switch'}
+        control.latency_records={}
+        control.call('engine.execute',{'command':'library.select','params':{'ids':[2]}})
+        self.assertEqual([r['method'] for r in stream.requests],['engine.execute','ui.latency.wait'])
+        self.assertEqual(control.last_latency['duration_ns'],4000000)
+        self.assertEqual(stream.requests[0]['params']['_latency']['id'],'switch-1')
+
+    def test_common_patch_is_idempotent_and_rejects_drift(self):
+        import tempfile,subprocess
+        from pathlib import Path
+        from lightcraft_session_prepare import apply_app_base_patch
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);repo=root/'repo';repo.mkdir()
+            subprocess.run(['git','init','-q',str(repo)],check=True)
+            (repo/'file').write_text('base\n')
+            patch=root/'patch';patch.write_text('diff --git a/file b/file\n--- a/file\n+++ b/file\n@@ -1 +1,2 @@\n base\n+recorder\n')
+            self.assertEqual(apply_app_base_patch(repo,patch),'applied')
+            self.assertEqual(apply_app_base_patch(repo,patch),'already present')
+            (repo/'file').write_text('incompatible\n')
+            with self.assertRaisesRegex(RuntimeError,'rebuild ALL sides'):apply_app_base_patch(repo,patch)
+
 if __name__=='__main__': unittest.main()

@@ -418,3 +418,50 @@ outside DOWNLOAD_ROOT (craft-corpus prunes unlisted files).
 The heavy tier approximates the photo count in upstream #367; it cannot reproduce
 CF/NFS conditions or #832's 38,545-photo/~25-minute report. Existing legacy
 reports and unsuccessful approaches remain in ticket 313's NAS archive.
+
+### LightCraft in-app session timing (313b)
+
+Set `CRAFT_JOURNEYS_INAPP_TIMING=1` for the session driver. Only session processes
+receive `LIGHTCRAFT_LATENCY=1`; ordinary app launches have no recorder. Each
+measured request carries `_latency: {id, action}`. Acceptance is stamped on the
+UI thread before dispatch. `ui.latency.wait {id}` returns the completed record
+in one deferred response; the driver does not inspect readiness while that
+record is running. Subsequent state/pixel checks stay outside the app clock.
+Primary action statistics use the record's `duration_ns`; `driver_duration_ns`
+and the legacy capture proof retain the external upper bound for comparison.
+Startup additionally has an entry-point-to-photo-frame app clock; quit remains
+explicitly an external process-exit measurement.
+
+The endpoint is **GPU work for the reflecting frame confirmed complete**, not
+scanout. An egui-wgpu callback registers `on_submitted_work_done` on egui's own
+command encoder. An enabled-only worker polls that device independently of UI
+and TCP traffic, sleeping 100 microseconds between polls. Callback delivery is
+an upper bound affected by worker scheduling; precision must be validated by
+A/A, never assumed from the polling period. No screenshot, RPC completion, or
+readiness-poll timestamp enters the app duration. Disabled frames return before
+state inspection, clocks, shape creation, device polling or thread creation.
+
+Import starts at confirmation, excluding review-dialog scripting. It records
+first non-placeholder response and completion of all **visible** thumbnails
+after the import has finished. A virtualized grid cannot present offscreen
+thumbnails; exact catalog membership and every page remain checked outside
+timing. Detail plus zoom100 is dispatched atomically on the UI thread for the
+recorded preview request. Switch completion requires the active photo's full
+render, including a pending region render at 100%. Background work at each
+endpoint is retained. The existing one-second empty-queue gate, plus
+`ui.latency.idle`, runs before every action; failure rejects the sample.
+
+Prepare **every** compared app revision with the same `app_base_patch`, using
+`scripts/lightcraft_session_prepare.py --repo APP --revision REV --checkout WT
+--target TARGET --binary BINARY --app-base-patch
+crates/journeys/patches/lightcraft-session-latency.patch` (one shell line).
+This uses the existing prepare mechanism's `git apply --check`, apply, and
+reverse-check protocol for each side. An incompatible patch fails loudly:
+update the one common patch, verify it against all revisions, and rebuild all
+sides. Never use revision-specific recorder code or merge incompatible clocks.
+The helper creates fresh detached worktrees and saves SHA-256 provenance beside
+each binary. Keep binaries outside hourly-pruned targets and outside NAS report
+roots. Compilation happens before lock acquisition. Existing reset, cold/warm,
+whole-session bootstrap, AB/BA order and output gates are retained. Calibration
+and real configs must use a new matching measurement_method; older polling
+A/A reports cannot calibrate in-app results.
