@@ -91,6 +91,10 @@ craft-<name> = { git = "https://github.com/storytold/craft-libs", rev = "<commit
 - [`craft-docpath`](crates/docpath/src/lib.rs): decides whether a path or `file:` URL stored in a
   document may be opened. Paths stored in documents are followed only when they are local or on the
   document's own network share; other network paths, device paths and non-file URLs are refused.
+- [`craft-dxf`](crates/dxf/src/lib.rs): DXF tag reader and writer, from CADCraft: ASCII and
+  binary DXF as (group code, value) tags, split into sections and entities, with pre-2007 code
+  pages and version detection, and written back. Bounded on hostile input. Mapping tags to a
+  drawing stays in each app.
 
 - [`craft-ecproj-format`](crates/ecproj-format/README.md): the envelope of EffectCraft `.ecproj`
   project files: `savedBy`, the schema version and its check, and the file object with the
@@ -117,6 +121,10 @@ craft-<name> = { git = "https://github.com/storytold/craft-libs", rev = "<commit
 - [`craft-fonts-build`](crates/fonts-build/README.md): embeds the optional craft-fonts faces
   from an app's `build.rs` (`CRAFT_FONTS_DIR`, `CRAFT_FONTS_REQUIRED`, script filters) as a table
   of `EmbeddedFace`s. No dependencies; the app picks the faces.
+- [`craft-heif`](crates/heif/README.md): optional HEIF/HEIC still-image decoder, from LightCraft:
+  heic-rs reads the container and HEVC pictures, and this crate converts to 16-bit RGB to match
+  libheif (VUI range and matrix, chroma upsampling, `imir`, ICC on grid tiles). Also orientation,
+  alpha, EXIF/XMP and thumbnails. It never panics, and apps put it behind a non-default feature.
 
 - [`craft-fuzzy`](crates/fuzzy/README.md): cached Unicode-aware command-palette matching and highlighting.
 
@@ -134,6 +142,10 @@ craft-<name> = { git = "https://github.com/storytold/craft-libs", rev = "<commit
   lookup with fallback (`pt-br` → `pt` → English), plurals, language names, the system locale and
   a pseudo locale. The catalogs stay a fully optional build input; apps keep `tl!` and their
   language setting.
+- [`craft-tiff`](crates/tiff/README.md): TIFF and BigTIFF IFD reader and writer, from LightCraft:
+  every field type, the IFD chain, SubIFDs and Exif/GPS/Interop pointer IFDs, maker-note IFDs
+  (Canon, Nikon, Sony, Fujifilm, Olympus, Panasonic, Pentax), strip and tile layout. Bounded and
+  panic-free on hostile input. Pixel decompression stays with the callers.
 
 - [`craft-io`](crates/io/README.md): bounded reads of regular files and generic readers, with
   nonblocking Unix opens, handle-based file checks, and structured overflow errors.
