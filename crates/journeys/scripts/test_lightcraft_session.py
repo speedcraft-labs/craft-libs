@@ -636,4 +636,30 @@ class InAppTimingTests(unittest.TestCase):
             (repo/'file').write_text('incompatible\n')
             with self.assertRaisesRegex(RuntimeError,'rebuild ALL sides'):apply_app_base_patch(repo,patch)
 
+class ImportOnlyTests(unittest.TestCase):
+    def sessions(self):
+        sessions=[]
+        for side in ('point','main'):
+            s=fixture();s.update(side=side,tier='heavy',pair=0,actions=['import'],
+                photos=[{'fileName':'one.raw','width':6000,'height':4000}],photo_ids=[1])
+            s['samples'][0].update(action='import',evidence={'frames':[{'ids':[1]}],'imported':1})
+            sessions.append(s)
+        return sessions
+
+    def test_import_only_checks_membership_and_every_thumbnail(self):
+        from lightcraft_session_report import check_pixels
+        s=self.sessions()
+        self.assertTrue(check_pixels(s)[0]['equivalent'])
+        s[1]['samples'][0]['evidence']['frames'][0]['ids']=[]
+        with self.assertRaisesRegex(ValueError,'coverage incomplete'):check_pixels(s)
+
+    def test_import_only_rejects_different_catalogs(self):
+        from lightcraft_session_report import check_pixels
+        s=self.sessions();s[1]['photos'][0]['fileName']='wrong.raw'
+        with self.assertRaisesRegex(ValueError,'catalog differs'):check_pixels(s)
+
+    def test_only_declared_import_rows_are_summarized(self):
+        rows=summarize(self.sessions(),resamples=10,aa=True)
+        self.assertEqual([r['action'] for r in rows],['import'])
+
 if __name__=='__main__': unittest.main()

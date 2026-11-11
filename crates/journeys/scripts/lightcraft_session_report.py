@@ -8,6 +8,7 @@ ACTIONS = ('import', 'preview', 'exposure', 'switch', 'export')
 
 def validate_session(session):
     """Reject action clocks that include launch/exit, even if a plausible duration is supplied."""
+    if 'actions' in session and session['actions']!=['import']: raise ValueError('unsupported action subset')
     if not session['launch_ns'] < session['interactive_ns'] < session['quit_request_ns'] < session['exit_ns']:
         raise ValueError('invalid lifecycle ordering')
     if not session['gpu_adapter']:
@@ -131,7 +132,9 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
         if 'point' not in groups or 'main' not in groups or len({tuple(s['pair'] for s in g) for g in groups.values()}) != 1:
             raise ValueError('unpaired sessions')
         n = len(groups['point'])
-        for action in (*ACTIONS, 'startup', 'quit'):
+        declared={tuple(s.get('actions',(*ACTIONS,'startup','quit'))) for g in groups.values() for s in g}
+        if len(declared)!=1: raise ValueError('mismatched declared action sets')
+        for action in next(iter(declared)):
             phases = ('cold','warm') if ((action in ('startup','quit') and all(action+'_samples' in session for g in groups.values() for session in g)) or action in ACTIONS and all('phase' in x for g in groups.values() for session in g for x in session['samples'])) else ('warm',)
             for phase in phases:
                 def values(session):
@@ -274,9 +277,25 @@ def check_pixels(sessions):
     from PIL import Image, ImageChops, ImageStat
     checks=[]
     for session in sessions:
-        if not session.get('photo_output_checks'):session['photo_output_checks']=check_photo_frames(session)
+        if session.get('actions')!=['import'] and not session.get('photo_output_checks'):session['photo_output_checks']=check_photo_frames(session)
     for tier,pair in sorted({(s['tier'],s['pair']) for s in sessions}):
         group={s['side']:s for s in sessions if s['tier']==tier and s['pair']==pair}
+        if any(s.get('actions')==['import'] for s in group.values()):
+            if not all(s.get('actions')==['import'] for s in group.values()): raise ValueError('mismatched import-only output checks')
+            for session in group.values():
+                expected=set(session['photo_ids'])
+                for sample in session['samples']:
+                    frames=sample['evidence']['frames']
+                    seen={ident for frame in frames for ident in frame['ids']}
+                    if seen!=expected or sample['evidence']['imported']!=len(expected):
+                        raise ValueError('import-only thumbnail coverage incomplete')
+            names=lambda s:sorted((p['fileName'],p.get('width'),p.get('height')) for p in s['photos'])
+            for side in ('main','upstream'):
+                if side not in group:continue
+                equivalent=names(group['point'])==names(group[side])
+                checks.append(dict(tier=tier,pair=pair,side=side,equivalent=equivalent,method='exact-catalog-membership-and-every-non-placeholder-thumbnail',photos=len(group[side]['photo_ids'])))
+                if side=='main' and not equivalent:raise ValueError('imported catalog differs')
+            continue
         for session in group.values():
             session['export_output_check']=check_export_pixels(session)
         for side in ('main','upstream'):

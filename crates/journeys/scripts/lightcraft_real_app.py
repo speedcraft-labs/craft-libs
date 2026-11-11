@@ -933,7 +933,7 @@ def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,ru
         return record
 
 
-def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False, on_started=None, exposure_steps=10, gpu_state=None):
+def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False, on_started=None, exposure_steps=10, gpu_state=None, import_only=False):
     from lightcraft_session_report import validate_session, check_export_pixels
     directory.mkdir(parents=True,exist_ok=False)
     library,profile = directory/'library',directory/'profile'
@@ -1002,6 +1002,18 @@ def run_session(binary, payload, directory, side, tier, pair, repetitions, warmu
             session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),frames=frames,first_viewport=viewport,completion_observed_ns=import_completed_ns,capture=proof)
         record['photo_ids']=ids
         record['photos']=photos
+        if import_only:
+            record['actions']=['import']
+            session_drain(control,record,'before-import-only-quit',require_saved=True)
+            control.call('engine.execute',{'command':'app.quit'})
+            record['quit_request_ns']=control.last_sent_ns
+            record['exit_ns']=session_wait_exit(process)
+            if process.returncode!=0: raise RuntimeError(f'quit failed: {process.returncode}')
+            process=None
+            record['gpu_processes_after']=session_gpu_processes()
+            validate_session(record)
+            (directory/'session.json').write_text(json.dumps(record,indent=2)+'\n')
+            return record
         photo=ids[0]
         if photos[0].get('previewOnly'):
             raise RuntimeError(f'full-quality RAW preview unavailable: {photos[0]}')
@@ -1250,7 +1262,7 @@ def session_calibration(config):
         raise ValueError('calibration app commit differs from comparison main')
     if report.get('driver_sha256')!=file_digest(Path(__file__)):
         raise ValueError('calibration used a different driver; repeat A/A')
-    for key in ('gpu_state','measurement_method','warmups','repetitions','exposure_steps'):
+    for key in ('gpu_state','measurement_method','warmups','repetitions','exposure_steps','import_only'):
         if report['config'].get(key)!=config.get(key):
             raise ValueError(f'calibration condition differs: {key}')
     if any(s.get('gpu_state')!=report['config'].get('gpu_state') for s in report['sessions']):
@@ -1346,7 +1358,7 @@ def session_main(args):
                     revision=config['revisions'][side]
                     binary=Path(revision['binary'])
                     record=session_guarded_attempt(report,checkpoint,binary,options.out/f'{tier}-{pair}-{side}',tier,side,pair,
-                        lambda directory,provisional,on_started:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional,on_started=on_started,exposure_steps=config.get('exposure_steps',10),gpu_state=config.get('gpu_state')))
+                        lambda directory,provisional,on_started:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional,on_started=on_started,exposure_steps=config.get('exposure_steps',10),gpu_state=config.get('gpu_state'),import_only=config.get('import_only',False)))
                     sessions.append(record)
                     checkpoint()
         from lightcraft_session_report import check_pixels
@@ -1358,7 +1370,7 @@ def session_main(args):
         # Keep hashes and measured evidence, not thousands of passing native PNGs.
         for accepted in verified:
             if 'directory' not in accepted:continue
-            protected={accepted['oracle'],accepted['export_sample'],accepted['export_oracle']}
+            protected={accepted[k] for k in ('oracle','export_sample','export_oracle') if k in accepted}
             for image in Path(accepted['directory']).rglob('*.png'):
                 if str(image) not in protected and 'headless-attempt' not in image.name and '.rejected.' not in image.name:
                     image.unlink()

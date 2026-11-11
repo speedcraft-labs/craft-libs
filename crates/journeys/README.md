@@ -472,3 +472,13 @@ LightCraft workspace (`cargo metadata --no-deps`), as required by the retained
 313 build notes: Cargo otherwise reuses incompatible path-workspace artifacts
 across revisions. Third-party dependencies and debug harness artifacts remain.
 `workspace_clean: true` is mandatory in binary provenance.
+
+The 1,259-RAW import tier may declare `import_only: true`. It measures only import,
+then checks exact catalog membership and non-placeholder pixels for every
+thumbnail page, and quits from the grid. It never silently substitutes missing
+preview/exposure/switch/export rows. This avoids turning an import-tier sample
+into a measurement of 1,259 background Detail-preview preparations; the normal
+50-RAW tier still includes all actions and lifecycle repetitions. Import-only
+A/A and real comparisons must use the same declared repeat settings and action
+subset. Its output gate is semantic import/thumbnail coverage, explicitly
+labelled separately from the full session's developed-photo/JPEG parity gate.
