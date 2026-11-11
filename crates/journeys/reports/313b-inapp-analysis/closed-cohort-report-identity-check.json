@@ -1,0 +1,46 @@
+{
+  "driver_sha256_by_cohort": {
+    "typical": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3"
+  },
+  "aa": {
+    "aa": {
+      "rows": 14,
+      "all_statistical_fields_bit_identical": true,
+      "summary_sha256": "8d03ca7aafd232fc479a6c1e22b4bd345dfe917f1811828dd3209fc5413cfe58",
+      "raw_report_sha256": "5f95cf291e863617ae84241bfc93a3241bd3765fc670b5cf31b276c5049e9cd7"
+    },
+    "legacy_heavy_aa": {
+      "rows": 2,
+      "all_statistical_fields_bit_identical": true,
+      "summary_sha256": "c3ecd8cdf9b349c81526d5034f9c5ab803c153b5f98a775b61ee80bc697d5cff",
+      "raw_report_sha256": "a6707398296ebb53da59678a924ee6dd6ab0e81846fed91384286512135a1e5b"
+    }
+  },
+  "comparisons": {
+    "slowdown": {
+      "rows": 14,
+      "only_mde_can_change": true,
+      "observations_sha256": "fdc257c2d3aa28b4c5a972f66e35390569eccc85b56a0f100dd65d0e21ca9515",
+      "raw_report_sha256": "ccf8b595a89038153e86b3a102f3d5e4c3b0e62732df924d64f5df6c91d882f7",
+      "output_qualification_preserved": true,
+      "no_protocol_pooling": true
+    },
+    "real50": {
+      "rows": 14,
+      "only_mde_can_change": true,
+      "observations_sha256": "b1693abd70bbb4bdaf9ad16de02a989205011579d3ae2d9289968e7ee28bc584",
+      "raw_report_sha256": "237cc8d760c57a11bf0c872b77fecdb80fd77fc442a046a02d973577c85a4be8",
+      "output_qualification_preserved": true,
+      "no_protocol_pooling": true
+    },
+    "legacy_heavy_real_partial": {
+      "rows": 2,
+      "only_mde_can_change": true,
+      "observations_sha256": "9d1b0e3009ab8c1ba9466a851bc87dab50407bd191ba47a895b996fde1c769e6",
+      "raw_report_sha256": "3cd757ce9a7cfdbe6f981c309b98586052433c2a0e77a384bba24cc2af098e7f",
+      "output_qualification_preserved": true,
+      "no_protocol_pooling": true
+    }
+  },
+  "scope": "Closed legacy cohorts only; final direct cohorts are still collecting"
+}
