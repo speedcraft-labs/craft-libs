@@ -1,5 +1,5 @@
 {
-  "status": "draft against88e6735f only; DO NOT APPLY before ALL-PHASES.json",
+  "status": "draft against b0863549; gitapplycheck plus scratch apply pass; DO NOT APPLY before ALL-PHASES.json",
   "files": {
     "crates/journeys/scripts/lightcraft_session_report.py": {
       "original_sha256": "1b4d6ca21e83a5137d2781aa403df3c0d60c366c1ee84a32e7c5dbbbae300441",
@@ -15,7 +15,9 @@
     },
     "crates/journeys/README.md": {
       "original_sha256": "967995bca9401c41f83784fd559d864389579212c2d08d9abe76a7ecb1e1b1ae",
-      "draft_sha256": "3f58d9823c7c032c1e2e094f42f74654c8238cd5139962206ce350b28d8410e3"
+      "draft_sha256": "3bcb5ade94d476fedf7469533e4737f4d2807a416a7b525cf11c1b3754fc19b5"
     }
-  }
+  },
+  "patch_sha256": "ac0a14b8d9eca54c3b0d5c8ec503b50125b9a2e854542147522f94507e3808ea",
+  "documentation": "Explicit fixed20pair in-app cohort and contiguous840s pair acquisition; supersedes legacy recipe"
 }

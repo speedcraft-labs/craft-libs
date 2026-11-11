@@ -1,0 +1,43 @@
+{
+  "note": "All accepted observations retained. Internal-render/frame diagnostics are descriptive; cached slots may retain earlier render costs. No causal decomposition or outlier removal.",
+  "rows": [
+    {
+      "tier": "import-1259",
+      "side": "point",
+      "action": "import",
+      "n": 40,
+      "app_median_ms": 564.4916235000001,
+      "frames_median": 31.0,
+      "first_frames_median": 5.0,
+      "last_render_median_ms": null,
+      "frame_layout_wall_median_ms": null,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": null,
+      "session_log_latency_render_correlation": null,
+      "session_log_latency_loupe_sharp_correlation": null,
+      "gpu_fallbacks": {
+        "None": 40
+      }
+    },
+    {
+      "tier": "import-1259",
+      "side": "main",
+      "action": "import",
+      "n": 40,
+      "app_median_ms": 568.836164,
+      "frames_median": 31.0,
+      "first_frames_median": 5.0,
+      "last_render_median_ms": null,
+      "frame_layout_wall_median_ms": null,
+      "pending_at_completion_n": 0,
+      "pending_labels": {},
+      "loupe_sources": null,
+      "session_log_latency_render_correlation": null,
+      "session_log_latency_loupe_sharp_correlation": null,
+      "gpu_fallbacks": {
+        "None": 40
+      }
+    }
+  ]
+}

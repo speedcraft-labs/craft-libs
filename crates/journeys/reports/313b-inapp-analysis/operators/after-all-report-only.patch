@@ -107,3 +107,20 @@
  
  Agentbox's automatic GPU power state is an additional measurement condition:
  the diagnostic run saw 300–1,350 MHz graphics clocks and 405–7,000 MHz memory
+@@ -421,6 +438,16 @@
+ 
+ ### LightCraft in-app session timing (313b)
+ 
++The in-app campaign supersedes the legacy collection recipe above: both A/A
++tiers use 20 independent-build pairs. The 50-RAW tier uses two warmups, six
++measured repetitions per action and four exposure steps per repetition; the
++1,259-RAW import-only tier uses two warmups and two measured repetitions.
++Real comparisons use ten primary pairs plus separately acquired, descriptive
++upstream samples. Each contiguous primary pair holds bench.lock then exclusive
++gpu.lock for at most 840 seconds, releasing both between pairs. Heavy imports
++admit only with an empty benchmark queue. Incomplete pairs remain diagnostic;
++successful pairs are never removed based on their measured durations.
++
+ Set `CRAFT_JOURNEYS_INAPP_TIMING=1` for the session driver. Only session processes
+ receive `LIGHTCRAFT_LATENCY=1`; ordinary app launches have no recorder. Each
+ measured request carries `_latency: {id, action}`. Acceptance is stamped on the

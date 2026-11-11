@@ -1,0 +1,61 @@
+{
+  "note": "All complete20pairs retained. App elapsed first-response/completion and framecounts describe remaining import-stage variation; underlying CPU/GPU/scheduling shares are not identified.",
+  "rows": [
+    {
+      "side": "point",
+      "paired_sessions": 20,
+      "warm_samples": 40,
+      "session_median_range_ms": [
+        517.5512504999999,
+        1137.146507
+      ],
+      "first_to_complete_gap_median_ms": 516.3755475,
+      "completion_frames_range": [
+        30,
+        32
+      ],
+      "session_log_duration_framecount_correlation": -0.5678123816876416,
+      "pending_labels_at_completion": {},
+      "within_log_sd": 0.16464146922646852,
+      "between_log_sd": 0.17017354758237338
+    },
+    {
+      "side": "main",
+      "paired_sessions": 20,
+      "warm_samples": 40,
+      "session_median_range_ms": [
+        522.3924910000001,
+        911.8025705
+      ],
+      "first_to_complete_gap_median_ms": 516.0728730000001,
+      "completion_frames_range": [
+        31,
+        32
+      ],
+      "session_log_duration_framecount_correlation": -0.19102693307183666,
+      "pending_labels_at_completion": {},
+      "within_log_sd": 0.19248156466675806,
+      "between_log_sd": 0.11176754338660634
+    }
+  ],
+  "source_evidence": {
+    "revision": "d97557e02188f6466c448773d98127222e702daf",
+    "source_sha256": {
+      "crates/ui-egui/src/dialogs/import/task.rs": "b35ebdb0d891fd8ecf549046bf37d3e66541a8d54a4850b319192d548bb243b9",
+      "crates/ui-egui/src/app/frame.rs": "2aec68fedf3b14a64c2dcbe12ac2b04e8a0ced71619ea6eafb850f9fd5da1bf6",
+      "crates/engine/src/import/commit.rs": "38ed8fa5e104890405b563d1fdb2ebcf4da84dcde1701f029bcf6380e00b36a9"
+    },
+    "bounded_commit_batches_per_host_frame": 4,
+    "worker_batch_size_rule": "available_parallelism clamped1..8, times2 clamped8..16",
+    "bench_cpu_affinity": [
+      22,
+      23,
+      24,
+      25,
+      26,
+      27
+    ],
+    "inference": "At six available CPUs, batch_size=12;105 prepared batches need at least27 commit frames, consistent with observed30..32 reflecting completion frames. The import pipeline is paced by app host frames; elapsed spread occurs despite nearly fixed frame count. No app optimization or recorder change made.",
+    "limits": "No per-frame timestamp trace or CPU/GPU cause decomposition exists; frame pacing and stalls are not causally separated."
+  }
+}
