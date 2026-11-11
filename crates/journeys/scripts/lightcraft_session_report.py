@@ -274,7 +274,6 @@ def check_export_pixels(session):
 
 
 def check_pixels(sessions):
-    from PIL import Image, ImageChops, ImageStat
     checks=[]
     for session in sessions:
         if session.get('actions')!=['import'] and not session.get('photo_output_checks'):session['photo_output_checks']=check_photo_frames(session)
@@ -296,6 +295,7 @@ def check_pixels(sessions):
                 checks.append(dict(tier=tier,pair=pair,side=side,equivalent=equivalent,method='exact-catalog-membership-and-every-non-placeholder-thumbnail',photos=len(group[side]['photo_ids'])))
                 if side=='main' and not equivalent:raise ValueError('imported catalog differs')
             continue
+        from PIL import Image, ImageChops, ImageStat
         for session in group.values():
             session['export_output_check']=check_export_pixels(session)
         for side in ('main','upstream'):
