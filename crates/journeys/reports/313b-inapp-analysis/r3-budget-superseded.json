@@ -1,0 +1,8 @@
+{
+  "status": "diagnostic/excluded from final fixed cohort",
+  "reason": "two consecutive whole-pair budget failures: first side476.3s and463.3s, leaving355.1s and368.3s within840s; repetitions reduced before a fresh20pair cohort, not pooled",
+  "valid_pairs_retained": 4,
+  "source_method_unchanged": "in-app-frame-gpu-v2",
+  "new_config": "aa-r4-config.json",
+  "new_controller": "operators/campaign-v2.py"
+}

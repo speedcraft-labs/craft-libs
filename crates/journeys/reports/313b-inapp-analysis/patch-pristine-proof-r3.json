@@ -1,0 +1,26 @@
+[
+  {
+    "side": "fork-point",
+    "revision": "fc97c728644d399843d8201f83d25ccf81b89669",
+    "patch_sha256": "44fe9373aab994e3db26f2e3f95683bcc827fe84e3717709036426430bfbc8c9",
+    "check": "forward on pristine committed files in disposable directory",
+    "returncode": 0,
+    "stderr": ""
+  },
+  {
+    "side": "fork-main",
+    "revision": "d97557e02188f6466c448773d98127222e702daf",
+    "patch_sha256": "44fe9373aab994e3db26f2e3f95683bcc827fe84e3717709036426430bfbc8c9",
+    "check": "forward on pristine committed files in disposable directory",
+    "returncode": 0,
+    "stderr": ""
+  },
+  {
+    "side": "upstream-tip",
+    "revision": "c2e9c456c9bfdcd4d56d8b88b8a5b546b69a3223",
+    "patch_sha256": "44fe9373aab994e3db26f2e3f95683bcc827fe84e3717709036426430bfbc8c9",
+    "check": "forward on pristine committed files in disposable directory",
+    "returncode": 0,
+    "stderr": ""
+  }
+]

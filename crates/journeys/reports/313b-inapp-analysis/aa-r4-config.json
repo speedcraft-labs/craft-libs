@@ -1,0 +1,35 @@
+{
+  "revisions": {
+    "point": {
+      "revision": "d97557e02188f6466c448773d98127222e702daf",
+      "binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/lightcraft-r3-aa-a"
+    },
+    "main": {
+      "revision": "d97557e02188f6466c448773d98127222e702daf",
+      "binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/lightcraft-r3-aa-b"
+    }
+  },
+  "payloads": {
+    "typical-50": "/jobs/work/speedcraft-labs/hyper/corpus/lightcraft-session-tiers-2026/typical-50"
+  },
+  "sessions": 20,
+  "warmups": 2,
+  "repetitions": 6,
+  "exposure_steps": 4,
+  "sides": [
+    "point",
+    "main"
+  ],
+  "aa": true,
+  "measurement_method": "in-app-frame-gpu-v2",
+  "acquisition": "contiguous-AB-BA-one-pair-per-lease",
+  "import_endpoint": "UI-confirmation-to-all-visible-thumbnails-after-complete-import",
+  "statistic": "paired-session-median-log-ratio-stratified-by-order",
+  "gpu_state": {
+    "graphics_mhz": 1350,
+    "memory_mhz": 7000,
+    "power_mizer_mode": 1
+  },
+  "require_contiguous_pair": true,
+  "app_base_patch": "/jobs/work/speedcraft-labs/wt/313b-libs/crates/journeys/patches/lightcraft-session-latency.patch"
+}
