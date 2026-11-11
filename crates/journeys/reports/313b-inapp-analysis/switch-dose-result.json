@@ -1,0 +1,13 @@
+{
+  "method": "fixed physical UI-thread delay after acceptance, before dispatch",
+  "untreated_pilot": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-dose-pilot-1-primary-attempt0/report.json",
+  "control_warm_median_ns": 58378230.0,
+  "requested_delay_ns": 5837823,
+  "fraction": 0.1,
+  "independent_test_pairs": 10,
+  "source_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+  "test_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-9-primary-attempt0/report.json",
+  "actual_delay_median_ns": 5911450.0,
+  "contemporaneous_control_median_ns": 61686638.0,
+  "actual_dose_control_pct": 9.583031579707749
+}

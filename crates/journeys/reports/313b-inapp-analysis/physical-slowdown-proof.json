@@ -1,0 +1,73 @@
+{
+  "report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-9-primary-attempt0/report.json",
+  "app_delay_records": 80,
+  "legacy_driver_delay_ms": 0,
+  "only_main_switch_delayed": true,
+  "row": {
+    "aa_pass": false,
+    "action": "switch",
+    "calibration_contains_unity": true,
+    "calibration_pairs": 20,
+    "ci95": [
+      0.8371054652868313,
+      0.9126457600972362
+    ],
+    "estimated_mde_pct": 6.369504897992788,
+    "gpu_offenders": [],
+    "half_width_pct": 4.178582529786729,
+    "is_aa": false,
+    "minimum_detectable_effect_pct": 20.827194123795454,
+    "observed_pairs": 10,
+    "ordinary_ci95": [
+      0.8359172122866346,
+      0.9212643734461893
+    ],
+    "phase": "warm",
+    "pooled_ci95": [
+      0.8243820025625589,
+      0.9613784310509864
+    ],
+    "pooled_ratio": 0.8987711508575912,
+    "provisional": false,
+    "sides": {
+      "main": {
+        "between_log_sd": 0.17340649327771643,
+        "max_ns": 131681519,
+        "median_ns": 68634421.5,
+        "n": 60,
+        "p95_ns": 108995977.1,
+        "within_log_sd": 0.11618661533775403
+      },
+      "point": {
+        "between_log_sd": 0.14741880714494462,
+        "max_ns": 108387781,
+        "median_ns": 61686638.0,
+        "n": 60,
+        "p95_ns": 101767971.35,
+        "within_log_sd": 0.0989284510569704
+      }
+    },
+    "speedup": 0.9038985621550047,
+    "threshold_pct": 5,
+    "tier": "typical-50",
+    "timing_source": "in-app-gpu-completion",
+    "upstream_equivalent": true,
+    "verdict": "slower",
+    "original_reported_mde_pct": 14.313944233484316,
+    "aa_pair_count_adjusted_mde_pct": 20.827194123795454,
+    "sensitivity_method": "max(current CI-derived MDE, A/A MDE scaled by sqrt(calibration_pairs/comparison_pairs) on log scale); rejected A/A is uncalibrated"
+  },
+  "dose": {
+    "method": "fixed physical UI-thread delay after acceptance, before dispatch",
+    "untreated_pilot": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-dose-pilot-1-primary-attempt0/report.json",
+    "control_warm_median_ns": 58378230.0,
+    "requested_delay_ns": 5837823,
+    "fraction": 0.1,
+    "independent_test_pairs": 10,
+    "source_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+    "test_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-9-primary-attempt0/report.json",
+    "actual_delay_median_ns": 5911450.0,
+    "contemporaneous_control_median_ns": 61686638.0,
+    "actual_dose_control_pct": 9.583031579707749
+  }
+}
