@@ -1,0 +1,104 @@
+{
+  "branch": "algo/313b-inapp-timing",
+  "app_head": "62b1627c",
+  "libs_head": "b0863549de0783b1436429d23b62c09de537d94e",
+  "prs": [
+    "https://github.com/speedcraft-labs/lightcraft/pull/8",
+    "https://github.com/speedcraft-labs/craft-libs/pull/37"
+  ],
+  "patch_proof": "patch-application.json",
+  "tests": {
+    "journeys": "3 Rust,45 Python pass",
+    "recorder": "3 CPU recorder plus socket no-UI-dispatch/no-repaint regression pass",
+    "libs_workspace": "3835 pass,0 fail,127 ignored",
+    "app_workspace": "6365 pass;4 matching-clean-main-reproduced denoise GPU failures; UI32 pass before full-suite exit SIGSEGV (targeted baseline UI exits0)"
+  },
+  "status": "real-import-1259: 4/10 complete pairs",
+  "next": [
+    "Finish independent real50descriptive defaultV4/V7 and corrected1259AA20pairs (pair0 retained with same exact observations)",
+    "post-recovery.py then runs strict1259real10pairs+upstream",
+    "After ALL apply MDE/count/currentCI+scope-label/per-import-IDmetadata, tests52+AAidentityproof",
+    "Final tables/qualified scope/floors, prune passing captures, NAS once, ready/merge queues"
+  ],
+  "target": "/jobs/work/speedcraft-labs/targets/313b",
+  "operator": "operators/lease.py",
+  "binary_root": "/jobs/work/speedcraft-labs/tmp/313b-binaries",
+  "notes": [
+    "build before locks; each lease <=840s and onlyonepair; heavy only emptyqueue",
+    "GPU completion confirmation is an upper bound subject to enabled pollworker scheduling",
+    "all compared builds use same patch; mismatch rejects and rebuilds all",
+    "Private own Xorg :130 only; never stop foreign processes. Previous same-task orphan313 polling services stopped before user08:32 rule; not rerun."
+  ],
+  "build_matrix": "operators/build-matrix-r3.py",
+  "smoke": "smoke-01/point/session.json",
+  "failed_branches": {
+    "lightcraft": [
+      "failed/313b-startup-filmstrip",
+      "failed/313b-ui-record-wake"
+    ],
+    "craft-libs": [
+      "failed/313b-workspace-artifacts",
+      "failed/313b-ui-record-wake",
+      "failed/313b-lease12"
+    ]
+  },
+  "frozen_patch_sha256": "44fe9373aab994e3db26f2e3f95683bcc827fe84e3717709036426430bfbc8c9",
+  "controller_resume": "operators/campaign-v2.py aa-r4-config.json aa-inapp-r4 (resume latest cumulative into a new campaign name, never overwrite)",
+  "controller_log": "aa-inapp-r4-campaign.log",
+  "controller_policy": "flock bench.lock then flock -x -w5 -E76 gpu.lock; release/retry without app start when sharedGPU tests hold lock",
+  "unit_tests": "3 recorder+socket;48Python;3Rust previouslypass; final MDE tests pending",
+  "libs_workspace": "3835 pass,0fail,127ignored",
+  "latest_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-3-descriptive-attempt0/report.json",
+  "app_workspace": "6365pass;4 GPUdenoise baseline-reproduced failures; UI32pass; prior full-suite exit segfault not reproduced in targeted baseline UI",
+  "scheduling_observer": "operators/scheduling_observer.py on CPUs0-21, read-only /proc/stat and pressure every2s; supplemental coverage starts after pair0, no sample selection",
+  "harness_binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/craft-journeys",
+  "harness_binary_sha256": "054ea4f977a63eccd0c4f9d2d492f666503878f654936adb0b0e72c21644b92e",
+  "binary_pruning_policy": "All app AND harness executables copied outside targets; benchmark queue cannot lose them to hourly target pruning. No binaries go to NAS.",
+  "superseded_services_stopped": [
+    "313-aa-validation.service",
+    "313-switch-proof-calibrated.service"
+  ],
+  "active_campaign": "real-import-1259",
+  "controller_parent": 1695193,
+  "pipeline": "operators/post-recovery.py",
+  "pipeline_log": "post-recovery-v2.log",
+  "failed_lease_protocol_branch": "failed/313b-lease12 f54d0a17",
+  "process_observer": "operators/process-observer.py; read-only thread schedstat/page faults every2s on CPUs0-21; partial R4 coverage, never filters",
+  "foreign_process_rule": "User steering08:32UTC: never stop another worker process. Daily upstream-sync GPUtests legitimate. After>45min foreign GPU block AND about0%CPU, report PID/age/CPU%/command and continue lock-free work; otherwise wait.",
+  "archive_branch": "wip/313b-inapp-analysis 23f23f3f",
+  "metadata_updated_utc": "2026-11-11T12:06:59.725596+00:00",
+  "pipeline_phase": "real-import-1259",
+  "pipeline_config": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-config.json",
+  "aa_summary": "20pairs:4/6 app gates pass;5% approximate80%-power MDE for exposure4.64%,export3.79%",
+  "slowdown_summary": "PASS slower .9038986 CI[.8371055,.9126458], actualdose9.583%; physical-slowdown-proof.json",
+  "independent_collectors": [
+    "aa-import-1259-fixed",
+    "real-50-descriptive"
+  ],
+  "descriptive_scope": "defaultV4/V7 pixels unequal; strict gate remainsfailed; sourceclocksv2 unchanged",
+  "failed_default_process_branch": "failed/313b-default-process-equivalence 9ebcba29",
+  "analysis_validator_fix": "88e6735f, outside action clocks; all14 AA statistics rows bit-identical; driver still0e5419",
+  "validator_fix_proof": "aa-statistics-identity-validator-fix.json",
+  "heavy_recovery": "import-id-validation-recovery.json",
+  "real50_scope": "defaultV4/V7 outputs differ; strict pixel gate remains failed; descriptive-only raw clock comparison",
+  "active_cohorts": {
+    "aa50": "complete20pairs; aa-inapp-r4-latest.txt",
+    "slowdown": "complete10pairs; slower; switch-delay-10pct-latest.txt",
+    "real50": "real-50-descriptive-latest.txt; failedpixelgate/descriptiveonly",
+    "aa1259": "COMPLETE20pairs; aa-import-1259-fixed-latest.txt",
+    "real1259": "RUNNING10pairs+upstream; real-import-1259-campaign.log"
+  },
+  "reporting_patch": "operators/after-all-report-only.patch; tested52Python inisolatedreportercopy; applyonlyafterALL-PHASES.json",
+  "native_driver_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+  "real50_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-derived-report.json",
+  "real50_complete": "10pairs +10upstream; developedpixels unequal, descriptive only",
+  "ci_fix": "ci-lts-pin.json",
+  "analysis_archive": "wip/313b-inapp-analysis 23f23f3f",
+  "heavy_aa_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-19-primary-attempt0/report.json",
+  "heavy_aa_summary": "20pairs COMPLETE; ratio.9852 CI[.8908,1.1158], half-width11.42% FAIL(limit10), MDE17.46%",
+  "failed_precision_branch": "failed/313b-warm-precision e7b0c5f5",
+  "real_admission_proof": "real-import-calibration-admission.json",
+  "failed_admission_branch": "failed/313b-import-admission f051d06c",
+  "final_admission_policy": "fixed30s minimum before a new side; wall forecasts diagnostic only; existing hard840s lease authoritative; retain every incomplete attempt",
+  "failed_forecast_branch": "failed/313b-forecast-selection 50bc3179"
+}

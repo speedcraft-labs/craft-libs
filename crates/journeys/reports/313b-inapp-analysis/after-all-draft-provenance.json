@@ -15,9 +15,9 @@
     },
     "crates/journeys/README.md": {
       "original_sha256": "967995bca9401c41f83784fd559d864389579212c2d08d9abe76a7ecb1e1b1ae",
-      "draft_sha256": "3bcb5ade94d476fedf7469533e4737f4d2807a416a7b525cf11c1b3754fc19b5"
+      "draft_sha256": "4d23c5debf5ca258714835a7c4b1c4bf9f2640fa4efd8c298a41bf69f3aea3f6"
     }
   },
-  "patch_sha256": "ac0a14b8d9eca54c3b0d5c8ec503b50125b9a2e854542147522f94507e3808ea",
+  "patch_sha256": "ebfa69bd576811c61b26af3c1bde953a4b9a963a04b3c1f0aa1adefc780dbddd",
   "documentation": "Explicit fixed20pair in-app cohort and contiguous840s pair acquisition; supersedes legacy recipe"
 }

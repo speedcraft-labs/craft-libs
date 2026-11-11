@@ -124,3 +124,15 @@
  Set `CRAFT_JOURNEYS_INAPP_TIMING=1` for the session driver. Only session processes
  receive `LIGHTCRAFT_LATENCY=1`; ordinary app launches have no recorder. Each
  measured request carries `_latency: {id, action}`. Acceptance is stamped on the
+@@ -448,8 +475,9 @@
+ thumbnails; exact catalog membership and every page remain checked outside
+ timing. Detail plus zoom100 is dispatched atomically on the UI thread for the
+ recorded preview request. Switch completion requires the active photo's full
+-render, including a pending region render at 100%. Background work at each
+-endpoint is retained. The existing one-second empty-queue gate, plus
++render, including a pending region render at 100%. Pending-work lists are captured while the reflecting frame is assembled; its
++GPU completion timestamp is taken later by the host callback. The existing
++one-second empty-queue gate, plus
+ `ui.latency.idle`, runs before every action; failure rejects the sample.
+ 
+ Prepare **every** compared app revision with the same `app_base_patch`, using
