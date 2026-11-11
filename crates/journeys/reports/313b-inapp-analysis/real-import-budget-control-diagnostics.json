@@ -1,0 +1,124 @@
+{
+  "note": "Budget diagnosis only: full511.67s lifecycle includes untimed coverage and control. These external intervals are never app-action durations.",
+  "session": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-4-primary-attempt1/point/import-1259-4-point-attempt-0/session.json",
+  "lifecycle_seconds": 511.668172338,
+  "rpc_totals": [
+    {
+      "method": "ui.inspect",
+      "n": 36872,
+      "median_ms": 4.523086,
+      "total_s": 178.107366649,
+      "lifecycle_share_pct": 34.809154893329
+    },
+    {
+      "method": "ui.screenshot",
+      "n": 181,
+      "median_ms": 165.975737,
+      "total_s": 42.018001382,
+      "lifecycle_share_pct": 8.211963075601187
+    },
+    {
+      "method": "ui.widgets",
+      "n": 27555,
+      "median_ms": 0.680229,
+      "total_s": 26.302886517,
+      "lifecycle_share_pct": 5.140614159526954
+    },
+    {
+      "method": "ui.latency.wait",
+      "n": 4,
+      "median_ms": 2054.7060579999998,
+      "total_s": 8.253328945,
+      "lifecycle_share_pct": 1.6130237116933628
+    },
+    {
+      "method": "ui.move",
+      "n": 171,
+      "median_ms": 7.159045,
+      "total_s": 1.268940225,
+      "lifecycle_share_pct": 0.24800061711904917
+    },
+    {
+      "method": "engine.execute",
+      "n": 24,
+      "median_ms": 2.4526920000000003,
+      "total_s": 1.248819951,
+      "lifecycle_share_pct": 0.2440683275830276
+    },
+    {
+      "method": "ui.scroll",
+      "n": 171,
+      "median_ms": 6.708825,
+      "total_s": 1.207701007,
+      "lifecycle_share_pct": 0.23603207553082114
+    },
+    {
+      "method": "ui.clickWidget",
+      "n": 4,
+      "median_ms": 19.4366355,
+      "total_s": 0.097944118,
+      "lifecycle_share_pct": 0.019142116569896717
+    },
+    {
+      "method": "ui.set",
+      "n": 9,
+      "median_ms": 7.098559,
+      "total_s": 0.060828375999999997,
+      "lifecycle_share_pct": 0.011888246971089249
+    },
+    {
+      "method": "ui.dialog.cancel",
+      "n": 1,
+      "median_ms": 57.312348,
+      "total_s": 0.057312348,
+      "lifecycle_share_pct": 0.011201077397118295
+    },
+    {
+      "method": "ui.dialog.confirm",
+      "n": 4,
+      "median_ms": 4.9621935,
+      "total_s": 0.039454817,
+      "lifecycle_share_pct": 0.007711016462039536
+    },
+    {
+      "method": "ui.latency.idle",
+      "n": 4,
+      "median_ms": 0.7915774999999999,
+      "total_s": 0.003160016,
+      "lifecycle_share_pct": 0.0006175908862106323
+    },
+    {
+      "method": "ui.dropFiles",
+      "n": 4,
+      "median_ms": 0.6084495,
+      "total_s": 0.002532004,
+      "lifecycle_share_pct": 0.0004948527457610551
+    }
+  ],
+  "imports": [
+    {
+      "warmup": true,
+      "grid_frames": 42,
+      "app_seconds": 2.397700535,
+      "grid_capture_span_s": 42.359091315
+    },
+    {
+      "warmup": true,
+      "grid_frames": 42,
+      "app_seconds": 1.767499324,
+      "grid_capture_span_s": 45.53417692
+    },
+    {
+      "warmup": false,
+      "grid_frames": 42,
+      "app_seconds": 1.842365576,
+      "grid_capture_span_s": 40.199939526
+    },
+    {
+      "warmup": false,
+      "grid_frames": 42,
+      "app_seconds": 2.267382528,
+      "grid_capture_span_s": 42.481457533
+    }
+  ]
+}

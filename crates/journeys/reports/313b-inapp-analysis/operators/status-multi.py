@@ -1,7 +1,7 @@
 """Read-only status for the two independent collectors and final heavy comparison."""
 import json,os,re,subprocess,time
 from pathlib import Path
-r=Path(__file__).parent.parent;names=('aa-import-1259-fixed','real-50-descriptive','real-import-1259');errors=[];phases=[]
+r=Path(__file__).parent.parent;state=json.loads((r/'CURRENT-STATE.json').read_text());names=state.get('status_campaign_names',('aa-import-1259-fixed','real-50-descriptive','real-import-1259'));errors=[];phases=[]
 try:locks=json.loads(subprocess.check_output(['sudo','-n','lslocks','--json','--output','PID,MODE,PATH'],text=True))['locks']
 except (OSError,subprocess.SubprocessError):locks=[]
 for name in names:
@@ -37,6 +37,8 @@ for name in names:
     if len(args)>3 and args[1]==str(r/'operators/lease.py').encode():
      acquisition=json.loads(Path(args[2].decode()).read_text())
      admission+=' '+('upstream sample' if (acquisition.get('side')=='upstream' or acquisition.get('acquisition_sides')==['upstream']) else 'primary pair')+' '+str(acquisition['pair']+1)
+     attempt=re.search(r'-attempt(\d+)\.json$',args[2].decode())
+     if attempt and int(attempt.group(1))>0:admission+=' attempt '+str(int(attempt.group(1))+1)
      break
    except (OSError,ValueError):pass
  phases.append(dict(name=name,complete=count,target=target,admission=admission))

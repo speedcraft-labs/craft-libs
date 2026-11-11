@@ -4,12 +4,14 @@ from pathlib import Path
 root=Path(__file__).parent.parent
 config_path=Path(sys.argv[1]);name=sys.argv[2];base=json.loads(config_path.read_text())
 prior=base.get('resume_report');env=dict(os.environ,CRAFT_JOURNEYS_INAPP_TIMING='1')
+attempts=int(os.environ.get('LIGHTCRAFT_ACQUISITION_ATTEMPTS','3'))
+assert 1<=attempts<=10
 def post(body,path):
  path.write_text(body+'\n')
  done=subprocess.run(['gh','issue','comment','291','-R','speedcraft-labs/hyper','--body-file',str(path)],capture_output=True,text=True)
  path.with_suffix('.post.json').write_text(json.dumps(dict(status=done.returncode,stdout=done.stdout,stderr=done.stderr),indent=2))
 def acquire(pair,selected,seed,label):
- for attempt in range(3):
+ for attempt in range(attempts):
   out=root/f'{name}-{pair}-{label}-attempt{attempt}'
   if out.exists():raise RuntimeError('Existing evidence must never be overwritten: '+str(out))
   c=dict(base,pair=pair,acquisition_sides=selected)
@@ -24,14 +26,14 @@ def acquire(pair,selected,seed,label):
    # This is a completion/budget predicate, not a latency threshold or outlier test.
    proof=dict(status='excluded incomplete acquisition; whole selected group retried',code=code,config=str(cfg),seed=seed,selected=selected,attempt=attempt)
    out.with_suffix('.incomplete.json').write_text(json.dumps(proof,indent=2)+'\n')
-   post(f'HANDOFF 313b — {name} pair{pair} acquisition {label} attempt{attempt} could not complete inside the840s lease ({code}); retained at `{out}`, excluded as an incomplete group. Retry uses the unchanged workload and seed `{seed}`; no successful whole pair is removed and no timing value triggers retries. After3 incomplete attempts the campaign stops for inspection.',out.with_suffix('.incomplete-handoff.md'))
+   post(f'HANDOFF 313b — {name} pair{pair} acquisition {label} attempt{attempt} could not complete inside the840s lease ({code}); retained at `{out}`, excluded as an incomplete group. Retry uses the unchanged workload and seed `{seed}`; no successful whole pair is removed and no timing value triggers retries. After{attempts} incomplete attempts the campaign stops for inspection.',out.with_suffix('.incomplete-handoff.md'))
    continue
   if code:raise RuntimeError(f'Failed acquisition {out}, status{code}; inspect retained evidence')
   report=json.loads((out/'report.json').read_text())
   if report.get('failure') or report.get('guard',{}).get('contended') is not False:raise RuntimeError(f'Guard/failure {out}')
   if not all(any(s['pair']==pair and s['side']==side for s in report['sessions']) for side in selected):raise RuntimeError(f'Incomplete selected group {out}')
   return str(out/'report.json')
- raise RuntimeError(f'{pair}/{label}: three incomplete bounded acquisitions; do not extend lock time')
+ raise RuntimeError(f'{pair}/{label}: {attempts} incomplete bounded acquisitions; do not extend lock time')
 for pair in range(base['sessions']):
  if prior:
   previous=json.loads(Path(prior).read_text())

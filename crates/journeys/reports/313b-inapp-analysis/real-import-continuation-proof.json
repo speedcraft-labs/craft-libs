@@ -1,0 +1,13 @@
+{
+  "config_changes": [
+    "resume_report"
+  ],
+  "operator_only_retry_environment": "LIGHTCRAFT_ACQUISITION_ATTEMPTS=10",
+  "strict_source_resume_preflight_passed": true,
+  "seed": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-3-descriptive-attempt0/report.json",
+  "seed_sha256": "721f8d1a3de5339662c39605f9323612cf088a75b5e0508b86ecda4d56580ac8",
+  "preserved_pairs": 4,
+  "preserved_sessions": 12,
+  "hard_work_limit_s": 840,
+  "clock_repeats_state_reset_pixel_gates_and_calibration_unchanged": true
+}
