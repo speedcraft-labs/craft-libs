@@ -1,27 +1,144 @@
 diff --git a/apps/lightcraft/src/control_server.rs b/apps/lightcraft/src/control_server.rs
-index f6066964..adac6a6c 100644
+index f6066964..2e13d237 100644
 --- a/apps/lightcraft/src/control_server.rs
 +++ b/apps/lightcraft/src/control_server.rs
-@@ -88,11 +88,12 @@ fn serve(stream: TcpStream, tx: &Sender<ControlRequest>, ctx: &egui::Context, id
+@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
+ use std::sync::mpsc::{Receiver, Sender, channel};
+ use std::time::Duration;
+ 
+-use lightcraft_ui_egui::ControlRequest;
++use lightcraft_ui_egui::{ControlRequest, latency::Reader};
+ use serde_json::{Value, json};
+ 
+ /// Longest accepted request line (bytes, without the newline). Requests are small JSON objects;
+@@ -23,7 +23,7 @@ pub const MAX_LINE: usize = 4 * 1024 * 1024;
+ /// Connections served at once; further ones get an error line and are closed.
+ pub const MAX_CONNECTIONS: usize = 16;
+ 
+-pub fn start(port: u16, ctx: egui::Context) -> Receiver<ControlRequest> {
++pub fn start(port: u16, ctx: egui::Context, latency: Option<Reader>) -> Receiver<ControlRequest> {
+     let (tx, rx) = channel::<ControlRequest>();
+     let listener = match TcpListener::bind(("127.0.0.1", port)) {
+         Ok(l) => l,
+@@ -33,14 +33,14 @@ pub fn start(port: u16, ctx: egui::Context) -> Receiver<ControlRequest> {
+         }
+     };
+     log::info!("control server listening on 127.0.0.1:{port}");
+-    std::thread::spawn(move || accept_loop(listener, tx, ctx));
++    std::thread::spawn(move || accept_loop(listener, tx, ctx, latency));
+     rx
+ }
+ 
+-fn accept_loop(listener: TcpListener, tx: Sender<ControlRequest>, ctx: egui::Context) {
++fn accept_loop(listener: TcpListener, tx: Sender<ControlRequest>, ctx: egui::Context, latency: Option<Reader>) {
+     let open = Arc::new(AtomicUsize::new(0));
+     for stream in listener.incoming().flatten() {
+-        let _ = spawn_connection(stream, tx.clone(), ctx.clone(), Arc::clone(&open), IDLE_TIMEOUT);
++        let _ = spawn_connection(stream, tx.clone(), ctx.clone(), Arc::clone(&open), IDLE_TIMEOUT, latency.clone());
+     }
+ }
+ 
+@@ -51,6 +51,7 @@ fn spawn_connection(
+     ctx: egui::Context,
+     open: Arc<AtomicUsize>,
+     idle_timeout: Duration,
++    latency: Option<Reader>,
+ ) -> Option<std::thread::JoinHandle<()>> {
+     if open.fetch_add(1, Ordering::SeqCst) >= MAX_CONNECTIONS {
+         open.fetch_sub(1, Ordering::SeqCst);
+@@ -58,7 +59,7 @@ fn spawn_connection(
+         return None;
+     }
+     Some(std::thread::spawn(move || {
+-        serve(stream, &tx, &ctx, idle_timeout);
++        serve(stream, &tx, &ctx, idle_timeout, latency);
+         open.fetch_sub(1, Ordering::SeqCst);
+     }))
+ }
+@@ -82,12 +83,22 @@ pub const HIDDEN_WINDOW_ERROR: &str = "the app drew no frame for 5 s, so the req
+ /// while a client is connected (a link in the browser, Show in Explorer, an external editor) kept a
+ /// copy of the connection: closing it then reached the client only when that program exited, as a
+ /// reset instead of a clean close.
+-fn serve(stream: TcpStream, tx: &Sender<ControlRequest>, ctx: &egui::Context, idle_timeout: Duration) {
++fn serve(stream: TcpStream, tx: &Sender<ControlRequest>, ctx: &egui::Context, idle_timeout: Duration, latency: Option<Reader>) {
+     if let Err(e) = stream.set_read_timeout(Some(idle_timeout)) {
+         log::warn!("control connection closed: could not set idle read timeout: {e}");
          return;
      }
      serve_stream(stream, |method, params| {
-+        let timeout = if method == "ui.latency.wait" { Duration::from_secs(600) } else { REPLY_TIMEOUT };
++        if method == "ui.latency.wait"
++            && let Some(reader) = latency.as_ref()
++        {
++            let (reply, done) = channel();
++            if let Err(e) = reader.wait(&params, reply) {
++                return Some(json!({"ok":false,"error":e}));
++            }
++            // Do not route this read through the UI or its repainting reply-wait loop.
++            return Some(done.recv_timeout(Duration::from_secs(600)).unwrap_or_else(|_| json!({"ok":false,"error":"latency record timeout"})));
++        }
          let (req, rrx) = ControlRequest::new(method, params);
          let state = Arc::clone(&req.state);
          tx.send(req).ok()?;
-         ctx.request_repaint();
--        Some(await_reply(&rrx, &state, || ctx.cumulative_pass_nr(), || ctx.request_repaint(), NO_FRAMES_AFTER, REPLY_TIMEOUT))
-+        Some(await_reply(&rrx, &state, || ctx.cumulative_pass_nr(), || ctx.request_repaint(), NO_FRAMES_AFTER, timeout))
-     });
- }
+@@ -290,6 +301,35 @@ fn serve_lines<R: Read, W: Write>(read: R, mut out: W, mut handle: impl FnMut(St
+ mod tests {
+     use super::*;
  
++    #[test]
++    fn latency_record_reads_do_not_dispatch_or_repaint_the_ui() {
++        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
++        let address = listener.local_addr().unwrap();
++        let mut client = TcpStream::connect(address).unwrap();
++        client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
++        let (stream, _) = listener.accept().unwrap();
++        let (tx, requests) = channel();
++        let ctx = egui::Context::default();
++        let wakes = Arc::new(AtomicUsize::new(0));
++        let count = wakes.clone();
++        ctx.set_request_repaint_callback(move |_| {
++            count.fetch_add(1, Ordering::SeqCst);
++        });
++        let recorder = lightcraft_ui_egui::latency::Recorder::enabled();
++        let reader = recorder.reader();
++        let worker = std::thread::spawn(move || serve(stream, &tx, &ctx, IDLE_TIMEOUT, Some(reader)));
++        writeln!(client, "{{\"id\":1,\"method\":\"ui.latency.wait\",\"params\":{{\"id\":\"unknown\"}}}}").unwrap();
++        let mut line = String::new();
++        BufReader::new(&client).read_line(&mut line).unwrap();
++        let reply: Value = serde_json::from_str(&line).unwrap();
++        assert_eq!(reply["ok"], false);
++        assert_eq!(reply["error"], "unknown latency id");
++        assert!(requests.try_recv().is_err());
++        assert_eq!(wakes.load(Ordering::SeqCst), 0);
++        client.shutdown(std::net::Shutdown::Both).unwrap();
++        worker.join().unwrap();
++    }
++
+     /// Own the client and worker together: even a failing timeout assertion closes the socket
+     /// before joining, so the regression cannot leave a worker stuck in a read.
+     struct Connection {
+@@ -311,7 +351,7 @@ mod tests {
+             stream.set_nodelay(true).unwrap();
+             before(&mut client);
+             let (tx, requests) = channel();
+-            let worker = spawn_connection(stream, tx, egui::Context::default(), Arc::clone(open), idle).unwrap();
++            let worker = spawn_connection(stream, tx, egui::Context::default(), Arc::clone(open), idle, None).unwrap();
+             Self { client: BufReader::new(client), requests, worker: Some(worker) }
+         }
+ 
+@@ -536,7 +576,7 @@ mod tests {
+         let (tx, _rx) = channel::<ControlRequest>();
+         let server = std::thread::spawn(move || {
+             let (s, _) = listener.accept().unwrap();
+-            serve(s, &tx, &egui::Context::default(), IDLE_TIMEOUT);
++            serve(s, &tx, &egui::Context::default(), IDLE_TIMEOUT, None);
+         });
+         let mut c = TcpStream::connect(addr).unwrap();
+         c.set_read_timeout(Some(Duration::from_secs(20))).unwrap();
 diff --git a/apps/lightcraft/src/latency.rs b/apps/lightcraft/src/latency.rs
 new file mode 100644
-index 00000000..66767404
+index 00000000..544d5c83
 --- /dev/null
 +++ b/apps/lightcraft/src/latency.rs
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,68 @@
 +//! Attach the opt-in recorder to the window's actual egui command encoder.
 +use eframe::egui_wgpu::{self, wgpu};
 +use lightcraft_ui_egui::LightcraftApp;
@@ -36,6 +153,9 @@ index 00000000..66767404
 +static POLLER: OnceLock<mpsc::Sender<Work>> = OnceLock::new();
 +
 +pub fn frame(app: &mut LightcraftApp, ui: &egui::Ui, frame: &eframe::Frame) {
++    if ui.ctx().will_discard() {
++        return;
++    }
 +    let Some(done) = app.latency_frame() else { return };
 +    let Some(rs) = frame.wgpu_render_state() else { return };
 +    let device = rs.device.clone();
@@ -88,7 +208,7 @@ index 00000000..66767404
 +    fn paint(&self, _info: egui::PaintCallbackInfo, _pass: &mut wgpu::RenderPass<'static>, _resources: &egui_wgpu::CallbackResources) {}
 +}
 diff --git a/apps/lightcraft/src/main.rs b/apps/lightcraft/src/main.rs
-index 97479ad6..4211c567 100644
+index 97479ad6..2ff24c17 100644
 --- a/apps/lightcraft/src/main.rs
 +++ b/apps/lightcraft/src/main.rs
 @@ -32,6 +32,7 @@ mod control_server;
@@ -128,6 +248,15 @@ index 97479ad6..4211c567 100644
                  app.set_startup_update_check(true);
                  if let Some(ui) = prefs {
                      app.ui = ui;
+@@ -413,7 +422,7 @@ fn main() -> eframe::Result {
+                     app.notices.push(notice);
+                 }
+                 if let Some(port) = control_port {
+-                    let rx = control_server::start(port, cc.egui_ctx.clone());
++                    let rx = control_server::start(port, cc.egui_ctx.clone(), app.latency.as_ref().map(|r| r.reader()));
+                     app = app.with_control(rx);
+                 }
+                 if let Some(mut p) = problem {
 diff --git a/crates/ui-egui/src/app.rs b/crates/ui-egui/src/app.rs
 index 6d9faaaf..ec6af927 100644
 --- a/crates/ui-egui/src/app.rs
@@ -183,10 +312,10 @@ index 76352410..757622a6 100644
                  }
 diff --git a/crates/ui-egui/src/latency.rs b/crates/ui-egui/src/latency.rs
 new file mode 100644
-index 00000000..d344b3ba
+index 00000000..85ff2da9
 --- /dev/null
 +++ b/crates/ui-egui/src/latency.rs
-@@ -0,0 +1,277 @@
+@@ -0,0 +1,291 @@
 +//! Opt-in UI-acceptance → reflecting-frame GPU completion observations.
 +//! No transport clocks are used. A host without a completion hook cannot finish a record.
 +use crate::{LightcraftApp, control, render::Slot};
@@ -200,6 +329,25 @@ index 00000000..d344b3ba
 +struct State {
 +    records: Vec<Value>,
 +    waiters: Vec<(String, Sender<Value>)>,
++}
++
++/// Socket-thread access to records; no UI dispatch, input injection or repaint hook.
++#[derive(Clone)]
++pub struct Reader(Arc<Mutex<State>>);
++impl Reader {
++    pub fn wait(&self, params: &Value, reply: Sender<Value>) -> Result<(), &'static str> {
++        let id = params["id"].as_str().ok_or("missing latency id")?;
++        let mut state = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++        let record = state.records.iter().find(|r| r["id"] == id).ok_or("unknown latency id")?;
++        if !record["completed_ns"].is_null() {
++            let _ = reply.send(control::success(record.clone()));
++        } else if state.waiters.len() < 16 {
++            state.waiters.push((id.into(), reply));
++        } else {
++            return Err("too many latency waiters");
++        }
++        Ok(())
++    }
 +}
 +
 +/// A bounded, session-local recorder. Constructed only when explicitly enabled.
@@ -219,7 +367,7 @@ index 00000000..d344b3ba
 +
 +impl Recorder {
 +    pub fn from_env() -> Option<Self> {
-+        (std::env::var("LIGHTCRAFT_LATENCY").as_deref() == Ok("1")).then(Self::new)
++        (std::env::var("LIGHTCRAFT_LATENCY").as_deref() == Ok("1")).then(Self::enabled)
 +    }
 +    /// Desktop entry-point clock, before settings, engine and window creation.
 +    pub fn startup(&mut self, entry: Instant) {
@@ -234,7 +382,7 @@ index 00000000..d344b3ba
 +            }
 +        }
 +    }
-+    fn new() -> Self {
++    pub fn enabled() -> Self {
 +        Self { epoch: Instant::now(), state: Arc::new(Mutex::new(State::default())), active: None, frame: 0 }
 +    }
 +    pub(crate) fn begin(&mut self, meta: &Value, initial_key: Option<u64>) -> Result<(), &'static str> {
@@ -271,18 +419,12 @@ index 00000000..d344b3ba
 +        }
 +        Ok(())
 +    }
++    /// A thread-safe read endpoint. It cannot change app state or request frames.
++    pub fn reader(&self) -> Reader {
++        Reader(self.state.clone())
++    }
 +    pub(crate) fn wait(&mut self, params: &Value, reply: Sender<Value>) -> Result<(), &'static str> {
-+        let id = params["id"].as_str().ok_or("missing latency id")?;
-+        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-+        let record = state.records.iter().find(|r| r["id"] == id).ok_or("unknown latency id")?;
-+        if !record["completed_ns"].is_null() {
-+            let _ = reply.send(control::success(record.clone()));
-+        } else if state.waiters.len() < 16 {
-+            state.waiters.push((id.into(), reply));
-+        } else {
-+            return Err("too many latency waiters");
-+        }
-+        Ok(())
++        self.reader().wait(params, reply)
 +    }
 +    /// Called only by an enabled host after layout. The closure must be attached to THIS
 +    /// frame's submission, never a prior queue fence or the next event-loop callback.
@@ -410,10 +552,11 @@ index 00000000..d344b3ba
 +    use super::*;
 +    #[test]
 +    fn records_only_complete_on_the_hosts_frame_fence() {
-+        let mut r = Recorder::new();
++        let mut r = Recorder::enabled();
 +        r.begin(&json!({"id":"1","action":"switch"}), None).unwrap();
 +        let (tx, rx) = std::sync::mpsc::channel();
-+        r.wait(&json!({"id":"1"}), tx).unwrap();
++        let reader = r.reader();
++        std::thread::spawn(move || reader.wait(&json!({"id":"1"}), tx).unwrap()).join().unwrap();
 +        assert!(r.observe(false, false, vec![]).is_none());
 +        let done = r.observe(true, true, vec!["prefetch".into()]).unwrap();
 +        assert!(rx.try_recv().is_err());
@@ -446,7 +589,7 @@ index 00000000..d344b3ba
 +            },
 +        );
 +        assert_eq!(app.renderer.thumb_textures(), 1);
-+        app.latency = Some(Recorder::new());
++        app.latency = Some(Recorder::enabled());
 +        app.latency.as_mut().unwrap().startup(Instant::now());
 +        app.loupe_shown = None;
 +        assert!(app.latency_frame().is_none());

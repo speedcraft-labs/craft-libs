@@ -1280,11 +1280,11 @@ def session_main(args):
     options=parser.parse_args(args)
     config=json.loads(options.config.read_text())
     config.setdefault('measurement_method','first-grid-quickack-v4')
-    if (config['measurement_method']=='in-app-frame-gpu-v1') != (os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1'):
+    if (config['measurement_method']=='in-app-frame-gpu-v2') != (os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1'):
         raise ValueError('declared timing method and enabled clock source differ')
     if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1':
-        if config['measurement_method']!='in-app-frame-gpu-v1':
-            raise ValueError('in-app clocks require measurement_method in-app-frame-gpu-v1')
+        if config['measurement_method']!='in-app-frame-gpu-v2':
+            raise ValueError('in-app clocks require measurement_method in-app-frame-gpu-v2')
         patch=Path(config['app_base_patch'])
         for revision in config['revisions'].values():
             binary=Path(revision['binary'])

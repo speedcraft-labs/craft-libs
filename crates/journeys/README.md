@@ -425,8 +425,9 @@ Set `CRAFT_JOURNEYS_INAPP_TIMING=1` for the session driver. Only session process
 receive `LIGHTCRAFT_LATENCY=1`; ordinary app launches have no recorder. Each
 measured request carries `_latency: {id, action}`. Acceptance is stamped on the
 UI thread before dispatch. `ui.latency.wait {id}` returns the completed record
-in one deferred response; the driver does not inspect readiness while that
-record is running. Subsequent state/pixel checks stay outside the app clock.
+in one deferred socket-thread response through a shared recorder reader. It
+does not dispatch to the UI or request repaints; the driver does not inspect
+readiness while that record is running. Subsequent state/pixel checks stay outside the app clock.
 Primary action statistics use the record's `duration_ns`; `driver_duration_ns`
 and the legacy capture proof retain the external upper bound for comparison.
 Startup additionally has an entry-point-to-photo-frame app clock; quit remains
@@ -463,7 +464,7 @@ The helper creates fresh detached worktrees and saves SHA-256 provenance beside
 each binary. Keep binaries outside hourly-pruned targets and outside NAS report
 roots. Compilation happens before lock acquisition. Existing reset, cold/warm,
 whole-session bootstrap, AB/BA order and output gates are retained. Calibration
-and real configs must use a new matching measurement_method; older polling
+and real configs must use a new matching measurement_method (`in-app-frame-gpu-v2`); older polling
 A/A reports cannot calibrate in-app results.
 
 Build preparation serializes the whole clean/build/copy transaction in the one
