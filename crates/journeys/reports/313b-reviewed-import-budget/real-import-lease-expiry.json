@@ -1,0 +1,25 @@
+{
+  "expiry": {
+    "unit": "run-p2801103-i136960098.service",
+    "limit_seconds": 840,
+    "elapsed_seconds": 842.3403952670051,
+    "status": "lease expired; completed guarded sides retained, incomplete sides rejected"
+  },
+  "unit_after": "LoadState=not-found\nActiveState=inactive",
+  "sessions": [
+    {
+      "side": "point",
+      "complete": true,
+      "completed_import_samples": 4,
+      "lifecycle_seconds": 465.057790077
+    },
+    {
+      "side": "main",
+      "complete": false,
+      "completed_import_samples": 3,
+      "lifecycle_seconds": null
+    }
+  ],
+  "policy": "whole incomplete pair excluded; automatic bounded retry; no successful pair trimmed; fixed840s deadline unchanged",
+  "foreign_process_stopped": false
+}
