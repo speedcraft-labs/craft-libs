@@ -63,6 +63,15 @@
          from types import SimpleNamespace
 --- a/crates/journeys/scripts/lightcraft_real_app.py
 +++ b/crates/journeys/scripts/lightcraft_real_app.py
+@@ -999,7 +999,7 @@
+             # verification cannot inflate the user's import-to-usable-grid clock.
+             _,_,frames=session_grid(control,ids,grid_dir)
+             record.pop('pending_import_check')
+-            session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),frames=frames,first_viewport=viewport,completion_observed_ns=import_completed_ns,capture=proof)
++            session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),imported_ids=ids,frames=frames,first_viewport=viewport,completion_observed_ns=import_completed_ns,capture=proof)
+         record['photo_ids']=ids
+         record['photos']=photos
+         if import_only:
 @@ -1305,7 +1305,7 @@
      report=dict(discarded_sessions=[],failed_sessions=[],gpu_wait_events=[],provisional_tiers={},gpu_policy=dict(wait_poll_seconds=30,attempt_budget_seconds=1800,during_session_poll_seconds=2),schema='lightcraft-session-v1',publish_scope='fork-point-to-fork-main',config=config,sessions=sessions,publishable=False,
                  statistics=dict(resamples=4000,seed=313,bootstrap_unit='paired-session-stratified-by-fixed-AB-BA-order',ordinary_ci_retained=True,pooled_ci_retained=True,ratio='exp(median(log(session_point_median/session_main_median)))',percentiles='linear'),
@@ -74,14 +83,27 @@
                  binary_sha256=binary_hashes,comparison_complete=False,prior_acquisitions_passed=True)
 --- a/crates/journeys/README.md
 +++ b/crates/journeys/README.md
-@@ -362,6 +362,10 @@
+@@ -362,6 +362,23 @@
  If a calibration interval excludes 1, its comparison row is descriptive only:
  the interval width cannot establish sensitivity when identical builds differ.
  A wide interval containing 1 still reports its measured, larger MDE floor.
 +For a real comparison, report the larger of its own CI-derived MDE and the A/A
-+floor adjusted for the pair counts: scale the log effect by
-+`sqrt(calibration_pairs / comparison_pairs)`. A20-pair control does not grant
-+its precision unchanged to a10-pair comparison.
++floor adjusted for pair counts: scale the log effect by
++`sqrt(calibration_pairs / comparison_pairs)`. A 20-pair control does not grant
++its precision unchanged to a 10-pair comparison.
++
++Reimported photos receive new catalog IDs. Each import records its own
++`imported_ids` for exact thumbnail coverage; only the last import uses the final
++catalog IDs. Legacy records retain distinct-ID counts plus the collector's
++per-import filename and grid-coverage assertions. They must not be compared
++against a later import's IDs.
++
++Strict developed-pixel equivalence gates primary speed verdicts. Defaults can
++change their rendering process between revisions (for example V4 to V7); retain
++such timings as descriptive observations and report the output difference.
++The pixel bound stays fixed. Import-only checks establish catalog membership
++and non-placeholder thumbnail coverage, a narrower claim than developed-pixel
++identity.
  
  Agentbox's automatic GPU power state is an additional measurement condition:
  the diagnostic run saw 300–1,350 MHz graphics clocks and 405–7,000 MHz memory
