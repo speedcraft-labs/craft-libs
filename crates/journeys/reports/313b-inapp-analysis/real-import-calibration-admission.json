@@ -21,5 +21,26 @@
   "required_headroom_seconds": 321.87664346925,
   "hard_lease_seconds": 840,
   "action_clocks_or_thresholds_changed": false,
-  "checks": "binary SHA, driver SHA, closed publishable A/A and identical method/tier/repeats/warmups/importOnly/GPU condition; no history borrowed for fork point or upstream"
+  "checks": "binary SHA, driver SHA, closed publishable A/A and identical method/tier/repeats/warmups/importOnly/GPU condition; no history borrowed for fork point or upstream",
+  "actual_successful_admission": {
+    "side": "main",
+    "remaining_seconds": 500.692304279,
+    "preceding_side_seconds": 327.866718484,
+    "required_headroom_seconds": 321.87664346925,
+    "historical_second_side_seconds": [
+      197.284553573,
+      179.602189004,
+      204.493554469,
+      173.160273286,
+      207.276983716,
+      191.884304386
+    ],
+    "calibration_history": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-19-primary-attempt0/report.json",
+    "method": "matching-binary complete second-side median *1.5+30s",
+    "forecast_factor": 1.5
+  },
+  "accepted_primary_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-0-primary-attempt2/report.json",
+  "accepted_main_lifecycle_seconds": 362.124010551,
+  "final_admission_policy": "Forecast retained as diagnostic only; fixed30s minimum to start a side; existing hard840s lease and whole-pair acceptance remain authoritative",
+  "reason": "False deferrals at381/373s; forecast321.88s versus actual accepted identical-main362.12s proves external lifecycle forecast is uncertain. Avoid additional forecast-based selection of app-clock samples."
 }
