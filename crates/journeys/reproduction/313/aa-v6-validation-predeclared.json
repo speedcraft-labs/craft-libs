@@ -1,0 +1,12 @@
+{
+  "declared_utc": "2026-11-11T03:46:00.634550+00:00",
+  "reason": "The completed real primary matrix has median measured-action CPU steal 0.25%, versus 3.49\u20134.86% in the prior A/A. Validate sensitivity in a second independent fixed window with no driver, hardware-state, estimator, pairing or repeat changes.",
+  "sessions": 20,
+  "no_pooling": true,
+  "no_per_row_selection": true,
+  "primary_comparison_reference": "aa-v6-paired-attempt-37-19/report.json",
+  "role": "independent sensitivity validation; all rows and both windows reported, including biased controls",
+  "driver_sha256": "64e0052ce45cf430c80ef9b79f67ff208702ab7dc42788fd3b0948e048d902c2",
+  "evidence": "scheduling-real-50.md",
+  "config": "/jobs/work/speedcraft-labs/keep/313-session-latency/sensitivity/aa-v6-validation-config.json"
+}
