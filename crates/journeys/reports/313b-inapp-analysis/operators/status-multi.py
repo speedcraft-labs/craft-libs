@@ -30,6 +30,15 @@ for name in names:
  if any(x.get('path','').endswith('/bench.lock') and x['mode'].endswith('*') for x in own):admission='bench queue'
  elif any(x.get('path','').endswith('/gpu.lock') and x['mode'].endswith('*') for x in own):admission='GPU tests queue'
  elif any(x.get('path','').endswith('/gpu.lock') and x['mode']=='WRITE' for x in own):admission='measuring'
+ if admission=='measuring':
+  for pid in descendants:
+   try:
+    args=Path(f'/proc/{pid}/cmdline').read_bytes().split(b'\0')
+    if len(args)>3 and args[1]==str(r/'operators/lease.py').encode():
+     acquisition=json.loads(Path(args[2].decode()).read_text())
+     admission+=' '+('upstream sample' if (acquisition.get('side')=='upstream' or acquisition.get('acquisition_sides')==['upstream']) else 'primary pair')+' '+str(acquisition['pair']+1)
+     break
+   except (OSError,ValueError):pass
  phases.append(dict(name=name,complete=count,target=target,admission=admission))
 state=json.loads((r/'CURRENT-STATE.json').read_text());p=r/state.get('pipeline_log','post-recovery-v2.log')
 if p.exists() and 'Traceback' in p.read_text():errors.append(str(p))

@@ -10,12 +10,15 @@ selected={config['side']} if config.get('side') else set(config.get('acquisition
 prior=config.get('resume_report')
 existing=json.load(open(prior))['sessions'] if prior else []
 last_duration=None
-# The hard840s lease is authoritative. Import-only gets25%+30s prediction
-# headroom;50% rejected a325s first side with511s still available.
+# The hard840s lease is authoritative. Wall-time forecasts are diagnostic:
+# two initial real acquisitions were falsely declined at381/373s remaining,
+# while an identical main later finished in362s (forecast322s). Do not select
+# complete pairs using that noisy external verification/control wall clock.
 forecast_factor=1.25 if config.get('import_only') else 1.5
 # File-cache preparation can make the first build much longer. Forecast the
 # second from previous complete second-side wall times when available. The
-# hard lease still rejects/retains every incomplete whole pair.
+# hard lease still rejects/retains every incomplete whole pair. Starting a new
+# side requires only a fixed30s work/cleanup allowance, never an action value.
 second_history={};calibration_history={}
 if config.get('import_only'):
  for pair in sorted({s['pair'] for s in existing}):
@@ -53,11 +56,11 @@ for side in order:
  remaining=(int(os.environ.get('SESSION_LEASE_DEADLINE_NS','9999999999999999999'))-time.monotonic_ns())/1e9
  historical=second_history.get(side,[])[-6:]
  required=(statistics.median(historical)*1.5+30 if historical else last_duration*forecast_factor+30 if last_duration is not None else 0)
- prediction=dict(side=side,remaining_seconds=remaining,preceding_side_seconds=last_duration,required_headroom_seconds=required,historical_second_side_seconds=historical,calibration_history=calibration_history.get(side),method='matching-binary complete second-side median *1.5+30s' if historical else 'preceding side *factor+30s',forecast_factor=1.5 if historical else forecast_factor)
+ prediction=dict(side=side,remaining_seconds=remaining,preceding_side_seconds=last_duration,forecast_headroom_seconds=required,historical_second_side_seconds=historical,calibration_history=calibration_history.get(side),method='matching-binary complete second-side median *1.5+30s' if historical else 'preceding side *factor+30s',forecast_factor=1.5 if historical else forecast_factor,admission_rule='fixed30s minimum; forecast advisory; hard840s deadline authoritative')
  if last_duration is not None:
   out.with_suffix('.admission-forecast.json').write_text(json.dumps(prediction))
-  if remaining<required:
-   out.with_suffix('.deferred.json').write_text(json.dumps(dict(prediction,reason='defer a new side rather than predictably overrun the lease')))
+  if remaining<30:
+   out.with_suffix('.deferred.json').write_text(json.dumps(dict(prediction,reason='insufficient fixed30s allowance before the hard840s deadline')))
    sys.exit(75)
  c=dict(config,side=side)
  if prior:c['resume_report']=prior
