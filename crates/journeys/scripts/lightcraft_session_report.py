@@ -283,10 +283,17 @@ def check_pixels(sessions):
             if not all(s.get('actions')==['import'] for s in group.values()): raise ValueError('mismatched import-only output checks')
             for session in group.values():
                 expected=set(session['photo_ids'])
-                for sample in session['samples']:
-                    frames=sample['evidence']['frames']
+                for index,sample in enumerate(session['samples']):
+                    evidence=sample['evidence'];frames=evidence['frames']
                     seen={ident for frame in frames for ident in frame['ids']}
-                    if seen!=expected or sample['evidence']['imported']!=len(expected):
+                    declared=evidence.get('imported_ids')
+                    # IDs change on delete/reimport. The collector verifies each
+                    # catalog's filenames and grid coverage against THAT import's IDs.
+                    # Legacy records retain that proof plus cardinality; only the
+                    # final import shares session.photo_ids. New records state IDs.
+                    if (len(seen)!=len(expected) or evidence['imported']!=len(expected)
+                            or declared is not None and seen!=set(declared)
+                            or index==len(session['samples'])-1 and seen!=expected):
                         raise ValueError('import-only thumbnail coverage incomplete')
             names=lambda s:sorted((p['fileName'],p.get('width'),p.get('height')) for p in s['photos'])
             for side in ('main','upstream'):

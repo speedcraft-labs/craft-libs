@@ -653,6 +653,30 @@ class ImportOnlyTests(unittest.TestCase):
         s[1]['samples'][0]['evidence']['frames'][0]['ids']=[]
         with self.assertRaisesRegex(ValueError,'coverage incomplete'):check_pixels(s)
 
+    def test_reimports_can_assign_new_photo_ids(self):
+        from lightcraft_session_report import check_pixels
+        sessions=self.sessions()
+        for session in sessions:
+            second=copy.deepcopy(session['samples'][0])
+            second['evidence']['frames'][0]['ids']=[2]
+            session['samples'].append(second);session['photo_ids']=[2]
+        self.assertTrue(check_pixels(sessions)[0]['equivalent'])
+        sessions[0]['samples'][0]['evidence']['frames'][0]['ids']=[]
+        with self.assertRaisesRegex(ValueError,'coverage incomplete'):check_pixels(sessions)
+
+    def test_reimport_coverage_counts_distinct_ids(self):
+        from lightcraft_session_report import check_pixels
+        sessions=self.sessions()
+        sessions[0]['samples'].insert(0,copy.deepcopy(sessions[0]['samples'][0]))
+        sessions[0]['samples'][0]['evidence']['frames'][0]['ids']=[7,8]
+        with self.assertRaisesRegex(ValueError,'coverage incomplete'):check_pixels(sessions)
+
+    def test_explicit_per_import_membership_is_checked(self):
+        from lightcraft_session_report import check_pixels
+        sessions=self.sessions()
+        sessions[0]['samples'][0]['evidence']['imported_ids']=[9]
+        with self.assertRaisesRegex(ValueError,'coverage incomplete'):check_pixels(sessions)
+
     def test_import_only_rejects_different_catalogs(self):
         from lightcraft_session_report import check_pixels
         s=self.sessions();s[1]['photos'][0]['fileName']='wrong.raw'
