@@ -22,15 +22,46 @@ class Control:
         self.stream = stream
         self.reader = stream.makefile("r", encoding="utf-8")
         self.ident = 0
+        self.low_latency = False
+        self.pending_reply = b""
+
+    def read_reply(self):
+        if not self.low_latency:
+            return self.reader.readline()
+        # The server streams JSON tokens with Nagle enabled. ACK each receive
+        # promptly, including partial JSON, so the final newline cannot sit behind
+        # Linux's delayed-ACK timer. This is session instrumentation, not app work.
+        while b"\n" not in self.pending_reply:
+            if hasattr(socket, 'TCP_QUICKACK'):
+                self.stream.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+            chunk = self.stream.recv(65536)
+            if not chunk:
+                raise RuntimeError('LightCraft control closed during a reply')
+            self.pending_reply += chunk
+            if hasattr(socket, 'TCP_QUICKACK'):
+                self.stream.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+        line, self.pending_reply = self.pending_reply.split(b"\n", 1)
+        return line
 
     def call(self, method: str, params: dict | None = None):
         self.ident += 1
         request = {"id": self.ident, "method": method, "params": params or {}}
-        self.stream.sendall((json.dumps(request, separators=(",", ":")) + "\n").encode())
-        line = self.reader.readline()
+        encoded = (json.dumps(request, separators=(",", ":")) + "\n").encode()
+        self.last_sent_ns = time.perf_counter_ns()
+        self.stream.sendall(encoded)
+        line = self.read_reply()
         if not line:
             raise RuntimeError(f"LightCraft control closed during {method}")
+        received_ns=time.perf_counter_ns()
         reply = json.loads(line)
+        if hasattr(self,'trace'):
+            entry=dict(method=method,command=(params or {}).get('command'),sent_ns=self.last_sent_ns,reply_ns=received_ns)
+            if method=='ui.inspect' and isinstance(reply.get('result'),dict):
+                state=reply['result']
+                entry['perf']={k:state.get('perf',{}).get(k) for k in ('renderQueue','rendersInFlight','pendingSlots','lastRenderMs','frameMs')}
+                entry['activity_count']=len(state.get('activity',[]))
+                entry['task_count']=len(state.get('tasks',[]))
+            self.trace.append(entry)
         if reply.get("id") != self.ident:
             raise RuntimeError(f"LightCraft control id mismatch during {method}: {reply}")
         if not reply.get("ok"):
@@ -121,7 +152,7 @@ def stable_identity(source_hash: str, task: str, **result) -> str:
     return digest_json({"source": source_hash, "task": task, "result": result})
 
 
-def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None):
+def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None, *, log_path: Path | None = None, on_started=None):
     profile.mkdir(parents=True, exist_ok=True)
     library.mkdir(parents=True, exist_ok=True)
     port = free_port()
@@ -133,10 +164,19 @@ def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None):
         "XDG_CACHE_HOME": str(profile / ".cache"),
         "LIGHTCRAFT_CONFIG_DIR": str(profile / "lightcraft-config"),
     })
+    if log_path is not None:
+        # Session-only profile: a launcher-managed pin suppresses asynchronous update
+        # prompts/network checks without changing the app or the legacy journeys.
+        versions = profile / 'versions.json'
+        versions.write_text(json.dumps({'apps': {'lightcraft': {'Pinned': 'session-benchmark'}}}))
+        env['CRAFT_VERSIONS_FILE'] = str(versions)
     command = [str(binary), "--library", str(library), "--no-demo", "--control", str(port)]
     if photo_path is not None:
         command.append(str(photo_path))
-    process = subprocess.Popen(command, cwd=profile, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    with log_path.open("wb") if log_path else open(os.devnull, "wb") as log:
+        process = subprocess.Popen(command, cwd=profile, env=env, stdout=log, stderr=log)
+    if on_started is not None:
+        on_started(process.pid)
     deadline = time.monotonic() + 90
     control = None
     while time.monotonic() < deadline:
@@ -148,11 +188,17 @@ def spawn(binary: Path, library: Path, profile: Path, photo_path: Path | None):
             control = Control(stream)
             break
         except OSError:
-            time.sleep(0.02)
+            time.sleep(0.002 if log_path is not None else 0.02)
     if control is None:
         process.terminate()
         process.wait(timeout=5)
         raise TimeoutError("LightCraft control channel did not start")
+    if log_path is not None:
+        control.stream.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+        control.low_latency=True
+    control.trace=[]
+    control.process_pid=process.pid
+    control.session_log=log_path
     return process, control
 
 
@@ -310,7 +356,980 @@ def verify_output(task: str, input_path: Path, target_dir: Path) -> int:
     return 0
 
 
+def session_wait_exit(process, timeout=150):
+    # Popen.wait(timeout=...) polls with up to 50 ms sleeps on POSIX. A pidfd gives
+    # an event-driven exit observation on Agentbox, without quantizing short quits.
+    import select
+    if not hasattr(os, 'pidfd_open'):
+        raise RuntimeError('session exit timing requires Linux pidfd support')
+    descriptor=os.pidfd_open(process.pid)
+    try:
+        if not select.select([descriptor],[],[],timeout)[0]:
+            raise TimeoutError('quit did not exit before the deadline')
+        process.wait()
+        return time.perf_counter_ns()
+    finally:
+        os.close(descriptor)
+
+
+def session_execute(control, command, params=None):
+    delay=getattr(control,'test_delay_ms',0) if command=='library.select' and getattr(control,'armed_action',None)=='switch' else 0
+    if delay:
+        started=time.perf_counter_ns()
+        time.sleep(delay/1000)
+    result=control.call('engine.execute', {'command': command, 'params': params or {}})
+    if delay:
+        control.last_test_delay=dict(requested_ms=delay,queue_start_ns=started,wire_send_ns=control.last_sent_ns,actual_delay_ns=control.last_sent_ns-started)
+        control.last_sent_ns=started
+    return result
+
+
+def session_idle(state):
+    perf = state['perf']
+    return perf.get('renderQueue') == 0 and perf.get('rendersInFlight') == 0 and perf.get('pendingSlots') == []
+
+
+def session_wait(control, predicate, timeout=180):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        state = control.call('ui.inspect')
+        if predicate(state):
+            return state
+        time.sleep(.005)
+    raise TimeoutError(f'LightCraft frame state did not converge: {state}')
+
+
+def session_drain(control, record, phase, require_saved=False):
+    """Wait outside action/quit/startup clocks for real background work to finish."""
+    entry=dict(phase=phase,start_ns=time.perf_counter_ns(),progress=[])
+    record.setdefault('background_drains',[]).append(entry)
+    next_log=time.monotonic()+30
+    idle_since=None
+    def ready(state):
+        nonlocal next_log,idle_since
+        now=time.monotonic()
+        idle=session_idle(state) and not state['activity'] and not state['tasks']
+        if idle and (not require_saved or state.get('unsaved') is None):
+            if idle_since is None:idle_since=now
+            # ui.inspect omits activity rows younger than 0.5s. A single empty
+            # snapshot must not mistake a newly started preparation job for idle.
+            if now-idle_since>=1:return True
+        else:idle_since=None
+        if now>=next_log:
+            progress=dict(ns=time.perf_counter_ns(),activity=state['activity'],tasks=state['tasks'],unsaved=state.get('unsaved'))
+            entry['progress'].append(progress)
+            print(f'background drain {phase}: '+json.dumps(progress),flush=True)
+            next_log=time.monotonic()+30
+        return False
+    state=session_wait(control,ready,timeout=1800)
+    entry['end_ns']=time.perf_counter_ns()
+    return state
+
+
+class SessionX11Capture:
+    """Read our visible X11 window; later native PNG must prove identical pixels."""
+    def __init__(self, pid):
+        import re
+        from PIL import ImageGrab
+        self.display=os.environ.get('DISPLAY')
+        tree=subprocess.check_output(['xwininfo','-display',self.display,'-root','-tree'],text=True)
+        selected=None
+        for wid in re.findall(r'^\s*(0x[0-9a-f]+)\s',tree,re.M):
+            prop=subprocess.run(['xprop','-display',self.display,'-id',wid,'_NET_WM_PID'],capture_output=True,text=True)
+            if re.search(r'=\s*'+str(pid)+r'\s*$',prop.stdout):
+                info=subprocess.check_output(['xwininfo','-display',self.display,'-id',wid],text=True)
+                def value(key):return int(re.search(re.escape(key)+r':\s*(-?\d+)',info)[1])
+                rectangle=(value('Absolute upper-left X'),value('Absolute upper-left Y'),value('Width'),value('Height'))
+                if selected is None or rectangle[2]*rectangle[3]>selected[2]*selected[3]:selected=rectangle
+        if selected is None:raise RuntimeError('no X11 window belongs to the app PID')
+        x,y,w,h=selected
+        screen=ImageGrab.grab(xdisplay=self.display)
+        if x<0 or y<0 or x+w>screen.width or y+h>screen.height:
+            raise RuntimeError('app window extends outside the X display')
+        self.bounds=(x,y,x+w,y+h)
+
+    def grab(self):
+        from PIL import ImageGrab
+        return ImageGrab.grab(bbox=self.bounds,xdisplay=self.display).convert('RGB')
+
+
+class SessionSampler:
+    """Observe displayed pixels from BEFORE dispatch, independently of readiness polling."""
+    def __init__(self, control):
+        import threading
+        if not hasattr(control, 'x11_capture'):
+            control.x11_capture = SessionX11Capture(control.process_pid)
+        self.capture = control.x11_capture
+        self.candidates = []
+        self.failures = []
+        self.stop = threading.Event()
+        self.started = threading.Event()
+        self.thread = threading.Thread(target=self.run, daemon=True)
+        self.thread.start()
+        if not self.started.wait(3):
+            raise RuntimeError('X11 observer did not start before action')
+
+    def run(self):
+        try:
+            while not self.stop.is_set():
+                pixels = self.capture.grab()
+                ns = time.perf_counter_ns()
+                self.candidates.append((ns, pixels.size, hashlib.sha256(pixels.tobytes()).hexdigest()))
+                self.started.set()
+                self.stop.wait(.001)
+        except Exception as error:
+            self.failures.append(str(error))
+            self.started.set()
+
+    def finish(self):
+        self.stop.set()
+        self.thread.join(timeout=3)
+        if self.thread.is_alive():
+            raise RuntimeError('X11 observer did not stop')
+
+
+def session_arm(control, record, action):
+    session_drain(control, record, 'before-' + action)
+    session_check_gpu_condition(record, 'before-' + action)
+    if getattr(control, 'action_sampler', None) is not None:
+        raise RuntimeError('previous action observer still running')
+    control.action_sampler = SessionSampler(control)
+    control.armed_action = action
+
+
+def session_check_gpu_condition(record, phase):
+    """Observe the configured hardware condition outside every action clock."""
+    expected=record.get('gpu_state')
+    if not expected:return
+    sent=time.perf_counter_ns()
+    raw=subprocess.check_output(['nvidia-smi','--id=0',
+        '--query-gpu=clocks.gr,clocks.mem,pstate','--format=csv,noheader,nounits'],text=True,timeout=5)
+    graphics,memory,pstate=[v.strip() for v in raw.strip().split(',')]
+    actual=dict(graphics_mhz=int(graphics),memory_mhz=int(memory),pstate=pstate)
+    checked=dict(phase=phase,sent_ns=sent,observed_ns=time.perf_counter_ns(),actual=actual)
+    record.setdefault('gpu_condition_checks',[]).append(checked)
+    if (abs(actual['graphics_mhz']-expected['graphics_mhz'])>15
+            or abs(actual['memory_mhz']-expected['memory_mhz'])>5):
+        raise RuntimeError(f'GPU clock condition differs before {phase}: expected {expected}, observed {actual}')
+
+
+def session_capture_once(control, path):
+    import threading
+    from PIL import Image
+    candidates=[]
+    failures=[]
+    stop_sampling=threading.Event()
+    sampler=None
+    try:
+        if not hasattr(control,'x11_capture'):
+            control.x11_capture=SessionX11Capture(control.process_pid)
+        def sample():
+            try:
+                while not stop_sampling.is_set():
+                    pixels=control.x11_capture.grab()
+                    captured=time.perf_counter_ns()
+                    candidates.append((captured,pixels.size,hashlib.sha256(pixels.tobytes()).hexdigest()))
+                    stop_sampling.wait(.005)
+            except Exception as error:
+                failures.append(str(error))
+        if getattr(control,'action_sampler',None) is None:
+            sampler=threading.Thread(target=sample,daemon=True)
+            sampler.start()
+    except Exception as error:
+        failures.append(str(error))
+    try:
+        # A later native PNG verifies which earlier displayed frame really showed
+        # this result. Hashes retain every observed candidate without duplicate media.
+        control.call('ui.screenshot', {'path': str(path), 'headless': False})
+        verified_ns=time.perf_counter_ns()
+    finally:
+        stop_sampling.set()
+        if sampler is not None:sampler.join(timeout=3)
+    if min(png_size(path))<=0:raise RuntimeError('empty native frame')
+    reference=Image.open(path).convert('RGB')
+    reference_hash=hashlib.sha256(reference.tobytes()).hexdigest()
+    observer=getattr(control,'action_sampler',None)
+    if observer is not None:
+        candidates=list(observer.candidates)+candidates
+        failures+=observer.failures
+    matching=[ns for ns,size,digest in candidates if ns<=verified_ns and size==reference.size and digest==reference_hash]
+    end=min(matching) if matching else verified_ns
+    control.last_capture_proof=dict(method='verified-x11' if matching else 'native-upper-bound',frame_ns=end,verified_ns=verified_ns,
+        reference_png=str(path),reference_png_sha256=file_digest(path),rgb_sha256=reference_hash,
+        width=reference.width,height=reference.height,failures=failures,
+        candidates=[dict(ns=ns,width=size[0],height=size[1],rgb_sha256=digest) for ns,size,digest in candidates if ns<=verified_ns])
+    return end,reference_hash
+
+
+def session_frame(control, path):
+    # The native API can fall back after a compositor timeout. Keep that failed
+    # evidence, retry without resetting the caller's action clock, and require a
+    # successful native capture before accepting any endpoint.
+    attempts=[]
+    for attempt in range(3):
+        log=getattr(control,'session_log',None)
+        before=log.stat().st_size if log is not None else 0
+        end,digest=session_capture_once(control,path)
+        recent=log.read_bytes()[before:] if log is not None else b''
+        proof=control.last_capture_proof
+        proof['native']='rendering headlessly' not in recent.decode(errors='replace')
+        if proof['native']:
+            proof['attempts']=attempts
+            # A failed control screenshot may still have sampled the correct real
+            # window. The successful native PNG verifies those earlier X11 pixels
+            # too: take the earliest match across every attempt, never a timeout
+            # or an assumed subtraction from the action duration.
+            proof['candidates']=[c for failed in attempts for c in failed['candidates']]+proof['candidates']
+            matching=[c['ns'] for c in proof['candidates'] if c['ns']<=proof['verified_ns'] and c['rgb_sha256']==digest and (c['width'],c['height'])==(proof['width'],proof['height'])]
+            if matching:
+                end=min(matching)
+                proof.update(method='verified-x11',frame_ns=end)
+            return end,digest
+        retained=path.with_name(f'{path.stem}.headless-attempt-{attempt}{path.suffix}')
+        path.rename(retained)
+        proof['reference_png']=str(retained)
+        attempts.append(proof)
+    raise RuntimeError(f'native compositor capture failed after three attempts: {attempts}')
+
+
+def session_result(control, path, sent, not_before=None):
+    _, digest = session_frame(control, path)
+    return session_finish_result(control, sent, digest, not_before)
+
+
+def session_finish_result(control, sent, digest, not_before=None):
+    observer = getattr(control, 'action_sampler', None)
+    if observer is not None:
+        observer.finish()
+        control.action_sampler = None
+        control.armed_action = None
+    proof = control.last_capture_proof
+    proof['candidates'] = [c for c in proof['candidates'] if c['ns'] > sent and (not_before is None or c['ns']>=not_before)]
+    matches = [c['ns'] for c in proof['candidates'] if c['rgb_sha256'] == digest
+               and (c['width'], c['height']) == (proof['width'], proof['height'])]
+    end = min(matches) if matches else proof['verified_ns']
+    proof.update(frame_ns=end, method='verified-x11' if matches else 'native-upper-bound')
+    return end, digest
+
+
+def session_detail(control, photo):
+    def ready(state):
+        loupe = state.get('loupe') or {}
+        if loupe.get('failed'):
+            raise RuntimeError(f'preview failed: {loupe}')
+        return state.get('active') == photo and loupe.get('photo') == photo and loupe.get('source') in ('render', 'cached') and not loupe.get('pending') and session_idle(state)
+    return session_wait(control, ready)
+
+
+def session_sample(record, action, sent, end, digest, warmup, **evidence):
+    phase='cold' if not any(x['action']==action for x in record['samples']) else 'warm'
+    record['samples'].append(dict(action=action, phase=phase, sent_ns=sent, frame_ns=end, duration_ns=end-sent,
+                                  frame_sha256=digest, warmup=warmup, checked=True, evidence=evidence))
+    (Path(record['directory'])/'partial-session.json').write_text(json.dumps(record,indent=2)+'\n')
+
+
+def session_pointer(control, x, y, kind='move'):
+    # ui.pointer coordinates are relative to imageRect, including points outside the photo.
+    rect = control.call('ui.inspect')['imageRect']
+    if not rect:
+        raise RuntimeError('pointer gesture needs a displayed photo')
+    control.call('ui.pointer', {'events': [{'kind': kind, 'x': (x-rect[0])/rect[2], 'y': (y-rect[1])/rect[3]}]})
+
+
+def session_grid_settled(control):
+    previous=None
+    stable=0
+    deadline=time.monotonic()+180
+    while time.monotonic()<deadline:
+        state=control.call('ui.inspect')
+        offset=state.get('scroll',{}).get('grid')
+        stable=stable+1 if offset is not None and previous is not None and abs(offset-previous)<.05 else 0
+        if stable>=3 and session_idle(state):return state
+        previous=offset
+        time.sleep(.01)
+    raise TimeoutError('grid did not settle')
+
+
+def session_import_frame(control, record, directory, iteration, ids, sent, completed):
+    """First usable viewport after ALL files entered the catalog; page audit is later."""
+    from PIL import Image, ImageStat
+    for attempt in range(3):
+        state=session_grid_settled(control)
+        view=next(w for w in control.call('ui.widgets',{'filter':'grid:scroll'}) if w['id']=='grid:scroll')
+        vx,vy,vw,vh=view['rect']
+        widgets=control.call('ui.widgets',{'filter':'thumb:'})
+        visible=[]
+        for widget in widgets:
+            if not widget['id'].startswith('thumb:'):continue
+            ident=int(widget['id'].split(':')[1]);x,y,w,h=widget['rect']
+            if ident in ids and vx<=x and x+w<=vx+vw and vy<=y and y+h<=vy+vh:
+                visible.append((ident,(x,y,w,h)))
+        path=directory/f'first-grid-{iteration}-{attempt}.png'
+        _,digest=session_frame(control,path)
+        after=control.call('ui.inspect')
+        image=Image.open(path).convert('RGB');ppp=state['pixelsPerPoint']
+        blank=[]
+        for ident,(x,y,w,h) in visible:
+            box=tuple(round(v*ppp) for v in (x+w*.3,y+h*.25,x+w*.7,y+h*.55))
+            if max(ImageStat.Stat(image.crop(box)).stddev)<1:blank.append(ident)
+        valid=(visible and not blank and after['perf']['thumbTextures']>=len(visible)
+               and isinstance(after['scroll'].get('grid'),(int,float))
+               and isinstance(state['scroll'].get('grid'),(int,float))
+               and abs(after['scroll']['grid']-state['scroll']['grid'])<=.5)
+        facts=dict(visible_ids=[ident for ident,_ in visible],blank_ids=blank,
+                   perf=after['perf'],before_perf=state['perf'],scroll=state['scroll']['grid'],grid_rect=view['rect'])
+        if valid:
+            end,digest=session_finish_result(control,sent,digest,not_before=completed)
+            return end,digest,control.last_capture_proof,facts
+        retained=path.with_suffix('.rejected.png');path.rename(retained)
+        proof=control.last_capture_proof;proof['reference_png']=str(retained)
+        record.setdefault('first_grid_rejections',[]).append(dict(iteration=iteration,attempt=attempt,capture=proof,**facts))
+    raise RuntimeError('no usable imported grid after three native frames; original clock and rejected frames retained')
+
+
+def session_grid_at_top(state):
+    offset=state.get('scroll',{}).get('grid')
+    return offset is not None and abs(offset)<1
+
+
+def session_grid(control, ids, directory):
+    """Visit every grid thumbnail, retaining a native frame and checking actual image content."""
+    from PIL import Image, ImageStat
+    seen = set()
+    frames = []
+    session_execute(control, 'view.squareGrid')
+    control.call('ui.set', {'thumbSize': 100})
+    first=session_execute(control,'catalog.query',{'limit':1})['photos'][0]['id']
+    session_execute(control,'library.select',{'ids':[first]})
+    session_frame(control,directory/'grid-ready.png')
+    # Import can reveal the active photo near the bottom of the date-sorted grid.
+    # Wheel points clamp at the boundary. An unended trackpad gesture can hold a
+    # huge negative rubber-band offset and leave every thumbnail outside the view.
+    view=next(w for w in control.call('ui.widgets',{'filter':'grid:scroll'}) if w['id']=='grid:scroll')
+    vx,vy,vw,vh=view['rect']
+    control.call('ui.move',{'x':vx+vw/2,'y':vy+vh/2})
+    control.call('ui.scroll',{'dy':100000,'source':'wheel','unit':'point'})
+    last_navigation_ns=control.last_sent_ns
+    session_wait(control,session_grid_at_top)
+    session_frame(control,directory/'grid-top.png')
+    previous_scroll = None
+    for page in range(len(ids) + 5):
+        state = session_grid_settled(control)
+        widgets = control.call('ui.widgets', {'filter': 'thumb:'})
+        visible = []
+        for w in widgets:
+            if not w['id'].startswith('thumb:'):
+                continue
+            ident = int(w['id'].split(':')[1])
+            x,y,width,height = w['rect']
+            if ident in ids and y >= vy and y+height <= vy+vh and x >= vx and x+width <= vx+vw:
+                visible.append((ident, (x,y,width,height)))
+        if not visible:
+            (directory/f'empty-grid-{page}.json').write_text(json.dumps(dict(state=state,widgets=widgets),indent=2))
+            session_frame(control,directory/f'empty-grid-{page}.png')
+            raise RuntimeError('no fully visible grid thumbnails; state and native frame retained')
+        # With no pending renders, require resident thumbnail textures as well as non-placeholder pixels.
+        if state['perf']['thumbTextures'] < len(visible):
+            time.sleep(.02)
+            continue
+        path = directory / f'grid-{page}.png'
+        end,digest = session_frame(control,path)
+        after=control.call('ui.inspect')
+        if abs(after['scroll']['grid']-state['scroll']['grid'])>.5:
+            continue  # The recorded geometry and captured pixels must describe the same viewport.
+        image = Image.open(path).convert('RGB')
+        ppp = state['pixelsPerPoint']
+        for ident,(x,y,w,h) in visible:
+            # Stay inside the photo, away from its caption, border and selection markers.
+            crop=image.crop(tuple(round(v*ppp) for v in (x+w*.3,y+h*.25,x+w*.7,y+h*.55)))
+            if max(ImageStat.Stat(crop).stddev) < 1.0:
+                raise RuntimeError(f'blank/placeholder thumbnail {ident} on page {page}')
+            seen.add(ident)
+        frames.append(dict(path=str(path), sha256=digest, ids=[i for i,_ in visible],perf=state['perf'],capture=control.last_capture_proof))
+        if seen == set(ids):
+            control.import_last_navigation_ns=last_navigation_ns
+            return end,digest,frames
+        scroll = state.get('scroll',{}).get('grid')
+        if scroll == previous_scroll and page > 0:
+            raise RuntimeError(f'grid stopped before all thumbnails: {len(seen)}/{len(ids)}')
+        previous_scroll = scroll
+        control.call('ui.move', {'x': state['window'][0]/2, 'y': state['window'][1]/2})
+        control.call('ui.scroll', {'dy': -vh*.5,'source':'wheel','unit':'point'})
+        last_navigation_ns=control.last_sent_ns
+        session_wait(control,lambda s:s.get('scroll',{}).get('grid')!=scroll)
+    raise RuntimeError(f'not all thumbnails shown: {len(seen)}/{len(ids)}')
+
+
+def session_gpu_processes():
+    import csv
+    import io
+    command=['nvidia-smi','--query-compute-apps=pid,name','--format=csv']
+    output=subprocess.check_output(command,text=True,timeout=15)
+    rows=list(csv.reader(io.StringIO(output)))
+    if not rows or rows[0][0].strip()!='pid':raise RuntimeError(f'invalid GPU process listing: {output}')
+    processes=[dict(pid=int(row[0].strip()),name=row[1].strip()) for row in rows[1:] if row]
+    return dict(ns=time.perf_counter_ns(),command=command,csv=output,processes=processes)
+
+
+def session_gpu_foreign(snapshots, own_pids=()):
+    own=set(own_pids)
+    found={}
+    for snapshot in snapshots:
+        for process in (snapshot or {}).get('processes',[]):
+            if process['pid'] in own:
+                continue
+            found[(process['pid'],process['name'])]=process
+    return sorted(found.values(),key=lambda process:(process['name'],process['pid']))
+
+
+def session_gpu_admit(deadline, provisional=False, observe=None, pause=None, now=None, on_wait=None):
+    observe=observe or session_gpu_processes
+    pause=pause or time.sleep
+    now=now or time.monotonic
+    while True:
+        snapshot=observe()
+        if not snapshot['processes']:
+            return snapshot,provisional
+        if provisional or now()>=deadline:
+            return snapshot,True
+        if on_wait is not None:on_wait(snapshot)
+        pause(min(30,max(0,deadline-now())))
+
+
+class SessionGpuWatch:
+    def __init__(self):
+        import threading
+        self.samples=[]
+        self.errors=[]
+        self.stopped=threading.Event()
+        self.thread=threading.Thread(target=self.collect,daemon=True)
+
+    def collect(self):
+        while not self.stopped.is_set():
+            try:self.samples.append(session_gpu_processes())
+            except Exception as error:self.errors.append(str(error))
+            self.stopped.wait(2)
+
+    def start(self):self.thread.start()
+
+    def stop(self):
+        self.stopped.set()
+        self.thread.join(timeout=20)
+        if self.thread.is_alive():self.errors.append('GPU process watcher did not stop')
+
+
+def session_guarded_attempt(report,checkpoint,binary,directory,tier,side,pair,run):
+    """Resource admission around the existing driver; action clocks stay inside run()."""
+    deadline=time.monotonic()+1800
+    cycle_started=time.perf_counter_ns()
+    attempt=0
+    report.setdefault('discarded_sessions',[])
+    report.setdefault('failed_sessions',[])
+    report.setdefault('gpu_wait_events',[])
+    provisional_tiers=report.setdefault('provisional_tiers',{})
+    def mark_provisional(offenders):
+        names=provisional_tiers.setdefault(tier,[])
+        names[:]=sorted(set(names)|{p['name'] for p in offenders})
+    while True:
+        def waited(snapshot):
+            report['gpu_wait_events'].append(dict(tier=tier,side=side,pair=pair,attempt=attempt,snapshot=snapshot))
+            print(f'GPU wait {tier} pair {pair} {side}: '+', '.join(p['name'] for p in snapshot['processes']),flush=True)
+            checkpoint()
+        admitted,provisional=session_gpu_admit(deadline,tier in provisional_tiers,on_wait=waited)
+        if provisional:
+            mark_provisional(admitted['processes'])
+            print(f'PROVISIONAL {tier}: GPU-clean session budget exhausted; offenders '+', '.join(provisional_tiers[tier]),flush=True)
+        attempt_dir=directory.with_name(f'{directory.name}-attempt-{attempt}')
+        watcher=SessionGpuWatch()
+        watcher.start()
+        error=None
+        owned_pids=[]
+        try:
+            record=run(attempt_dir,provisional,owned_pids.append)
+        except Exception as failure:
+            error=failure
+            record={}
+            for name in ('partial-session.json','diagnostic.json'):
+                path=attempt_dir/name
+                if path.exists():record=json.loads(path.read_text());break
+            rejected=attempt_dir/'gpu-processes-rejected.json'
+            if rejected.exists():record['gpu_processes_before']=json.loads(rejected.read_text())
+        finally:
+            watcher.stop()
+        after=session_gpu_processes()
+        # A startup failure may precede the first driver checkpoint/control connection.
+        # Preserve ownership from Popen so our failed app is never retried as contention.
+        record['process_ids']=sorted(set(record.get('process_ids',[]))|set(owned_pids))
+        record.setdefault('gpu_processes_before',admitted)
+        driver_after=record.get('gpu_processes_after')
+        record.update(directory=str(attempt_dir),side=side,tier=tier,pair=pair,attempt=attempt,
+                      gpu_processes_after=after,gpu_poll_snapshots=watcher.samples,
+                      gpu_processes_driver_after=driver_after,
+                      gpu_admission_snapshot=admitted,gpu_wait_cycle_started_ns=cycle_started,
+                      gpu_provisional=provisional)
+        foreign=session_gpu_foreign([admitted,record['gpu_processes_before'],driver_after,after,*watcher.samples],record.get('process_ids',[]))
+        record['gpu_foreign_processes']=foreign
+        if error is not None:record['application_error']=str(error)
+        if watcher.errors:record['gpu_inspection_errors']=watcher.errors
+        attempt_dir.mkdir(parents=True,exist_ok=True)
+        if foreign and not provisional:
+            record['gpu_status']='discarded-contention'
+            report['discarded_sessions'].append(record)
+            (attempt_dir/'discarded-session.json').write_text(json.dumps(record,indent=2)+'\n')
+            if (attempt_dir/'session.json').exists():(attempt_dir/'session.json').write_text(json.dumps(record,indent=2)+'\n')
+            print(f'discard {tier} pair {pair} {side} attempt {attempt}: '+', '.join(p['name'] for p in foreign),flush=True)
+            if time.monotonic()>=deadline:mark_provisional(foreign)
+            checkpoint()
+            attempt+=1
+            continue
+        if error is not None or watcher.errors:
+            record['gpu_status']='failed'
+            report['failed_sessions'].append(record)
+            (attempt_dir/'failed-session.json').write_text(json.dumps(record,indent=2)+'\n')
+            checkpoint()
+            if error is not None:raise error
+            raise RuntimeError(f'GPU process inspection failed: {watcher.errors}')
+        if provisional:mark_provisional(foreign)
+        record['gpu_status']='shared-provisional' if provisional else 'clean'
+        record['gpu_tier_offenders']=list(provisional_tiers.get(tier,[]))
+        (attempt_dir/('diagnostic.json' if 'quit_ns' in record else 'session.json')).write_text(json.dumps(record,indent=2)+'\n')
+        checkpoint()
+        return record
+
+
+def run_session(binary, payload, directory, side, tier, pair, repetitions, warmups, gpu_provisional=False, on_started=None, exposure_steps=10, gpu_state=None):
+    from lightcraft_session_report import validate_session, check_export_pixels
+    directory.mkdir(parents=True,exist_ok=False)
+    library,profile = directory/'library',directory/'profile'
+    log_path=directory/'app.log'
+    gpu_before=session_gpu_processes()
+    if gpu_before['processes'] and not gpu_provisional:
+        (directory/'gpu-processes-rejected.json').write_text(json.dumps(gpu_before,indent=2))
+        raise RuntimeError(f'foreign GPU process before session: {gpu_before}')
+    record=dict(side=side,tier=tier,pair=pair,directory=str(directory),samples=[],gpu_state=gpu_state,gpu_provisional=gpu_provisional,gpu_processes_before=gpu_before,launch_ns=time.perf_counter_ns())
+    process,control=spawn(binary,library,profile,None,log_path=log_path,on_started=on_started)
+    control.test_delay_ms=float(os.environ.get('CRAFT_JOURNEYS_TEST_SWITCH_DELAY_MS','0')) if side=='main' else 0
+    record['test_switch_delay_ms']=control.test_delay_ms
+    record['process_ids']=[process.pid]
+    record['control_transport']=dict(tcp_nodelay=control.low_latency,tcp_quickack=control.low_latency and hasattr(socket,'TCP_QUICKACK'))
+    record['control_traces']=[dict(pid=process.pid,calls=control.trace)]
+    try:
+        state=control.call('ui.inspect')
+        # ui.inspect deliberately omits transient dialogs. Cancel optional first-run
+        # onboarding through the supported dialog API before any action is timed.
+        control.call('ui.set',{'settings':{'previewLimit':0,'lensDatabase':'declined'}})
+        control.call('ui.dialog.cancel')
+        record['interactive_ns'],_=session_frame(control,directory/'interactive.png')
+        record['interactive_capture']=control.last_capture_proof
+        # Initial GPU setup may continue after the first interactive (CPU) window.
+        # Warm it completely before measuring actions; never publish silent CPU fallback.
+        state=session_wait(control,lambda s:bool(s['perf'].get('gpu')),timeout=900)
+        record['gpu_ready_ns']=time.perf_counter_ns()
+        record['gpu_adapter']=state['perf']['gpu']
+        paths=[str(p) for p in sorted(payload.iterdir()) if p.is_file() and not p.name.startswith('.')]
+        if not paths:
+            raise ValueError('empty RAW payload')
+        # Warm import and repeat real import after removing catalog records only; originals stay.
+        for iteration in range(warmups+repetitions):
+            if iteration:
+                session_execute(control,'photo.deletePermanently',{'ids': ids})
+                control.call('ui.move', {'x': 600, 'y': 350})
+                control.call('ui.scroll', {'dy': 100000})
+            session_execute(control,'view.squareGrid')
+            control.call('ui.set',{'thumbSize':100})
+            session_arm(control,record,'import')
+            control.call('ui.dropFiles',{'paths':[str(payload)]})
+            sent=control.last_sent_ns
+            review=session_wait(control,lambda s:any(w['id']=='label:importSource' for w in control.call('ui.widgets',{'filter':'label:importSource'})))
+            control.call('ui.clickWidget',{'id':'button:importAdd'})
+            result=control.call('ui.dialog.confirm')
+            if result.get('importing')!=len(paths):
+                raise RuntimeError(f'incomplete import request: {result}')
+            session_wait(control,lambda s:s.get('import') is None and s.get('scan') is None)
+            import_completed_ns=time.perf_counter_ns()
+            catalog=session_execute(control,'catalog.query',{'limit':len(paths)+1})
+            photos=sorted(catalog['photos'],key=lambda p:p['fileName'])
+            if len(photos)!=len(paths) or {p['fileName'] for p in photos}!={Path(p).name for p in paths}:
+                raise RuntimeError(f'incomplete/wrong import: {catalog}')
+            ids=[p['id'] for p in photos]
+            grid_dir=directory/f'import-{iteration}'
+            grid_dir.mkdir()
+            end,digest,proof,viewport=session_import_frame(control,record,directory,iteration,ids,sent,import_completed_ns)
+            record['pending_import_check']=dict(sent_ns=sent,frame_ns=end,capture=proof)
+            # Every page is still checked, but scripted scrolling/capture/CPU pixel
+            # verification cannot inflate the user's import-to-usable-grid clock.
+            _,_,frames=session_grid(control,ids,grid_dir)
+            record.pop('pending_import_check')
+            session_sample(record,'import',sent,end,digest,iteration<warmups,imported=len(ids),frames=frames,first_viewport=viewport,completion_observed_ns=import_completed_ns,capture=proof)
+        record['photo_ids']=ids
+        record['photos']=photos
+        photo=ids[0]
+        if photos[0].get('previewOnly'):
+            raise RuntimeError(f'full-quality RAW preview unavailable: {photos[0]}')
+        for iteration in range(warmups+repetitions):
+            session_execute(control,'view.squareGrid')
+            session_execute(control,'view.zoomFit')
+            session_execute(control,'library.select',{'ids':[photo]})
+            session_arm(control,record,'preview')
+            session_execute(control,'view.detail')
+            sent=control.last_sent_ns
+            session_execute(control,'view.zoom100')
+            state=session_detail(control,photo)
+            end,digest=session_result(control,directory/f'preview-{iteration}.png',sent)
+            session_sample(record,'preview',sent,end,digest,iteration<warmups,loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
+            session_execute(control,'view.squareGrid')
+            session_execute(control,'view.zoomFit')
+        session_execute(control,'view.detail')
+        session_detail(control,photo)
+        # A held real slider gesture, one acknowledged pointer movement and resulting frame per step.
+        slider=next(w for w in control.call('ui.widgets',{'filter':'slider:light.exposure'}) if w['id']=='slider:light.exposure')
+        x,y,w,h=slider['rect']
+        for iteration in range(repetitions):
+            start=.30 if iteration%2==0 else .70
+            control.call('ui.move',{'x':x+w*start,'y':y+h*.5})
+            session_pointer(control,x+w*start,y+h*.5,'down')
+            # Cross egui's drag threshold before the 60 individually timed moves.
+            session_pointer(control,x+w*(.35 if iteration%2==0 else .65),y+h*.5)
+            session_detail(control,photo)
+            for step in range(warmups+exposure_steps):
+                before=session_execute(control,'develop.get',{'id':photo})['light']['exposure']
+                position=.35+.3*(step+1)/(warmups+exposure_steps) if iteration%2==0 else .65-.3*(step+1)/(warmups+exposure_steps)
+                session_arm(control,record,'exposure')
+                session_pointer(control,x+w*position,y+h*.5)
+                sent=control.last_sent_ns
+                state=session_detail(control,photo)
+                end,digest=session_result(control,directory/f'exposure-{iteration}-{step}.png',sent)
+                exposure=session_execute(control,'develop.get',{'id':photo})['light']['exposure']
+                if exposure==before:
+                    raise RuntimeError(f'slider step {step} had no effect: {exposure}')
+                session_sample(record,'exposure',sent,end,digest,step<warmups,step=step-warmups,exposure=exposure,loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
+            session_pointer(control,x+w*position,y+h*.5,'up')
+        for iteration in range(warmups+repetitions):
+            session_execute(control,'library.select',{'ids':[photo]})
+            session_detail(control,photo)
+            selected=ids[1]
+            session_arm(control,record,'switch')
+            session_execute(control,'library.select',{'ids':[selected]})
+            sent=control.last_sent_ns
+            state=session_detail(control,selected)
+            end,digest=session_result(control,directory/f'switch-{iteration}.png',sent)
+            session_sample(record,'switch',sent,end,digest,iteration<warmups,photo=selected,test_delay=getattr(control,'last_test_delay',None),loupe=state['loupe'],image_rect=state['imageRect'],perf=state['perf'],capture=control.last_capture_proof)
+        for iteration in range(warmups+repetitions):
+            output=directory/f'export-{iteration}.jpg'
+            session_arm(control,record,'export')
+            result=session_execute(control,'app.export',{'path':str(output),'ids':[photo],'format':'jpeg','longEdge':2048,'quality':90,'background':True})
+            sent=control.last_sent_ns
+            state=session_wait(control,lambda s: not (s.get('export') or {}).get('running'))
+            ready_ns=time.perf_counter_ns()
+            end,digest=session_result(control,directory/f'export-{iteration}.png',sent,not_before=ready_ns)
+            if max(jpeg_size(output))!=2048:
+                raise RuntimeError(f'invalid JPEG export: {result}, {state["export"]}')
+            session_sample(record,'export',sent,end,digest,iteration<warmups,jpeg_sha256=file_digest(output),dimensions=jpeg_size(output),perf=state['perf'],capture=control.last_capture_proof)
+        record['export_sample']=str(output)
+        record['export_oracle']=str(directory/'export-oracle.png')
+        # Preview rounding and resampling differ from export (1366 vs1365 pixels).
+        # A noisy RAW cannot be compared pixelwise after stretching the preview.
+        # Keep the JPEG bound fixed and use the lossless export before its codec.
+        record['export_oracle_method']='png-export-same-geometry'
+        session_execute(control,'app.export',{'path':record['export_oracle'],'ids':[photo],'format':'png','longEdge':2048,'colorSpace':'srgb','bitDepth':8,'background':True})
+        session_wait(control,lambda s:not (s.get('export') or {}).get('running'))
+        if png_size(Path(record['export_oracle']))!=jpeg_size(output):
+            raise RuntimeError('JPEG and lossless PNG export geometry differ')
+        record['export_output_check']=check_export_pixels(record)
+        # A fixed-state pixel oracle outside every action clock; use identical source/settings.
+        session_execute(control,'library.select',{'ids':[photo]})
+        session_execute(control,'develop.set',{'values':{'light.exposure':0.7}})
+        session_detail(control,photo)
+        oracle=directory/'oracle.png'
+        render_preview(control,oracle,photo)
+        record['oracle']=str(oracle)
+        record['oracle_source']=file_digest(Path(paths[0]))
+        state=session_drain(control,record,'before-idle-quit',require_saved=True)
+        record['gpu_adapter']=state['perf'].get('gpu')
+        record['pre_quit_state']=state
+        session_check_gpu_condition(record,'before-idle-quit')
+        # No forced process termination is allowed to masquerade as a quit sample.
+        control.call('engine.execute',{'command':'app.quit'})
+        record['quit_request_ns']=control.last_sent_ns
+        record['exit_ns']=session_wait_exit(process)
+        if process.returncode!=0:
+            raise RuntimeError(f'quit failed: {process.returncode}')
+        control.stream.close()
+        # Separately measure reopening the already-populated library, including a finished photo frame.
+        session_check_gpu_condition(record,'before-library-startup')
+        started=time.perf_counter_ns()
+        process,control=spawn(binary,library,profile,None,log_path=directory/'startup.log',on_started=on_started)
+        record['process_ids'].append(process.pid)
+        record['control_traces'].append(dict(pid=process.pid,calls=control.trace))
+        control.action_sampler=SessionSampler(control)
+        session_detail(control,photo)
+        ended,_=session_result(control,directory/'startup-library.png',started)
+        record['startup_library_ns']=ended-started
+        record['startup_samples']=[dict(duration_ns=ended-started,phase='cold',sent_ns=started,frame_ns=ended,capture=control.last_capture_proof)]
+        record['quit_samples']=[dict(duration_ns=record['exit_ns']-record['quit_request_ns'],phase='cold',sent_ns=record['quit_request_ns'],exit_ns=record['exit_ns'],exit_code=0)]
+        record['startup_capture']=control.last_capture_proof
+        record['startup_state']=control.call('ui.inspect')
+        session_drain(control,record,'after-startup-frame')
+        for lifecycle in range(repetitions):
+            session_drain(control,record,f'before-repeat-quit-{lifecycle}',require_saved=True)
+            session_check_gpu_condition(record,f'before-repeat-quit-{lifecycle}')
+            control.call('engine.execute',{'command':'app.quit'})
+            sent=control.last_sent_ns
+            exited=session_wait_exit(process)
+            if process.returncode!=0:raise RuntimeError(f'quit failed: {process.returncode}')
+            record['quit_samples'].append(dict(duration_ns=exited-sent,phase='warm',sent_ns=sent,exit_ns=exited,exit_code=process.returncode))
+            control.stream.close()
+            if lifecycle==repetitions-1:break
+            session_check_gpu_condition(record,f'before-repeat-startup-{lifecycle}')
+            started=time.perf_counter_ns()
+            process,control=spawn(binary,library,profile,None,log_path=directory/f'startup-repeat-{lifecycle}.log',on_started=on_started)
+            record['process_ids'].append(process.pid)
+            record['control_traces'].append(dict(pid=process.pid,calls=control.trace))
+            control.action_sampler=SessionSampler(control)
+            session_detail(control,photo)
+            ended,_=session_result(control,directory/f'startup-repeat-{lifecycle}.png',started)
+            record['startup_samples'].append(dict(duration_ns=ended-started,phase='warm',sent_ns=started,frame_ns=ended,capture=control.last_capture_proof))
+        process=None
+        record['gpu_processes_after']=session_gpu_processes()
+        validate_session(record)
+        (directory/'session.json').write_text(json.dumps(record,indent=2)+'\n')
+        return record
+    except Exception as error:
+        record['failure']=str(error)
+        (directory/'partial-session.json').write_text(json.dumps(record,indent=2)+'\n')
+        raise
+    finally:
+        observer=getattr(control,'action_sampler',None)
+        if observer is not None:observer.finish()
+        if process is not None and process.poll() is None:
+            stop(process,control)
+        control.stream.close()
+
+
+def session_quit_probe(binary, photo_path, directory, side, pair, trace_quit=False, task="open", gpu_provisional=False, on_started=None):
+    """Diagnostic of the previous ui.render→quit path, never a session action claim."""
+    directory.mkdir(parents=True,exist_ok=False)
+    gpu_before=session_gpu_processes()
+    if gpu_before['processes'] and not gpu_provisional:
+        (directory/'gpu-processes-rejected.json').write_text(json.dumps(gpu_before,indent=2))
+        raise RuntimeError(f'foreign GPU process before quit probe: {gpu_before}')
+    launched=time.perf_counter_ns()
+    process,control=spawn(binary,directory/'library',directory/'profile',photo_path,log_path=directory/'app.log',on_started=on_started)
+    try:
+        photo=wait_for_photo(control,process)
+        opened=time.perf_counter_ns()
+        if task in ('edit','save'):
+            session_execute(control,'develop.set',{'values':{'light.exposure':0.7}})
+            render_preview(control,directory/'render.png',photo['id'])
+            exposure_identity(control,photo['id'],file_digest(photo_path),task)
+        elif task=='export':
+            session_execute(control,'app.export',{'path':str(directory/'export.jpg'),'ids':[photo['id']],'format':'jpeg','longEdge':2048,'quality':90,'background':False})
+            if max(jpeg_size(directory/'export.jpg'))!=2048:raise RuntimeError('quit probe export failed')
+        elif task=='open':
+            render_preview(control,directory/'render.png',photo['id'])
+        else:
+            raise ValueError('unknown legacy diagnostic action')
+        rendered=time.perf_counter_ns()
+        state=control.call('ui.inspect')
+        quit_reply_error=None
+        try:control.call('engine.execute',{'command':'app.quit'})
+        except (RuntimeError,OSError) as error:quit_reply_error=str(error)
+        sent=control.last_sent_ns
+        if trace_quit:
+            with (directory/'quit-backtrace.txt').open('wb') as log:
+                subprocess.run(['sudo','-n','gdb','-q','-batch','-p',str(process.pid),'-ex','set pagination off','-ex','thread apply all bt 90','-ex','detach'],stdout=log,stderr=log,timeout=45)
+        ended=session_wait_exit(process)
+        gpu_after=session_gpu_processes()
+        record=dict(side=side,pair=pair,task=task,gpu_provisional=gpu_provisional,profiled=trace_quit,exit_code=process.returncode,success=process.returncode==0,forced_termination=False,quit_reply_error=quit_reply_error,gpu_processes_before=gpu_before,gpu_processes_after=gpu_after,process_ids=[process.pid],launch_ns=launched,photo_ready_ns=opened,render_done_ns=rendered,
+                    quit_request_ns=sent,exit_ns=ended,quit_ns=ended-sent,render_ns=rendered-opened,
+                    process_ns=ended-launched,pre_quit_state=state,gpu_adapter=state['perf'].get('gpu'))
+        if not gpu_provisional and any(p['pid']!=process.pid for p in gpu_after['processes']):
+            record['failure']=f'foreign GPU process after quit probe: {gpu_after}'
+        (directory/'diagnostic.json').write_text(json.dumps(record,indent=2)+'\n')
+        if record.get('failure'):raise RuntimeError(record['failure'])
+        return record
+    finally:
+        if process.poll() is None:stop(process,control)
+        control.stream.close()
+
+
+def session_resume(config, binary_hashes):
+    """Reuse completed sessions, preserving the guard and provenance of each acquisition."""
+    if not config.get('resume_report'):
+        return None
+    path=Path(config['resume_report'])
+    prior=json.loads(path.read_text())
+    def workload(c):return {k:v for k,v in c.items() if k not in ('pair','side','acquisition_sides','resume_report')}
+    if prior.get('schema')!='lightcraft-session-v1' or workload(prior['config'])!=workload(config):
+        raise ValueError('resume report workload/revisions differ')
+    if config.get('measurement_method') and prior.get('driver_sha256')!=file_digest(Path(__file__)):
+        raise ValueError('resume driver differs; restart the matrix')
+    if prior.get('binary_sha256')!=binary_hashes:
+        raise ValueError('resume report binary hashes differ')
+    from lightcraft_session_report import validate_session
+    keys=set()
+    for session in prior['sessions']:
+        validate_session(session)
+        key=(session['tier'],session['pair'],session['side'])
+        if key in keys:raise ValueError(f'duplicate resumed session: {key}')
+        keys.add(key)
+    return prior
+
+
+def session_comparison_complete(config,sessions):
+    expected={(tier,pair,side) for tier in config['payloads'] for pair in range(config.get('sessions',10)) for side in config.get('sides',('point','main','upstream'))}
+    actual=[(s['tier'],s['pair'],s['side']) for s in sessions]
+    return len(actual)==len(expected) and set(actual)==expected
+
+
+def session_calibration(config):
+    """Only real, complete, guarded A/A evidence can calibrate a production report."""
+    if config.get('aa'):
+        revisions=config['revisions']
+        if revisions['point']['revision']!=revisions['main']['revision']:
+            raise ValueError('A/A requires the same app commit')
+        if revisions['point']['binary']==revisions['main']['binary']:
+            raise ValueError('A/A requires two separately built binary paths')
+        return None
+    if not config.get('aa_report'):return None
+    report=json.loads(Path(config['aa_report']).read_text())
+    if (not report.get('config',{}).get('aa') or not report.get('comparison_complete')
+            or not report.get('output_checked') or not report.get('gpu_process_checks_passed')
+            or report.get('guard',{}).get('contended') is not False
+            or not report.get('prior_acquisitions_passed') or report['config'].get('sessions',0)<10):
+        raise ValueError('calibration requires complete, clean A/A evidence with at least ten pairs')
+    aa_revs=report['config']['revisions']
+    if aa_revs['point']['revision']!=aa_revs['main']['revision'] or aa_revs['main']['revision']!=config['revisions']['main']['revision']:
+        raise ValueError('calibration app commit differs from comparison main')
+    if report.get('driver_sha256')!=file_digest(Path(__file__)):
+        raise ValueError('calibration used a different driver; repeat A/A')
+    for key in ('gpu_state','measurement_method','warmups','repetitions','exposure_steps'):
+        if report['config'].get(key)!=config.get(key):
+            raise ValueError(f'calibration condition differs: {key}')
+    if any(s.get('gpu_state')!=report['config'].get('gpu_state') for s in report['sessions']):
+        raise ValueError('calibration session GPU condition differs from config')
+    from lightcraft_session_report import summarize
+    return {'rows':summarize(report['sessions'],aa=True)}
+
+
+def session_main(args):
+    import argparse
+    from lightcraft_session_report import summarize, markdown
+    parser=argparse.ArgumentParser(description='One running LightCraft session per revision/pair; binaries must be built before locking.')
+    parser.add_argument('--config',required=True,type=Path)
+    parser.add_argument('--out',required=True,type=Path)
+    options=parser.parse_args(args)
+    config=json.loads(options.config.read_text())
+    config.setdefault('measurement_method','first-grid-quickack-v4')
+    calibration=session_calibration(config)
+    pair=config.get('pair',0)
+    if not isinstance(pair,int) or not 0<=pair<config.get('sessions',10):
+        raise ValueError('pair must be an index in 0..sessions')
+    if not config.get('quit_probe') and len(config['payloads'])!=1:
+        raise ValueError('one payload tier per lock acquisition is required')
+    binary_hashes={side:file_digest(Path(rev['binary'])) for side,rev in config['revisions'].items()}
+    prior=session_resume(config,binary_hashes)
+    options.out.mkdir(parents=True,exist_ok=False)
+    (options.out/'config.json').write_text(json.dumps(config,indent=2)+'\n')
+    sessions=list(prior['sessions']) if prior else []
+    report=dict(discarded_sessions=[],failed_sessions=[],gpu_wait_events=[],provisional_tiers={},gpu_policy=dict(wait_poll_seconds=30,attempt_budget_seconds=1800,during_session_poll_seconds=2),schema='lightcraft-session-v1',publish_scope='fork-point-to-fork-main',config=config,sessions=sessions,publishable=False,
+                statistics=dict(resamples=4000,seed=313,bootstrap_unit='paired-session-stratified-by-fixed-AB-BA-order',ordinary_ci_retained=True,pooled_ci_retained=True,ratio='exp(median(log(session_point_median/session_main_median)))',percentiles='linear'),
+                environment={key:os.environ.get(key) for key in ('DISPLAY','WGPU_BACKEND','LIGHTCRAFT_GPU_BACKEND','LIGHTCRAFT_GPU_ADAPTER','__GL_SHADER_DISK_CACHE_PATH','CRAFT_BENCH_ISOLATED')},
+                timing_scope='control send to first X11 capture proven pixel-identical to the native control PNG; mismatches fall back to the later native capture upper bound',
+                driver_sha256=file_digest(Path(__file__)),
+                harness_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=Path(__file__).resolve().parents[3],text=True).strip(),
+                binary_sha256=binary_hashes,comparison_complete=False,prior_acquisitions_passed=True)
+    if prior:
+        for key in ('discarded_sessions','failed_sessions','gpu_wait_events','provisional_tiers'):
+            report[key]=prior.get(key,report[key])
+        report['prior_acquisitions']=prior.get('prior_acquisitions',[])+[dict(
+            path=config['resume_report'],sha256=file_digest(Path(config['resume_report'])),
+            harness_revision=prior['harness_revision'],guard=prior.get('guard'),fingerprint=prior.get('fingerprint'))]
+        report['prior_acquisitions_passed']=prior.get('prior_acquisitions_passed',True) and prior.get('guard',{}).get('contended') is False
+    def checkpoint():
+        temporary=options.out/'report.json.tmp'
+        temporary.write_text(json.dumps(report,indent=2)+'\n')
+        temporary.replace(options.out/'report.json')
+    checkpoint()
+    display=ensure_display()
+    try:
+        if config.get('quit_probe'):
+            report['schema']='lightcraft-quit-diagnostic-v1'
+            report['diagnostic']=[]
+            report['diagnostic_only']=True
+            report['input_sha256']=file_digest(Path(config['quit_probe']))
+            for task in config.get('quit_tasks',['open']):
+                for pair in [pair]:
+                    order=('point','main','upstream') if pair%2==0 else ('upstream','main','point')
+                    for side in order:
+                        print(f'quit probe {task} pair {pair} {side}',flush=True)
+                        binary=Path(config['revisions'][side]['binary'])
+                        record=session_guarded_attempt(report,checkpoint,binary,options.out/f'probe-{task}-{pair}-{side}','legacy-quit',side,pair,
+                            lambda directory,provisional,on_started:session_quit_probe(binary,Path(config['quit_probe']),directory,side,pair,task=task,gpu_provisional=provisional,on_started=on_started))
+                        report['diagnostic'].append(record)
+                        checkpoint()
+            report['gpu_adapters']=sorted({r['gpu_adapter'] for r in report['diagnostic'] if r['gpu_adapter']})
+            report['gpu_process_checks_passed']=not report['provisional_tiers']
+            report['exit_failures']=[dict(side=r['side'],task=r['task'],pair=r['pair'],exit_code=r['exit_code']) for r in report['diagnostic'] if not r['success']]
+            report['all_exits_successful']=not report['exit_failures']
+            print(f'quit diagnostic: {len(report["diagnostic"])} attempts, {len(report["exit_failures"])} process failures; no forced exits',flush=True)
+            checkpoint()
+            return 0
+        # ABC/CBA blocks keep the primary comparison adjacent, reverse order on alternate pairs.
+        for tier,payload in config['payloads'].items():
+            for pair in [pair]:
+                order=('point','main','upstream') if pair%2==0 else ('upstream','main','point')
+                for side in order:
+                    if side not in config.get('sides',('point','main','upstream')) or (config.get('side') and config['side']!=side):continue
+                    if side not in config.get('acquisition_sides',config.get('sides',('point','main','upstream'))):continue
+                    if any((s['tier'],s['pair'],s['side'])==(tier,pair,side) for s in sessions):
+                        continue
+                    print(f'session {tier} pair {pair} {side}',flush=True)
+                    revision=config['revisions'][side]
+                    binary=Path(revision['binary'])
+                    record=session_guarded_attempt(report,checkpoint,binary,options.out/f'{tier}-{pair}-{side}',tier,side,pair,
+                        lambda directory,provisional,on_started:run_session(binary,Path(payload),directory,side,tier,pair,config.get('repetitions',3),config.get('warmups',2),gpu_provisional=provisional,on_started=on_started,exposure_steps=config.get('exposure_steps',10),gpu_state=config.get('gpu_state')))
+                    sessions.append(record)
+                    checkpoint()
+        from lightcraft_session_report import check_pixels
+        complete_pairs=[p for p in range(config.get('sessions',10)) if all(any(s['side']==side and s['pair']==p for s in sessions) for side in config.get('sides',('point','main','upstream')))]
+        paired=[s for s in sessions if s['pair'] in complete_pairs]
+        primary_pairs={p for p in range(config.get('sessions',10)) if all(any(s['side']==side and s['pair']==p for s in sessions) for side in ('point','main'))}
+        verified=[s for s in sessions if s['pair'] in primary_pairs]
+        report['pixel_checks']=check_pixels(verified) if verified else []
+        # Keep hashes and measured evidence, not thousands of passing native PNGs.
+        for accepted in verified:
+            if 'directory' not in accepted:continue
+            protected={accepted['oracle'],accepted['export_sample'],accepted['export_oracle']}
+            for image in Path(accepted['directory']).rglob('*.png'):
+                if str(image) not in protected and 'headless-attempt' not in image.name and '.rejected.' not in image.name:
+                    image.unlink()
+        report['rows']=summarize(paired, calibration=calibration, aa=config.get('aa',False)) if paired else []
+        report['secondary_pixel_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream')
+        for row in report['rows']:
+            row['upstream_equivalent']=all(c['equivalent'] for c in report['pixel_checks'] if c['side']=='upstream' and c['tier']==row['tier'])
+        report['gpu_adapters']=sorted({s['gpu_adapter'] for s in sessions})
+        report['output_checked']=True
+        report['comparison_complete']=session_comparison_complete(config,sessions)
+        report['gpu_process_checks_passed']=not report['provisional_tiers']
+        # The Rust entry point attaches craft-bench's guard/fingerprint and decides publication.
+        checkpoint()
+        (options.out/'table.md').write_text(markdown(report['rows']))
+        print(markdown(report['rows']))
+        return 0
+    except Exception as error:
+        report['failure']=str(error)
+        checkpoint()
+        raise
+    finally:
+        if display is not None:
+            display.terminate()
+            display.wait(timeout=2)
+
+
 def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == "session":
+        return session_main(sys.argv[2:])
     if len(sys.argv) != 5:
         print("usage: lightcraft_real_app.py BINARY TASK INPUT TARGET_DIR", file=sys.stderr)
         return 2

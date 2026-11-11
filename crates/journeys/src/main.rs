@@ -14,7 +14,7 @@ use craft_bench::{
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-const USAGE: &str = "usage:\n  craft-journeys run --journey X --out file.json [--no-build]\n  craft-journeys compare --base REV --head REV --journey X [--no-build]\n  craft-journeys prepare --base REV --head REV --journey X";
+const USAGE: &str = "usage:\n  craft-journeys session --config session.json --out directory\n  craft-journeys run --journey X --out file.json [--no-build]\n  craft-journeys compare --base REV --head REV --journey X [--no-build]\n  craft-journeys prepare --base REV --head REV --journey X";
 
 #[derive(Debug, Deserialize)]
 struct Catalog {
@@ -1114,8 +1114,53 @@ fn arg(args: &[String], flag: &str) -> Result<String, String> {
     args.get(pos + 1).cloned().ok_or_else(|| format!("{flag} needs a value"))
 }
 
+/// Session mode reuses the desktop driver, with the same craft-bench machine guard.
+fn execute_session(args: &[String]) -> Result<bool, String> {
+    use craft_bench::probe::{Fingerprint, Readings, RealProbe, SystemProbe, evaluate};
+    let config = arg(args, "--config")?;
+    let out = PathBuf::from(arg(args, "--out")?);
+    if out.exists() {
+        return Err(format!("session output directory already exists: {}", out.display()));
+    }
+    let probe = RealProbe;
+    let load_before = probe.load1();
+    let throttle_before = probe.throttle();
+    let cores = probe.logical_cores();
+    let fingerprint = Fingerprint::collect(cores);
+    let status = Command::new("python3")
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/lightcraft_real_app.py"))
+        .args(["session", "--config", &config, "--out"])
+        .arg(&out)
+        .status()
+        .map_err(|e| format!("launch session driver: {e}"))?;
+    let guard = evaluate(Readings {
+        load_before,
+        load_after: probe.load1(),
+        logical_cores: cores,
+        max_load_per_core: 0.5,
+        throttle_before,
+        throttle_after: probe.throttle(),
+    });
+    let path = out.join("report.json");
+    let mut report: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    let publishable = status.success()
+        && !guard.contended
+        && report["config"]["sessions"].as_u64().is_some_and(|n| n >= 10)
+        && report["comparison_complete"] == true
+        && report["prior_acquisitions_passed"] == true
+        && report["output_checked"] == true
+        && report["gpu_process_checks_passed"] == true
+        && report["gpu_adapters"].as_array().is_some_and(|a| !a.is_empty());
+    report["fingerprint"] = serde_json::to_value(fingerprint).map_err(|e| e.to_string())?;
+    report["guard"] = serde_json::to_value(guard).map_err(|e| e.to_string())?;
+    report["publishable"] = publishable.into();
+    std::fs::write(path, serde_json::to_vec_pretty(&report).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    Ok(publishable)
+}
+
 fn execute_cli(args: &[String]) -> Result<bool, String> {
     match args.first().map(String::as_str) {
+        Some("session") => execute_session(args),
         Some("run") => {
             let journey = choose(catalog()?, &arg(args, "--journey")?)?;
             let current = std::env::var("CRAFT_JOURNEY_REV").unwrap_or_else(|_| "working-tree".into());
@@ -1173,4 +1218,24 @@ mod tests {
         let process: CommandSpec = serde_json::from_str(r#"{"program":"true","wall_time":"process"}"#).unwrap();
         assert_eq!(primary_wall_time(process.wall_time, 12, 34), 34);
     }
+}
+
+#[cfg(test)]
+#[test]
+fn lightcraft_session_boundaries_and_statistics() {
+    let status = Command::new("python3").arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/test_lightcraft_session.py")).status().unwrap();
+    assert!(status.success(), "session lifecycle/report tests failed");
+}
+
+#[cfg(test)]
+#[test]
+fn session_refuses_to_rewrite_an_existing_report() {
+    let out = std::env::temp_dir().join(format!("craft-journeys-existing-session-{}", std::process::id()));
+    std::fs::create_dir_all(&out).unwrap();
+    let report = out.join("report.json");
+    std::fs::write(&report, b"original evidence").unwrap();
+    let args = ["session", "--config", "missing-config", "--out", out.to_str().unwrap()].map(str::to_string);
+    assert!(execute_session(&args).unwrap_err().contains("already exists"));
+    assert_eq!(std::fs::read(&report).unwrap(), b"original evidence");
+    std::fs::remove_dir_all(out).unwrap();
 }

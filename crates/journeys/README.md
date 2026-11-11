@@ -257,3 +257,164 @@ upstream and fork GPU paths produce non-identical pixels, so the output gate che
 photo/edit state and valid rendered output instead of requiring identical encoded bytes. Across the
 retained Agentbox renders, previews differed by at most one 8-bit RGB code value (alpha matched);
 the 2048 × 1640 JPEGs differed by at most 11, with mean absolute channel error below 0.5.
+
+
+### LightCraft session latency (hyper #291)
+
+`craft-journeys session --config session.json --out REPORT_DIRECTORY` runs one
+prebuilt revision/session per acquisition when `side` is set; otherwise one pair.
+Binaries must be built before locking. Use at most one bounded primary AB/BA
+pair per lease, resetting the owned display for each build. If a pair will not
+fit, select one build per lease and use that same declared AB/BA cadence for
+both A/A and the real comparison. `acquisition_sides` may select
+point/main first and descriptive upstream in later single-session acquisitions;
+`side` and `acquisition_sides` change acquisition selection, not the expected
+complete comparison or workload. Use Python 3 with Pillow XCB, `xwininfo`,
+`xprop`, and an NVIDIA Xorg display large enough for the 1600×1000 app window.
+Existing launch-per-task journeys are unchanged.
+
+Config fields: `revisions` (`point`, `main`, optional `upstream`, each with absolute
+`binary` and pinned `revision`); `sides`; one `payloads` tier/folder; `sessions`
+(at least 10); `pair` (zero-based); optional `side`; `warmups`, `repetitions`,
+`exposure_steps` and `measurement_method`. The recorded typical protocol uses
+20 pairs, two warmups, four repetitions, four exposure steps and
+`measurement_method: "first-grid-quickack-fixed-gpu-v5"`, with the explicit GPU
+condition below. These settings do not guarantee 5% sensitivity. Continue with
+`resume_report` pointing to the preceding acquisition's report. Workloads and
+binary hashes must match. Every acquisition retains its CPU guard and fingerprint;
+incomplete or contaminated reports cannot be published. Reverse ABC/CBA or AB/BA
+order on alternate pairs; release both locks between bounded acquisitions.
+
+On Agentbox, use `WGPU_BACKEND=vulkan`, an owned NVIDIA Xorg display reset for
+each build, and a shared explicit NVIDIA shader-cache path under this ticket's
+one target directory. GPU initialization
+finishes before actions. Shader and OS caches are never flushed: **cold means
+first timed use after the documented setup within a fresh app/session**, not cold hardware or a cold disk.
+
+Take `bench.lock`, then exclusive `gpu.lock`, then invoke `scripts/bench-run`.
+The lease controller must run **outside** the transient bench service and stop
+its owned systemd unit before unlocking on timeout or cancellation. A timeout
+around the `bench-run` client alone can leave that service running. The retained
+ticket recipe (`sensitivity/lease.py`, `acquire-pair.py`, `acquire-display.py` in
+the raw-report archive) records the unit identity, caps work at 840 seconds,
+reaps that unit and its private display before releasing the locks, and defers
+a second build if the preceding build predicts an overrun. A forced-expiry
+check verifies that the owned service is inactive after cleanup. Completed,
+guarded sides may be resumed under a declared split-acquisition protocol; an
+incomplete side contributes no samples. The recorded typical campaign requires
+both builds in one lease and rejects the whole interrupted pair. The heavy
+protocol uses ten pairs, two warmups, two repetitions and one build per lease: a
+guarded pilot took 385.8 seconds per app. Its A/A and real primary comparison
+use this same alternating AB/BA cadence; the pilot is not seeded into A/A.
+
+Do not hold a lock for more than 15 minutes. Import-heavy stress runs only when
+`sudo lslocks` shows no bench waiters. A timeout is a retained failure, never a
+reason to extend the lease. Reports record NVIDIA PID/name snapshots before,
+every two seconds during, and after each session. Foreign GPU processes discard
+the attempt. The retained admission policy has a 30-minute budget; exhausted
+budgets label the entire tier provisional and prohibit publication. The outer
+840-second work budget takes precedence. Other workers' GPU tests take the lock shared.
+
+Each action waits outside timing for one second of observed empty activity/task
+and render queues (new activity rows can be hidden for 0.5 s). Input-to-result
+clocks start at control dispatch. The X11 observer starts **before dispatch** and
+runs independently of `ui.inspect` polling. A later successful native capture
+must prove the earlier displayed pixels identical; otherwise the native capture
+is an explicit upper bound. Readback intervals and all candidate hashes/timestamps
+are retained. This observes displayed frames, not hardware scanout. Session TCP uses NODELAY and prompt QUICKACK receives (including partial JSON)
+to avoid delayed-ACK quantization from the token-streaming server. The legacy
+launch-per-task transport is unchanged. A private X server shares reserved CPUs
+22–27 with the app; pinning only the app leaves readback at the mercy of other
+workers. Record the server affinity with every acquisition. No fixed
+latency is subtracted; no outliers are trimmed. Export additionally requires
+observed export completion because an unchanged photo frame cannot prove that a
+file finished writing.
+
+Import removes catalog records, preserves originals, reimports the exact file set
+and ends at the first proven usable thumbnail viewport after **all** catalog
+entries are present. It then visits/checks every grid page outside timing. The
+user's import clock excludes scripted scrolling and pixel verification; no file
+is skipped. Rejected first-grid frames are retained without resetting the clock. Preview
+resets to grid/fit then opens the same photo at 100%. Switch resets to the first
+photo and selects the same second photo every time. Exposure is a backpressured
+held slider, with threshold-crossing setup and warm-ups; its first timed step
+is not a pristine first gesture. Export uses a unique JPEG path each time.
+First timed action samples are separately labeled cold; measured repeats after
+warm-ups are warm. Startup/quit repeat independently with a populated library;
+the first reopen/idle quit is cold, later lifecycle repetitions are warm. Empty
+library startup and the legacy cold-quit diagnostic are not these rows.
+
+Statistics use whole paired sessions as bootstrap clusters (4,000 resamples,
+seed 313), never individual slider steps as independent sessions. Compute one
+point/main median ratio per paired session, then exponentiate the median log
+ratio; this need not equal the ratio of the displayed pooled medians. Resampling
+preserves the FIXED AB/BA counts by drawing within the two order strata. Ordinary
+paired and original pooled-median CIs are retained for audit. CI excluding 1
+determines faster/slower only after at least ten pairs. Calibration uses
+`aa: true` with two separate clean builds of **the same commit**, interleaved
+exactly as the real comparison. The A/A gate requires at least 10 pairs, a 95% CI
+containing 1, and relative half-width ≤5% (≤10% for import/startup), per action and
+state. The MDE column estimates the detectable multiplicative change at two-sided
+alpha .05 and power .80 from log CI width; it is not the CI half-width. A real
+comparison supplies `aa_report`; without it unchanged rows say "sensitivity
+uncalibrated". The formatter rejects "no measurable change" without an A/A MDE.
+Report failed gates and achieved MDE instead of claiming 5% sensitivity.
+If a calibration interval excludes 1, its comparison row is descriptive only:
+the interval width cannot establish sensitivity when identical builds differ.
+A wide interval containing 1 still reports its measured, larger MDE floor.
+
+Agentbox's automatic GPU power state is an additional measurement condition:
+the diagnostic run saw 300–1,350 MHz graphics clocks and 405–7,000 MHz memory
+clocks. Switching duration closely tracked render time (correlation 0.996 in
+the first two pairs). The controlled protocol uses
+`measurement_method: "first-grid-quickack-fixed-gpu-v5"` and
+`gpu_state: {"graphics_mhz": 1350, "memory_mhz": 7000, "power_mizer_mode": 1}`.
+The external lease controller locks graphics clocks only while holding both
+locks; each owned display selects maximum-performance mode and restores its
+original mode before exit. The controller restores default graphics-clock
+management before unlocking, including on lease expiry. Direct memory locking
+is unsupported on this GPU even though `nvidia-smi` returns zero: check its
+output and the actual clocks. The tested PowerMizer condition holds memory at
+7,000 MHz instead.
+
+The driver observes actual graphics/memory clocks outside every action and
+populated-library lifecycle timer. A mismatch rejects the session; observations
+remain in the raw report. Calibration must match the hardware condition and
+repeat settings. These are latencies at the stated controlled GPU condition;
+automatic-power diagnostics remain separate. No latency is normalized by clock
+speed, and no delay is subtracted from a measurement.
+
+The test-only `CRAFT_JOURNEYS_TEST_SWITCH_DELAY_MS` adds a real dispatch delay to
+main-side switch requests. Set it to 10% of the calibrated warm switch median,
+record that absolute delay and run a separate interleaved matrix. It never changes
+recorded elapsed time after the fact.
+
+Output gates stay outside timing: exact imported filenames; non-placeholder,
+resident thumbnail pixels; changed photo-region pixels on every measured slider
+step; JPEG versus an independent 8-bit sRGB PNG export at identical geometry
+(channel MAE ≤8). Cross-revision fixed-state previews require RGB max ≤1 and exact
+alpha; JPEG requires RGB max ≤16 and channel MAE ≤0.5. Upstream exceeding parity
+is descriptive only. Passing frame images are pruned after their hashes and
+checks are recorded; failure captures remain. Fixed-state oracle files are kept
+until the paired checks finish. Raw reports/logs belong in the one ticket keep
+directory, backed up at milestones with `nas-keep`, not committed here.
+
+Payloads: `crates/corpus/manifests/lightcraft-session-2026.toml` pins immutable
+URLs/SHA-256/licences. `lightcraft_session_corpus.py MANIFEST DOWNLOAD_ROOT TIERS
+--out TIER_ROOT` verifies downloads and materializes hardlinks. TIER_ROOT must be
+outside DOWNLOAD_ROOT (craft-corpus prunes unlisted files).
+
+* `typical-50`: 50 distinct Sony A7C 24 MP RAWs, RawNIND v1.0 (2025-01-15),
+  Benoit Brummer and Christophe De Vleeschouwer, Université catholique de Louvain,
+  https://doi.org/10.14428/DVN/DEQCIM, **CC BY-SA 4.0**, not CC0. One low-ISO
+  ground-truth exposure per scene, first 50 full-size `_GT_` ARWs in filename order.
+* `import-1259`: 1,259 distinct **CC0-1.0** camera originals from raw.pixls.us,
+  frozen repository metadata, recognized CR2/NEF/ARW/ORF/RW2/PEF/SRW/RAF formats.
+  This is an engineering camera/encoding/resolution mix, not 1,262 similar shots
+  from one camera. DNG conversion/JPEG wrappers and non-CC0 entries are excluded.
+  No repeated bytes inflate the count: Add-in-place deduplicates by content.
+  The import validates all requested names, so unsupported or skipped inputs fail.
+
+The heavy tier approximates the photo count in upstream #367; it cannot reproduce
+CF/NFS conditions or #832's 38,545-photo/~25-minute report. Existing legacy
+reports and unsuccessful approaches remain in ticket 313's NAS archive.
