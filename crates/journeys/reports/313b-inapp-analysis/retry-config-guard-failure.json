@@ -1,0 +1,6 @@
+{
+  "error": "resume report workload/revisions differ",
+  "cause": "retry-count metadata was incorrectly added to workload JSON",
+  "app_launch_started": false,
+  "correction": "operator-only environment; original guard unchanged; full workload equality checked before queueing"
+}
