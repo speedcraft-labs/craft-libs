@@ -1,0 +1,73 @@
+{
+  "app_pr": "https://github.com/speedcraft-labs/lightcraft/pull/8",
+  "libs_pr": "https://github.com/speedcraft-labs/craft-libs/pull/37",
+  "app_head": "62b1627cef9f8a9d9ac51de6595e29185bb2361e",
+  "libs_head": "b0863549de0783b1436429d23b62c09de537d94e",
+  "method": "in-app-frame-gpu-v2",
+  "proofs": [
+    "patch-pristine-proof-r3.json",
+    "build-provenance-r3.json",
+    "aa-code-sections.json",
+    "smoke-r3-validation.json",
+    "baseline-matched-results.json",
+    "workspace-validation.json",
+    "recorder-source-parity.json",
+    "startup-read-first-proof.json",
+    "control-isolation-proof.json",
+    "aa-all-allocated-sections.json",
+    "bench-slice-resource-snapshot.json",
+    "obsolete-binary-cleanup.json",
+    "aa-r4-clock-isolation-proof.json",
+    "aa-r4-workload-state-proof.json",
+    "aa-r4-action-diagnostics.json",
+    "aa-r4-scheduler-diagnostics.json",
+    "aa-r4-process-diagnostics.json",
+    "physical-slowdown-proof.json"
+  ],
+  "active_config": "Read CURRENT-STATE.json pipeline_config",
+  "active_controller": "operators/campaign-v2.py",
+  "raw_logs": "Read CURRENT-STATE.json active_campaign and pipeline_log",
+  "latest_valid_cumulative": "Read CURRENT-STATE.json latest_report",
+  "superseded_excluded": [
+    "smoke-01",
+    "aa-inapp-r2-0",
+    "all aa-inapp-r3 and aa-inapp-r3-cont (12rep infeasible protocol; not pooled)"
+  ],
+  "scheduler": "scheduling-observations.jsonl",
+  "binary_root_local_only": "/jobs/work/speedcraft-labs/tmp/313b-binaries",
+  "next": [
+    "Finish fixed1259 AA20pairs; real50 is complete and descriptive only",
+    "post-recovery.py runs strict1259real10pairs+upstream",
+    "After ALL: report-only patch/tests, bothAA identityproofs, finaltables/NAS/mergequeues"
+  ],
+  "pipeline": "operators/post-recovery.py",
+  "pipeline_log": "post-recovery-v2.log",
+  "final_tables_command": "python3 operators/final-tables.py (after ALL-PHASES.json)",
+  "diagnostics_operators": [
+    "operators/diagnostics.py",
+    "operators/action-diagnostics.py",
+    "operators/process-diagnostics.py",
+    "operators/clock-isolation-proof.py"
+  ],
+  "analysis_archive": "wip/313b-inapp-analysis 99cb55df",
+  "reporting_correction_pending": "operators/after-all-report-only.patch; isolated52Python checks pass; DO NOT APPLY until ALL-PHASES.json",
+  "aa_final": "aa-inapp-r4-19-primary-attempt0/report.json",
+  "aa_table": "aa-r4-final-tables.md",
+  "aa_summary": "20pairs;4/6 app gates pass;5% estimated80%-power MDE for exposure4.64%,export3.79%;preview/switch floor20.18%/14.31%",
+  "slowdown_final": "switch-delay-10pct-9-primary-attempt0/report.json",
+  "validator_fix_proof": "aa-statistics-identity-validator-fix.json",
+  "heavy_recovery": "import-id-validation-recovery.json",
+  "real50_scope": "defaultV4/V7 outputs differ; strict pixel gate remains failed; descriptive-only raw clock comparison",
+  "active_cohorts": {
+    "aa50": "complete20pairs; aa-inapp-r4-latest.txt",
+    "slowdown": "complete10pairs; slower; switch-delay-10pct-latest.txt",
+    "real50": "real-50-descriptive-latest.txt; failedpixelgate/descriptiveonly",
+    "aa1259": "aa-import-1259-fixed-latest.txt; target20pairs",
+    "real1259": "post-recovery.py queues10pairs+upstream after other cohorts"
+  },
+  "reporting_patch": "operators/after-all-report-only.patch; tested52Python inisolatedreportercopy; applyonlyafterALL-PHASES.json",
+  "native_driver_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+  "real50_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-derived-report.json",
+  "real50_complete": "10pairs +10upstream; developedpixels unequal, descriptive only",
+  "ci_fix": "ci-lts-pin.json"
+}
