@@ -108,10 +108,12 @@ rapid reset exceeded 300 s and proof long-TRY took 11.281 s against a 10 s limit
 Both fail on clean integration `cd0f22bc`: H.264 at 300.04 s; proof takes
 14.266 s against the same 10 s assertion. Neither file differs from integration.
 The reporting-guard workspace run passes again: 3,835 passed, 127 ignored,
-zero failures. The latest corpus-selection rerun has 3,834 passed, one failed,
+zero failures. The corpus-selection rerun has 3,834 passed, one failed,
 127 ignored: the font watcher times out after 10.01 s at tests.rs:359. The exact
 isolated font test fails identically on clean integration (10.00 s); that crate
-also has no PR changes. Both outputs remain retained. Targeted journeys
+also has no PR changes. The latest physical-proof documentation run passes
+again: 3,835 passed, 127 ignored, zero failures, including 38 Python checks.
+All outputs remain retained. Targeted journeys
 tests pass (3 Rust tests including 38 Python tests). Both HEVC tests pass on clean integration. This branch's
 `cargo test -p craft-hevc conformance:: -- --nocapture` passes 43 tests, ignores 2.
 The old HEVC failures are currently **not reproducible**, not established baseline
