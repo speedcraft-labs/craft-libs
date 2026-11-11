@@ -1,0 +1,570 @@
+{
+  "report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-19-primary-attempt0/report.json",
+  "sessions": 40,
+  "action_intervals": 2720,
+  "startup_read_first": 240,
+  "all_commands_immediately_followed_by_single_native_read": true,
+  "all_app_control_wait_ns_zero": true,
+  "rows": [
+    {
+      "pair": 0,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1944155,
+        1944632,
+        1945047,
+        1945418,
+        1945712,
+        1946297
+      ]
+    },
+    {
+      "pair": 0,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1966851,
+        1968066,
+        1969081,
+        1970487,
+        1971652,
+        1973050
+      ]
+    },
+    {
+      "pair": 1,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        3443495,
+        3443833,
+        3444047,
+        3444389,
+        3444676,
+        3444907
+      ]
+    },
+    {
+      "pair": 1,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        3454847,
+        3455508,
+        3455948,
+        3456413,
+        3456715,
+        3457037
+      ]
+    },
+    {
+      "pair": 2,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        3513974,
+        3514259,
+        3515297,
+        3516579,
+        3517323,
+        3518006
+      ]
+    },
+    {
+      "pair": 2,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        3545304,
+        3545969,
+        3546448,
+        3547016,
+        3547935,
+        3548911
+      ]
+    },
+    {
+      "pair": 3,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        3660959,
+        3661397,
+        3661847,
+        3662593,
+        3663230,
+        3663848
+      ]
+    },
+    {
+      "pair": 3,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        3678964,
+        3679297,
+        3679563,
+        3680042,
+        3680523,
+        3680907
+      ]
+    },
+    {
+      "pair": 4,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        3858333,
+        3858815,
+        3859052,
+        3859234,
+        3859667,
+        3860103
+      ]
+    },
+    {
+      "pair": 4,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        3871645,
+        3873400,
+        3873943,
+        3874564,
+        3874777,
+        3875080
+      ]
+    },
+    {
+      "pair": 5,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        433033,
+        433378,
+        434858,
+        435149,
+        435658,
+        436254
+      ]
+    },
+    {
+      "pair": 5,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        443548,
+        443778,
+        443953,
+        444072,
+        444310,
+        444430
+      ]
+    },
+    {
+      "pair": 6,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        452805,
+        452919,
+        453013,
+        453138,
+        453377,
+        453525
+      ]
+    },
+    {
+      "pair": 6,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        495675,
+        495835,
+        496152,
+        496660,
+        497068,
+        497905
+      ]
+    },
+    {
+      "pair": 7,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        512626,
+        513247,
+        513819,
+        514854,
+        515483,
+        515880
+      ]
+    },
+    {
+      "pair": 7,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        549003,
+        549811,
+        550713,
+        551264,
+        551516,
+        552162
+      ]
+    },
+    {
+      "pair": 8,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1051669,
+        1052290,
+        1052601,
+        1053345,
+        1054584,
+        1054775
+      ]
+    },
+    {
+      "pair": 8,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1094824,
+        1094915,
+        1095019,
+        1095117,
+        1095313,
+        1095499
+      ]
+    },
+    {
+      "pair": 9,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1147210,
+        1147308,
+        1147408,
+        1147588,
+        1147809,
+        1147982
+      ]
+    },
+    {
+      "pair": 9,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1155963,
+        1156485,
+        1156816,
+        1157156,
+        1157353,
+        1157731
+      ]
+    },
+    {
+      "pair": 10,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1170570,
+        1170795,
+        1171008,
+        1171174,
+        1171384,
+        1171726
+      ]
+    },
+    {
+      "pair": 10,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1178327,
+        1178584,
+        1178758,
+        1178858,
+        1178945,
+        1179097
+      ]
+    },
+    {
+      "pair": 11,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1187515,
+        1188166,
+        1188377,
+        1188509,
+        1188959,
+        1189266
+      ]
+    },
+    {
+      "pair": 11,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1207694,
+        1207929,
+        1208229,
+        1208391,
+        1208578,
+        1208850
+      ]
+    },
+    {
+      "pair": 12,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1214722,
+        1215037,
+        1215357,
+        1215462,
+        1215576,
+        1215689
+      ]
+    },
+    {
+      "pair": 12,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1221075,
+        1221170,
+        1221259,
+        1221350,
+        1221607,
+        1221799
+      ]
+    },
+    {
+      "pair": 13,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1836404,
+        1836504,
+        1836602,
+        1836756,
+        1836856,
+        1836940
+      ]
+    },
+    {
+      "pair": 13,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1849471,
+        1849693,
+        1849871,
+        1849971,
+        1850087,
+        1850233
+      ]
+    },
+    {
+      "pair": 14,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1902745,
+        1902931,
+        1903027,
+        1903315,
+        1903547,
+        1903843
+      ]
+    },
+    {
+      "pair": 14,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1912130,
+        1912216,
+        1912306,
+        1912428,
+        1912520,
+        1912605
+      ]
+    },
+    {
+      "pair": 15,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1918819,
+        1919080,
+        1919350,
+        1919842,
+        1920106,
+        1920315
+      ]
+    },
+    {
+      "pair": 15,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1926288,
+        1926392,
+        1926489,
+        1926627,
+        1926737,
+        1926821
+      ]
+    },
+    {
+      "pair": 16,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1932561,
+        1932905,
+        1932995,
+        1933084,
+        1933180,
+        1933311
+      ]
+    },
+    {
+      "pair": 16,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1941714,
+        1941808,
+        1941995,
+        1942076,
+        1942157,
+        1942254
+      ]
+    },
+    {
+      "pair": 17,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1947912,
+        1947999,
+        1948123,
+        1948247,
+        1948338,
+        1948444
+      ]
+    },
+    {
+      "pair": 17,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1954929,
+        1955087,
+        1955322,
+        1955523,
+        1955664,
+        1955841
+      ]
+    },
+    {
+      "pair": 18,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1963731,
+        1964047,
+        1964334,
+        1964661,
+        1964837,
+        1964922
+      ]
+    },
+    {
+      "pair": 18,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1969676,
+        1969833,
+        1969964,
+        1970074,
+        1970170,
+        1970287
+      ]
+    },
+    {
+      "pair": 19,
+      "side": "main",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1976028,
+        1976119,
+        1976228,
+        1976327,
+        1976447,
+        1976766
+      ]
+    },
+    {
+      "pair": 19,
+      "side": "point",
+      "tier": "typical-50",
+      "actions": 68,
+      "startup_read_first_pids": [
+        1981240,
+        1981341,
+        1981441,
+        1981521,
+        1981643,
+        1981768
+      ]
+    }
+  ]
+}

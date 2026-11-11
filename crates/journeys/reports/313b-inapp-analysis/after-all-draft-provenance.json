@@ -1,0 +1,21 @@
+{
+  "status": "draft only, production source remains frozen; apply only after ALL-PHASES.json",
+  "files": {
+    "crates/journeys/scripts/lightcraft_session_report.py": {
+      "original_sha256": "ec2165b894049f5b83d3c59a6ee6625c2a908d4db67d9a89a2839cfc2d0c8063",
+      "draft_sha256": "dea511f655f7a826ac83dcdfce16ba0bd0a8a9a6e2d483c98609fd4098d87d81"
+    },
+    "crates/journeys/scripts/test_lightcraft_session.py": {
+      "original_sha256": "00ac652e5f76212d68aefa0da8e8a773ef6163d768ce0548d38094088b720181",
+      "draft_sha256": "5085f02baaf84482ae76d03033e3cd82066a7059810ef5d70362ae9f8679ecaf"
+    },
+    "crates/journeys/scripts/lightcraft_real_app.py": {
+      "original_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+      "draft_sha256": "9c503193c6e2eea6dc0bbc9a23b63af44d43d2317617ec99591d2bfdf0c61d6e"
+    },
+    "crates/journeys/README.md": {
+      "original_sha256": "967995bca9401c41f83784fd559d864389579212c2d08d9abe76a7ecb1e1b1ae",
+      "draft_sha256": "adb5e2d5bb732164566d3a77fd6272f31f2ed44e56b16c6af93a03ec3cabe4dc"
+    }
+  }
+}

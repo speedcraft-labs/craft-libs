@@ -1,0 +1,87 @@
+--- a/crates/journeys/scripts/lightcraft_session_report.py
++++ b/crates/journeys/scripts/lightcraft_session_report.py
+@@ -111,6 +111,19 @@
+     return dict(within_log_sd=math.sqrt(within), between_log_sd=math.sqrt(between))
+ 
+ 
++def calibrated_mde(reference, pairs, estimated):
++    """Conservative comparison floor; a quieter or larger A/A cannot hide current noise."""
++    ci = reference.get('ci95') if reference else None
++    if pairs < 10 or not ci or not ci[0] <= 1 <= ci[1]:
++        return None
++    baseline_pairs = reference.get('calibration_pairs', reference.get('observed_pairs'))
++    effect = reference.get('minimum_detectable_effect_pct')
++    if not baseline_pairs or baseline_pairs < 10 or effect is None:
++        return None
++    adjusted = math.expm1(math.log1p(effect / 100) * math.sqrt(baseline_pairs / pairs)) * 100
++    return max(estimated, adjusted)
++
++
+ def summarize(sessions, resamples=4000, calibration=None, aa=False):
+     # A/A precision is empirical; MDE additionally assumes asymptotic log-normal
+     # location errors, two-sided alpha=.05 and power=.80. Never call CI width power.
+@@ -172,7 +185,7 @@
+                 # CI-derived MDE on log scale, with 80% power explicitly declared.
+                 mde = math.expm1((math.log(ci[1])-math.log(ci[0]))/2 * (1.959964+.841621)/1.959964)*100
+                 reference = calibrated.get((tier,action,phase))
+-                sensitivity = mde if aa and n>=10 else reference.get('minimum_detectable_effect_pct') if reference and n>=10 else None
++                sensitivity = mde if aa and n>=10 else calibrated_mde(reference, n, mde)
+                 reference_ci = reference.get('ci95') if reference else None
+                 calibration_contains_unity = bool(reference_ci and reference_ci[0]<=1<=reference_ci[1]) if reference else None
+                 limit = 10 if action in ('import','startup') else 5
+--- a/crates/journeys/scripts/test_lightcraft_session.py
++++ b/crates/journeys/scripts/test_lightcraft_session.py
+@@ -446,6 +446,29 @@
+         self.assertEqual(row['verdict'],'no measurable change')
+         self.assertEqual(row['minimum_detectable_effect_pct'],100)
+ 
++    def test_fewer_comparison_pairs_raise_the_calibrated_noise_floor(self):
++        from lightcraft_session_report import calibrated_mde
++        reference = dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=10, calibration_pairs=20)
++        self.assertGreater(calibrated_mde(reference, 10, 1), 14)
++        self.assertLess(calibrated_mde(reference, 10, 1), 15)
++
++    def test_current_comparison_noise_cannot_be_hidden_by_a_quiet_control(self):
++        from lightcraft_session_report import calibrated_mde
++        reference = dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=10, calibration_pairs=20)
++        self.assertEqual(calibrated_mde(reference, 10, 30), 30)
++
++    def test_more_comparison_pairs_can_reduce_the_control_noise_floor(self):
++        from lightcraft_session_report import calibrated_mde
++        reference = dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=10, calibration_pairs=20)
++        self.assertGreater(calibrated_mde(reference, 40, 1), 6)
++        self.assertLess(calibrated_mde(reference, 40, 1), 8)
++
++    def test_rejected_missing_or_insufficient_control_cannot_calibrate_mde(self):
++        from lightcraft_session_report import calibrated_mde
++        for reference in (None, {}, dict(ci95=[1.01, 1.02], minimum_detectable_effect_pct=1, calibration_pairs=20),
++                          dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=1, calibration_pairs=2)):
++            self.assertIsNone(calibrated_mde(reference, 10, 2))
++
+     def test_result_rejects_pre_dispatch_and_pre_completion_frames(self):
+         from lightcraft_real_app import session_result
+         from types import SimpleNamespace
+--- a/crates/journeys/scripts/lightcraft_real_app.py
++++ b/crates/journeys/scripts/lightcraft_real_app.py
+@@ -1305,7 +1305,7 @@
+     report=dict(discarded_sessions=[],failed_sessions=[],gpu_wait_events=[],provisional_tiers={},gpu_policy=dict(wait_poll_seconds=30,attempt_budget_seconds=1800,during_session_poll_seconds=2),schema='lightcraft-session-v1',publish_scope='fork-point-to-fork-main',config=config,sessions=sessions,publishable=False,
+                 statistics=dict(resamples=4000,seed=313,bootstrap_unit='paired-session-stratified-by-fixed-AB-BA-order',ordinary_ci_retained=True,pooled_ci_retained=True,ratio='exp(median(log(session_point_median/session_main_median)))',percentiles='linear'),
+                 environment={key:os.environ.get(key) for key in ('DISPLAY','WGPU_BACKEND','LIGHTCRAFT_GPU_BACKEND','LIGHTCRAFT_GPU_ADAPTER','__GL_SHADER_DISK_CACHE_PATH','CRAFT_BENCH_ISOLATED')},
+-                timing_scope=('UI-thread acceptance to reflecting-frame GPU completion; startup/quit external, driver times secondary' if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1' else 'external control/capture'),
++                timing_scope=('UI-thread acceptance to reflecting-frame GPU completion; startup from native entry, quit external, driver times secondary' if os.environ.get('CRAFT_JOURNEYS_INAPP_TIMING')=='1' else 'external control/capture'),
+                 driver_sha256=file_digest(Path(__file__)),
+                 harness_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=Path(__file__).resolve().parents[3],text=True).strip(),
+                 binary_sha256=binary_hashes,comparison_complete=False,prior_acquisitions_passed=True)
+--- a/crates/journeys/README.md
++++ b/crates/journeys/README.md
+@@ -362,6 +362,10 @@
+ If a calibration interval excludes 1, its comparison row is descriptive only:
+ the interval width cannot establish sensitivity when identical builds differ.
+ A wide interval containing 1 still reports its measured, larger MDE floor.
++For a real comparison, report the larger of its own CI-derived MDE and the A/A
++floor adjusted for the pair counts: scale the log effect by
++`sqrt(calibration_pairs / comparison_pairs)`. A20-pair control does not grant
++its precision unchanged to a10-pair comparison.
+ 
+ Agentbox's automatic GPU power state is an additional measurement condition:
+ the diagnostic run saw 300–1,350 MHz graphics clocks and 405–7,000 MHz memory

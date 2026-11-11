@@ -1,0 +1,49 @@
+{
+  "sessions": 40,
+  "first_photo_names": [
+    "rawnind-28369.arw"
+  ],
+  "oracle_source_hashes": [
+    "e9ba7ac3688c8b8b16999657a37718275b9c51d6dd804b6b4ceb1590bc68548f"
+  ],
+  "actions": {
+    "preview": {
+      "observations": 240,
+      "image_rects": [
+        "[-2224.0, -1574.0, 6000.0, 4000.0]"
+      ],
+      "gpu_paths": [
+        "(True, False, True, None)"
+      ],
+      "cache_counters": [
+        "(0, 457, 50, 28370496, 57)"
+      ]
+    },
+    "exposure": {
+      "observations": 960,
+      "image_rects": [
+        "[296.0, 106.1666259765625, 959.5, 639.666748046875]"
+      ],
+      "gpu_paths": [
+        "(True, True, True, None)"
+      ],
+      "cache_counters": [
+        "(0, 463, 50, 70257600, 63)",
+        "(0, 464, 51, 70432768, 64)",
+        "(0, 465, 52, 70607936, 65)"
+      ]
+    },
+    "switch": {
+      "observations": 240,
+      "image_rects": [
+        "[296.0, 106.1666259765625, 959.5, 639.666748046875]"
+      ],
+      "gpu_paths": [
+        "(True, False, True, None)"
+      ],
+      "cache_counters": [
+        "(14, 529, 152, 193029440, 21)"
+      ]
+    }
+  }
+}

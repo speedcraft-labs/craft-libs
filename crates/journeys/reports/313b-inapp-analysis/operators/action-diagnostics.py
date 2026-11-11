@@ -20,12 +20,17 @@ for tier in sorted({s['tier'] for s in report['sessions']}):
    source=collections.Counter(str(x['evidence'].get('loupe',{}).get('source')) for x in samples)
    pending=collections.Counter(v for x in samples for v in x['in_app']['completion_background_pending'])
    session_points=[]
+   loupe_points=[]
+   for session in group:
+    selected=[x for x in session['samples'] if x['action']==action and not x['warmup']]
+    paired=[x for x in selected if isinstance((x['evidence'].get('perf',{}).get('loupeSteps',{}).get('current') or {}).get('sharpMs'),(int,float)) and x['evidence']['perf']['loupeSteps']['current']['sharpMs']>0]
+    if paired:loupe_points.append((math.log(statistics.median(x['duration_ns'] for x in paired)),math.log(statistics.median(x['evidence']['perf']['loupeSteps']['current']['sharpMs'] for x in paired))))
    if action in ('preview','exposure','switch'):
     for s in group:
      selected=[x for x in s['samples'] if x['action']==action and not x['warmup']]
      paired=[x for x in selected if isinstance(x['evidence'].get('perf',{}).get('lastRenderMs'),(int,float)) and x['evidence']['perf']['lastRenderMs']>0]
      if paired:session_points.append((math.log(statistics.median(x['duration_ns'] for x in paired)),math.log(statistics.median(x['evidence']['perf']['lastRenderMs'] for x in paired))))
-   rows.append(dict(tier=tier,side=side,action=action,n=len(samples),app_median_ms=med([x['duration_ns']/1e6 for x in samples]),frames_median=med([x['in_app']['completion_frames'] for x in samples]),first_frames_median=med([x['in_app']['first_frames'] for x in samples]),last_render_median_ms=med(render) if action in ('preview','exposure','switch') else None,frame_cpu_median_ms=med([p['frameMs'] for p in perf if isinstance(p.get('frameMs'),(int,float))]),pending_at_completion_n=sum(bool(x['in_app']['completion_background_pending']) for x in samples),pending_labels=dict(pending),loupe_sources=dict(source) if action in ('preview','exposure','switch') else None,session_log_latency_render_correlation=corr([x[0] for x in session_points],[x[1] for x in session_points]),gpu_fallbacks=dict(collections.Counter(str(p.get('gpuFallback')) for p in perf))))
+   rows.append(dict(tier=tier,side=side,action=action,n=len(samples),app_median_ms=med([x['duration_ns']/1e6 for x in samples]),frames_median=med([x['in_app']['completion_frames'] for x in samples]),first_frames_median=med([x['in_app']['first_frames'] for x in samples]),last_render_median_ms=med(render) if action in ('preview','exposure','switch') else None,frame_layout_wall_median_ms=med([p['frameMs'] for p in perf if isinstance(p.get('frameMs'),(int,float))]),pending_at_completion_n=sum(bool(x['in_app']['completion_background_pending']) for x in samples),pending_labels=dict(pending),loupe_sources=dict(source) if action in ('preview','exposure','switch') else None,session_log_latency_render_correlation=corr([x[0] for x in session_points],[x[1] for x in session_points]),session_log_latency_loupe_sharp_correlation=corr([x[0] for x in loupe_points],[x[1] for x in loupe_points]) if action=='preview' else None,gpu_fallbacks=dict(collections.Counter(str(p.get('gpuFallback')) for p in perf))))
 # LastRenderMs is an app diagnostic, not a partition of the frame interval. Cached
 # slots can retain earlier work. Correlations describe observations, not causality.
 result=dict(note='All accepted observations retained. Internal-render/frame diagnostics are descriptive; cached slots may retain earlier render costs. No causal decomposition or outlier removal.',rows=rows)
