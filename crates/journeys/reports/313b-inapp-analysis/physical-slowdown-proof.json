@@ -69,5 +69,62 @@
     "actual_delay_median_ns": 5911450.0,
     "contemporaneous_control_median_ns": 61686638.0,
     "actual_dose_control_pct": 9.583031579707749
-  }
+  },
+  "all_other_warm_intervals_contain_unity": true,
+  "untreated_warm_controls": [
+    {
+      "action": "import",
+      "speedup": 1.0364622325576753,
+      "ci95": [
+        0.993344335043721,
+        1.1381893887504322
+      ],
+      "verdict": "no measurable change"
+    },
+    {
+      "action": "preview",
+      "speedup": 0.9951266329071105,
+      "ci95": [
+        0.9240547921369018,
+        1.0460579829204066
+      ],
+      "verdict": "no measurable change"
+    },
+    {
+      "action": "exposure",
+      "speedup": 0.9976558738774866,
+      "ci95": [
+        0.9291413535502213,
+        1.003625080268227
+      ],
+      "verdict": "no measurable change"
+    },
+    {
+      "action": "export",
+      "speedup": 0.9975888194597085,
+      "ci95": [
+        0.9931104409795982,
+        1.0018084141351273
+      ],
+      "verdict": "no measurable change"
+    },
+    {
+      "action": "startup",
+      "speedup": 0.998469781087898,
+      "ci95": [
+        0.9748502014031504,
+        1.0167085812873211
+      ],
+      "verdict": "no measurable change"
+    },
+    {
+      "action": "quit",
+      "speedup": 0.9929744739794581,
+      "ci95": [
+        0.9789813268042598,
+        1.0130491367191272
+      ],
+      "verdict": "no measurable change"
+    }
+  ]
 }

@@ -1,0 +1,54 @@
+{
+  "status": "strict primary output equivalence failed; retain as descriptive observation only",
+  "raw_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-r4-0-primary-attempt0/main/report.json",
+  "failure": "primary output equivalence failed: {'tier': 'typical-50', 'pair': 0, 'side': 'main', 'max_rgba': [35, 18, 76, 0], 'mean_rgba': [2.583112188872621, 0.8632040400805271, 5.096778344619326, 0.0], 'jpeg_max_rgb': [22, 13, 42], 'jpeg_mean_rgb': [1.1509869362408425, 0.7377350188873626, 1.9244144202152014], 'equivalent': False}",
+  "cases": [
+    {
+      "side": "point",
+      "snapshot": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-r4-0-primary-attempt0/point/typical-50-0-point-attempt-0/library/catalog.snap",
+      "snapshot_sha256": "0afd3a6114340450893ea7a347a0bb1979a33d7a41ae09e5f386aecfea97d536",
+      "process4_fields": 58,
+      "process7_fields": 0,
+      "oracle": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-r4-0-primary-attempt0/point/typical-50-0-point-attempt-0/oracle.png",
+      "oracle_source": "e9ba7ac3688c8b8b16999657a37718275b9c51d6dd804b6b4ceb1590bc68548f",
+      "individual_export_check": {
+        "dimensions": [
+          2048,
+          1365
+        ],
+        "mean_rgb": [
+          1.4182796045100732,
+          1.049477020375458,
+          1.7377868875915752
+        ],
+        "oracle_method": "png-export-same-geometry"
+      },
+      "native_photo_checks": 24
+    },
+    {
+      "side": "main",
+      "snapshot": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-r4-0-primary-attempt0/main/typical-50-0-main-attempt-0/library/catalog.snap",
+      "snapshot_sha256": "8888f6b4cada109c0af867a755c7bba4333fdc4c9242ac7ceb177a868bab71f3",
+      "process4_fields": 0,
+      "process7_fields": 58,
+      "oracle": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-r4-0-primary-attempt0/main/typical-50-0-main-attempt-0/oracle.png",
+      "oracle_source": "e9ba7ac3688c8b8b16999657a37718275b9c51d6dd804b6b4ceb1590bc68548f",
+      "individual_export_check": {
+        "dimensions": [
+          2048,
+          1365
+        ],
+        "mean_rgb": [
+          1.229457489125458,
+          1.0586041237408426,
+          1.4604424221611723
+        ],
+        "oracle_method": "png-export-same-geometry"
+      },
+      "native_photo_checks": 24
+    }
+  ],
+  "source_document": "LightCraft docs/process-versions.md; new photos use latest; forkpoint settings Process::LATEST=V4; main=V7",
+  "no_pixel_threshold_change": true,
+  "driver_source_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3"
+}
