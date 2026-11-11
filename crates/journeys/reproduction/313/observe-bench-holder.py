@@ -1,6 +1,14 @@
 """Read-only lease observation. Process age is not acquisition duration."""
-import json,subprocess,time
+import json,re,subprocess,time
 from pathlib import Path
+def command_name(argv,fallback):
+ # Report executable/script paths, never an entire inline shell program or env.
+ paths=[]
+ for arg in argv:
+  for value in re.findall(r'/jobs/work/speedcraft-labs/[A-Za-z0-9_./-]+',arg):
+   if (value.endswith(('.py','.sh')) or '/targets/' in value) and Path(value).is_file():paths.append(value)
+ return ' '.join(dict.fromkeys(paths))[:800] if paths else fallback
+
 k=Path(__file__).parent;p=k/'bench-holder-observation.json';now=time.time()
 locks=json.loads(subprocess.check_output(['sudo','-n','lslocks','--json','--output','PID,PATH,BLOCKER,MODE'],text=True))['locks']
 old=json.load(open(p)) if p.exists() else {};previous=old.get('resources',{'bench.lock':old.get('holders',{})});current={};observations=[]
@@ -10,9 +18,8 @@ for resource in ['bench.lock','gpu.lock']:
  for pid in ids:
   try:
    argv=Path('/proc',str(pid),'cmdline').read_bytes().split(b'\0');argv=[x.decode(errors='replace') for x in argv if x]
-   paths=[x for x in argv if x.endswith(('.py','.sh')) or '/targets/' in x]
-   command=' '.join(paths) if paths else Path('/proc',str(pid),'comm').read_text().strip()
-  except FileNotFoundError:command='exited during snapshot'
+   command=command_name(argv,Path('/proc',str(pid),'comm').read_text().strip())
+  except (FileNotFoundError,PermissionError,ProcessLookupError):command='command unavailable during snapshot'
   elapsed=now-holders[str(pid)];observations.append(dict(resource=resource,pid=pid,observed_continuous_seconds=elapsed,command=command))
   print(resource,'holder',pid,'observed',round(elapsed),'s;',sum(bool(x.get('blocker')) for x in xs),'waiters;',command)
   if elapsed>1800:print('OVER-30-MINUTE HOLDER:',resource,pid,command)
