@@ -3,6 +3,10 @@ import json,os,re,signal,subprocess,sys,time
 from pathlib import Path
 from gpu_condition import ForeignGpuBusy,graphics_clock,restore_owned_displays
 k=Path(__file__).parent;cfg=Path(sys.argv[1]);out=Path(sys.argv[2]);config=json.load(open(cfg))
+if (k.parent/'RETIRE-LEGACY-CONFIRMATION').exists() and out.name.startswith('real-import-1259-cont2-'):
+ out.with_suffix('.retired-before-launch.json').write_text(json.dumps(dict(reason='legacy confirmation protocol retired at an acquisition boundary; all data preserved',config=str(cfg),ns=time.monotonic_ns())))
+ print('Legacy confirmation collector retired at acquisition boundary; no app or clocks started',flush=True)
+ sys.exit(78)
 if config.get('stress_only_when_queue_empty'):
  locks=json.loads(subprocess.check_output(['sudo','-n','lslocks','--json','--output','PID,COMMAND,MODE,PATH'],text=True))['locks']
  waiters=[row for row in locks if row.get('path')=='/jobs/work/speedcraft-labs/bench.lock' and row.get('mode','').endswith('*')]

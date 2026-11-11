@@ -1,0 +1,7 @@
+{
+  "report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/direct-import-probe-0-descriptive-attempt0/report.json",
+  "driver_sha256": "191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd",
+  "all_three_revisions": true,
+  "all_folder_drops_immediately_followed_by_single_native_read": true,
+  "app_recorder_and_binaries_unchanged": true
+}

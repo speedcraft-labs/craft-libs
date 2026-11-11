@@ -1,0 +1,15 @@
+{
+  "report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-cont2-4-descriptive-attempt0/report.json",
+  "report_sha256": "3cd757ce9a7cfdbe6f981c309b98586052433c2a0e77a384bba24cc2af098e7f",
+  "complete_primary_pairs": 5,
+  "separate_upstream_samples": 5,
+  "sessions": 15,
+  "protocol": "confirmation-to-grid",
+  "pooled_with_direct_mode": false,
+  "retirement": "self exit before a new acquisition; no app or clocks started; no process signalled",
+  "retirement_proofs": [
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-cont2-5-primary-attempt0.retired-before-launch.json"
+  ],
+  "source_driver": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+  "complete_observations_preserved": true
+}

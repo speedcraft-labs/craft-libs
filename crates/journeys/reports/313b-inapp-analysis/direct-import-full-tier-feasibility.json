@@ -1,0 +1,47 @@
+{
+  "report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-0-primary-attempt0/report.json",
+  "predeclared_pairs": 20,
+  "pair0_included_in_fixed_cohort": true,
+  "observed_sides": [
+    {
+      "side": "point",
+      "lifecycle_s": 184.024533877,
+      "full_side_s": 189.3676582610351,
+      "import_samples": 4,
+      "boundary": "folder-drop-to-usable-grid",
+      "widget_calls": 184
+    },
+    {
+      "side": "main",
+      "lifecycle_s": 180.47109009,
+      "full_side_s": 184.94850788998883,
+      "import_samples": 4,
+      "boundary": "folder-drop-to-usable-grid",
+      "widget_calls": 184
+    }
+  ],
+  "total_side_wall_seconds": 374.31616615102394,
+  "work_limit_s": 840,
+  "app_binaries_and_recorder_unchanged": true,
+  "checks": {
+    "output_checked": true,
+    "gpu_process_checks_passed": true,
+    "guard": {
+      "contended": false,
+      "load_after": 0.0,
+      "load_before": 0.0,
+      "load_threshold": 3.0,
+      "logical_cores": 6,
+      "max_load_per_core": 0.5,
+      "reasons": [],
+      "throttle_after": {
+        "speed_limit_pct": null,
+        "throttle_count": null
+      },
+      "throttle_before": {
+        "speed_limit_pct": null,
+        "throttle_count": null
+      }
+    }
+  }
+}
