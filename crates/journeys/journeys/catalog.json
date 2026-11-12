@@ -344,6 +344,36 @@
         "output": "markers"
       },
       "inputs": [{ "name": "Camera_01_CC0", "path": "materialcraft-orbit/Camera_01_1k.gltf" }]
+
+    },
+    {
+      "name": "filmcraft.real-world-play-scrub-export",
+      "app": "filmcraft",
+      "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/filmcraft",
+      "app_locked_dependencies": true,
+      "app_base_patch": "crates/journeys/patches/filmcraft-real-world-timeline.patch",
+      "build": {
+        "program": "python3",
+        "args": [
+          "{journey_repo}/crates/journeys/scripts/build_filmcraft_real_world.py",
+          "{app_repo}"
+        ]
+      },
+      "run": {
+        "program": "python3",
+        "args": [
+          "{journey_repo}/crates/journeys/scripts/filmcraft_real_world.py",
+          "{input}",
+          "{target_dir}"
+        ],
+        "output": "markers"
+      },
+      "inputs": [
+        {
+          "name": "nasa-iss-red-camera-1080p",
+          "path": "real-av-media-2026/iss-red-camera-2015-1080p.mp4"
+        }
+      ]
     }
 ,
     {
