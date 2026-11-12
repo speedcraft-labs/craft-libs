@@ -446,6 +446,29 @@ class Boundaries(unittest.TestCase):
         self.assertEqual(row['verdict'],'no measurable change')
         self.assertEqual(row['minimum_detectable_effect_pct'],100)
 
+    def test_fewer_comparison_pairs_raise_the_calibrated_noise_floor(self):
+        from lightcraft_session_report import calibrated_mde
+        reference = dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=10, calibration_pairs=20)
+        self.assertGreater(calibrated_mde(reference, 10, 1), 14)
+        self.assertLess(calibrated_mde(reference, 10, 1), 15)
+
+    def test_current_comparison_noise_cannot_be_hidden_by_a_quiet_control(self):
+        from lightcraft_session_report import calibrated_mde
+        reference = dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=10, calibration_pairs=20)
+        self.assertEqual(calibrated_mde(reference, 10, 30), 30)
+
+    def test_more_comparison_pairs_can_reduce_the_control_noise_floor(self):
+        from lightcraft_session_report import calibrated_mde
+        reference = dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=10, calibration_pairs=20)
+        self.assertGreater(calibrated_mde(reference, 40, 1), 6)
+        self.assertLess(calibrated_mde(reference, 40, 1), 8)
+
+    def test_rejected_missing_or_insufficient_control_cannot_calibrate_mde(self):
+        from lightcraft_session_report import calibrated_mde
+        for reference in (None, {}, dict(ci95=[1.01, 1.02], minimum_detectable_effect_pct=1, calibration_pairs=20),
+                          dict(ci95=[.95, 1.05], minimum_detectable_effect_pct=1, calibration_pairs=2)):
+            self.assertIsNone(calibrated_mde(reference, 10, 2))
+
     def test_result_rejects_pre_dispatch_and_pre_completion_frames(self):
         from lightcraft_real_app import session_result
         from types import SimpleNamespace
@@ -589,5 +612,151 @@ class Boundaries(unittest.TestCase):
             current=dict(c,acquisition_sides=['upstream'],resume_report=str(path))
             self.assertEqual(session_resume(current,{'point':'same'})['sessions'],[])
 
+
+
+class InAppTimingTests(unittest.TestCase):
+    def test_app_duration_is_not_control_round_trip(self):
+        from lightcraft_session_report import durations
+        s={'samples':[dict(action='switch',warmup=False,duration_ns=900000000,
+                          in_app={'duration_ns':4000000})]}
+        self.assertEqual(durations(s,'switch'),[4000000])
+
+    def test_mixed_clock_sources_rejected(self):
+        from lightcraft_session_report import summarize
+        with self.assertRaisesRegex(ValueError,'mixed timing'):
+            summarize([{'timing_source':'in-app-gpu-completion'},{}])
+
+    def test_command_waits_for_record_once_without_inspect(self):
+        import io,json
+        from lightcraft_real_app import Control
+        class Stream:
+            def __init__(self):
+                self.requests=[]
+            def makefile(self,*args,**kwargs):
+                return io.StringIO(''.join(json.dumps(r)+'\n' for r in [
+                    {'id':1,'ok':True,'result':None},
+                    {'id':2,'ok':True,'result':{'duration_ns':4000000}}]))
+            def sendall(self,data):self.requests.append(json.loads(data))
+        stream=Stream();control=Control(stream)
+        control.pending_latency={'id':'switch-1','action':'switch'}
+        control.latency_records={}
+        control.call('engine.execute',{'command':'library.select','params':{'ids':[2]}})
+        self.assertEqual([r['method'] for r in stream.requests],['engine.execute','ui.latency.wait'])
+        self.assertEqual(control.last_latency['duration_ns'],4000000)
+        self.assertEqual(stream.requests[0]['params']['_latency']['id'],'switch-1')
+
+    def test_direct_folder_drop_waits_once_without_review_polling(self):
+        import io,json
+        from lightcraft_real_app import Control
+        class Stream:
+            def __init__(self):self.requests=[]
+            def makefile(self,*args,**kwargs):
+                return io.StringIO(''.join(json.dumps(r)+'\n' for r in [
+                    {'id':1,'ok':True,'result':None},
+                    {'id':2,'ok':True,'result':{'duration_ns':4000000}}]))
+            def sendall(self,data):self.requests.append(json.loads(data))
+        stream=Stream();control=Control(stream)
+        control.pending_latency={'id':'import-1','action':'import'}
+        control.latency_records={}
+        control.call('ui.dropFiles',{'paths':['/photos']})
+        self.assertEqual([r['method'] for r in stream.requests],['ui.dropFiles','ui.latency.wait'])
+        self.assertEqual(control.last_latency['duration_ns'],4000000)
+        self.assertEqual(stream.requests[0]['params']['_latency']['id'],'import-1')
+
+    def test_direct_import_requires_the_import_only_native_protocol(self):
+        import json,os,tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from lightcraft_real_app import session_main
+        for import_only,inapp in ((False,'1'),(True,'0')):
+            with self.subTest(import_only=import_only,inapp=inapp), tempfile.TemporaryDirectory() as tmp:
+                path=Path(tmp)/'config.json'
+                path.write_text(json.dumps(dict(direct_import=True,import_only=import_only)))
+                with patch.dict(os.environ,{'CRAFT_JOURNEYS_INAPP_TIMING':inapp}):
+                    with self.assertRaisesRegex(ValueError,'direct_import requires'):
+                        session_main(['--config',str(path),'--out',str(Path(tmp)/'out')])
+
+    def test_confirmation_control_cannot_calibrate_direct_folder_drop(self):
+        import json,tempfile
+        from pathlib import Path
+        import lightcraft_real_app as app
+        conditions=dict(gpu_state=None,measurement_method='in-app-frame-gpu-v2',warmups=2,
+                        repetitions=2,exposure_steps=4,import_only=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'aa.json'
+            control=dict(config=dict(conditions,aa=True,sessions=20,direct_import=False,
+                revisions={'point':{'revision':'same'},'main':{'revision':'same'}}),
+                comparison_complete=True,output_checked=True,gpu_process_checks_passed=True,
+                guard={'contended':False},prior_acquisitions_passed=True,sessions=[],
+                driver_sha256=app.file_digest(Path(app.__file__)))
+            path.write_text(json.dumps(control))
+            comparison=dict(conditions,aa_report=str(path),direct_import=True,
+                            revisions={'main':{'revision':'same'}})
+            with self.assertRaisesRegex(ValueError,'direct_import'):
+                app.session_calibration(comparison)
+
+    def test_common_patch_is_idempotent_and_rejects_drift(self):
+        import tempfile,subprocess
+        from pathlib import Path
+        from lightcraft_session_prepare import apply_app_base_patch
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);repo=root/'repo';repo.mkdir()
+            subprocess.run(['git','init','-q',str(repo)],check=True)
+            (repo/'file').write_text('base\n')
+            patch=root/'patch';patch.write_text('diff --git a/file b/file\n--- a/file\n+++ b/file\n@@ -1 +1,2 @@\n base\n+recorder\n')
+            self.assertEqual(apply_app_base_patch(repo,patch),'applied')
+            self.assertEqual(apply_app_base_patch(repo,patch),'already present')
+            (repo/'file').write_text('incompatible\n')
+            with self.assertRaisesRegex(RuntimeError,'rebuild ALL sides'):apply_app_base_patch(repo,patch)
+
+class ImportOnlyTests(unittest.TestCase):
+    def sessions(self):
+        sessions=[]
+        for side in ('point','main'):
+            s=fixture();s.update(side=side,tier='heavy',pair=0,actions=['import'],
+                photos=[{'fileName':'one.raw','width':6000,'height':4000}],photo_ids=[1])
+            s['samples'][0].update(action='import',evidence={'frames':[{'ids':[1]}],'imported':1})
+            sessions.append(s)
+        return sessions
+
+    def test_import_only_checks_membership_and_every_thumbnail(self):
+        from lightcraft_session_report import check_pixels
+        s=self.sessions()
+        self.assertTrue(check_pixels(s)[0]['equivalent'])
+        s[1]['samples'][0]['evidence']['frames'][0]['ids']=[]
+        with self.assertRaisesRegex(ValueError,'coverage incomplete'):check_pixels(s)
+
+    def test_reimports_can_assign_new_photo_ids(self):
+        from lightcraft_session_report import check_pixels
+        sessions=self.sessions()
+        for session in sessions:
+            second=copy.deepcopy(session['samples'][0])
+            second['evidence']['frames'][0]['ids']=[2]
+            session['samples'].append(second);session['photo_ids']=[2]
+        self.assertTrue(check_pixels(sessions)[0]['equivalent'])
+        sessions[0]['samples'][0]['evidence']['frames'][0]['ids']=[]
+        with self.assertRaisesRegex(ValueError,'coverage incomplete'):check_pixels(sessions)
+
+    def test_reimport_coverage_counts_distinct_ids(self):
+        from lightcraft_session_report import check_pixels
+        sessions=self.sessions()
+        sessions[0]['samples'].insert(0,copy.deepcopy(sessions[0]['samples'][0]))
+        sessions[0]['samples'][0]['evidence']['frames'][0]['ids']=[7,8]
+        with self.assertRaisesRegex(ValueError,'coverage incomplete'):check_pixels(sessions)
+
+    def test_explicit_per_import_membership_is_checked(self):
+        from lightcraft_session_report import check_pixels
+        sessions=self.sessions()
+        sessions[0]['samples'][0]['evidence']['imported_ids']=[9]
+        with self.assertRaisesRegex(ValueError,'coverage incomplete'):check_pixels(sessions)
+
+    def test_import_only_rejects_different_catalogs(self):
+        from lightcraft_session_report import check_pixels
+        s=self.sessions();s[1]['photos'][0]['fileName']='wrong.raw'
+        with self.assertRaisesRegex(ValueError,'catalog differs'):check_pixels(s)
+
+    def test_only_declared_import_rows_are_summarized(self):
+        rows=summarize(self.sessions(),resamples=10,aa=True)
+        self.assertEqual([r['action'] for r in rows],['import'])
 
 if __name__=='__main__': unittest.main()

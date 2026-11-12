@@ -8,6 +8,7 @@ ACTIONS = ('import', 'preview', 'exposure', 'switch', 'export')
 
 def validate_session(session):
     """Reject action clocks that include launch/exit, even if a plausible duration is supplied."""
+    if 'actions' in session and session['actions']!=['import']: raise ValueError('unsupported action subset')
     if not session['launch_ns'] < session['interactive_ns'] < session['quit_request_ns'] < session['exit_ns']:
         raise ValueError('invalid lifecycle ordering')
     if not session['gpu_adapter']:
@@ -35,20 +36,27 @@ def validate_session(session):
             before,after=quits[index],quits[index+1]
             if not before['exit_ns']<start['sent_ns']<start['frame_ns']<=start['capture']['verified_ns']<after['sent_ns']<after['exit_ns']:
                 raise ValueError('repeated startup/quit lifecycle overlap')
-            if start['duration_ns']!=start['frame_ns']-start['sent_ns'] or start['capture']['frame_ns']!=start['frame_ns']:
+            if start.get('driver_duration_ns',start['duration_ns'])!=start['frame_ns']-start['sent_ns'] or start['capture']['frame_ns']!=start['frame_ns']:
                 raise ValueError('repeated startup duration differs from frame clock')
             if not start['capture'].get('native'):
                 raise ValueError('repeated startup lacks a native frame')
         for quit in quits:
             if quit['exit_code']!=0 or quit['duration_ns']!=quit['exit_ns']-quit['sent_ns']:
                 raise ValueError('repeated quit failure or fabricated duration')
+    if session.get('timing_source')=='in-app-gpu-completion':
+        for sample in session['samples']:
+            r=sample.get('in_app')
+            if not r or r.get('control_wait_ns')!=0 or r.get('endpoint')!='reflecting-frame-gpu-work-confirmed-complete':
+                raise ValueError('missing in-app GPU timing evidence')
+            if not r['accepted_ns']<=r['first_reflecting_frame_presented_ns']<=r['completed_ns'] or r['duration_ns']!=r['completed_ns']-r['accepted_ns'] or sample['duration_ns']!=r['duration_ns']:
+                raise ValueError('invalid in-app monotonic clock')
     used_clock_checks=set()
     for action in session['samples']:
         if action['action'] not in ACTIONS:
             raise ValueError('unknown action')
         if not session['interactive_ns'] <= action['sent_ns'] < action['frame_ns'] <= session['quit_request_ns']:
             raise ValueError('launch or exit inside action')
-        if action['duration_ns'] != action['frame_ns'] - action['sent_ns']:
+        if action.get('driver_duration_ns',action['duration_ns']) != action['frame_ns'] - action['sent_ns']:
             raise ValueError('duration includes work outside input-to-frame boundary')
         if not action['checked'] or not action['frame_sha256']:
             raise ValueError('unchecked output')
@@ -83,12 +91,12 @@ def percentile(xs, p):
 
 def durations(session, action):
     if action in ('startup','quit') and action+'_samples' in session:
-        return [x['duration_ns'] for x in session[action+'_samples'] if x['phase']=='warm']
+        return [x.get('in_app',x)['duration_ns'] for x in session[action+'_samples'] if x['phase']=='warm']
     if action == 'quit':
         return [session['exit_ns'] - session['quit_request_ns']]
     if action == 'startup':
         return [session['startup_library_ns']]
-    return [x['duration_ns'] for x in session['samples'] if x['action'] == action and not x['warmup']]
+    return [x.get('in_app',x)['duration_ns'] for x in session['samples'] if x['action'] == action and not x['warmup']]
 
 
 def variance_components(clusters):
@@ -103,6 +111,19 @@ def variance_components(clusters):
     return dict(within_log_sd=math.sqrt(within), between_log_sd=math.sqrt(between))
 
 
+def calibrated_mde(reference, pairs, estimated):
+    """Conservative comparison floor; a quieter or larger A/A cannot hide current noise."""
+    ci = reference.get('ci95') if reference else None
+    if pairs < 10 or not ci or not ci[0] <= 1 <= ci[1]:
+        return None
+    baseline_pairs = reference.get('calibration_pairs', reference.get('observed_pairs'))
+    effect = reference.get('minimum_detectable_effect_pct')
+    if not baseline_pairs or baseline_pairs < 10 or effect is None:
+        return None
+    adjusted = math.expm1(math.log1p(effect / 100) * math.sqrt(baseline_pairs / pairs)) * 100
+    return max(estimated, adjusted)
+
+
 def summarize(sessions, resamples=4000, calibration=None, aa=False):
     # A/A precision is empirical; MDE additionally assumes asymptotic log-normal
     # location errors, two-sided alpha=.05 and power=.80. Never call CI width power.
@@ -111,6 +132,9 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
         calibration = json.load(open(calibration))
     calibrated = {(r['tier'], r['action'], r.get('phase','warm')): r
                   for r in (calibration or {}).get('rows', [])} if calibration else {}
+    sources={s.get('timing_source','external-control-and-capture') for s in sessions}
+    if len(sources)>1: raise ValueError('mixed timing sources')
+    source=next(iter(sources),'external-control-and-capture')
     rows = []
     for tier in sorted({s['tier'] for s in sessions}):
         sides = tuple(side for side in ('point','main','upstream')
@@ -121,14 +145,16 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
         if 'point' not in groups or 'main' not in groups or len({tuple(s['pair'] for s in g) for g in groups.values()}) != 1:
             raise ValueError('unpaired sessions')
         n = len(groups['point'])
-        for action in (*ACTIONS, 'startup', 'quit'):
+        declared={tuple(s.get('actions',(*ACTIONS,'startup','quit'))) for g in groups.values() for s in g}
+        if len(declared)!=1: raise ValueError('mismatched declared action sets')
+        for action in next(iter(declared)):
             phases = ('cold','warm') if ((action in ('startup','quit') and all(action+'_samples' in session for g in groups.values() for session in g)) or action in ACTIONS and all('phase' in x for g in groups.values() for session in g for x in session['samples'])) else ('warm',)
             for phase in phases:
                 def values(session):
                     if action in ('startup','quit'):
-                        if action+'_samples' in session:return [x['duration_ns'] for x in session[action+'_samples'] if x['phase']==phase]
+                        if action+'_samples' in session:return [x.get('in_app',x)['duration_ns'] for x in session[action+'_samples'] if x['phase']==phase]
                         return durations(session,action)
-                    if phase=='cold': return [x['duration_ns'] for x in session['samples'] if x['action']==action and x.get('phase')=='cold']
+                    if phase=='cold': return [x.get('in_app',x)['duration_ns'] for x in session['samples'] if x['action']==action and x.get('phase')=='cold']
                     return durations(session,action)
                 clusters = {side:[values(session) for session in group] for side,group in groups.items()}
                 if not all(all(cluster for cluster in group) for group in clusters.values()):
@@ -159,13 +185,13 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
                 # CI-derived MDE on log scale, with 80% power explicitly declared.
                 mde = math.expm1((math.log(ci[1])-math.log(ci[0]))/2 * (1.959964+.841621)/1.959964)*100
                 reference = calibrated.get((tier,action,phase))
-                sensitivity = mde if aa and n>=10 else reference.get('minimum_detectable_effect_pct') if reference and n>=10 else None
+                sensitivity = mde if aa and n>=10 else calibrated_mde(reference, n, mde)
                 reference_ci = reference.get('ci95') if reference else None
                 calibration_contains_unity = bool(reference_ci and reference_ci[0]<=1<=reference_ci[1]) if reference else None
                 limit = 10 if action in ('import','startup') else 5
                 offenders = {name for group in groups.values() for session in group for name in session.get('gpu_tier_offenders',[])}
                 verdict = 'insufficient paired sessions' if n<10 else 'A/A control rejected; descriptive only' if calibration_contains_unity is False else 'faster' if ci[0]>1 else 'slower' if ci[1]<1 else 'no measurable change' if sensitivity is not None else 'sensitivity uncalibrated'
-                rows.append(dict(tier=tier,action=action,phase=phase,observed_pairs=n,sides=stats,speedup=ratio,ci95=ci,ordinary_ci95=ordinary_ci,pooled_ci95=pooled_ci,pooled_ratio=stats['point']['median_ns']/stats['main']['median_ns'],
+                rows.append(dict(timing_source=('external-process-exit' if source=='in-app-gpu-completion' and action=='quit' else source),tier=tier,action=action,phase=phase,observed_pairs=n,sides=stats,speedup=ratio,ci95=ci,ordinary_ci95=ordinary_ci,pooled_ci95=pooled_ci,pooled_ratio=stats['point']['median_ns']/stats['main']['median_ns'],
                     half_width_pct=half_width,minimum_detectable_effect_pct=sensitivity,estimated_mde_pct=mde,
                     is_aa=aa,aa_pass=aa and n>=10 and ci[0]<=1<=ci[1] and half_width<=limit,
                     threshold_pct=limit,calibration_pairs=n if aa else reference.get('calibration_pairs') if reference else None,calibration_contains_unity=calibration_contains_unity,
@@ -173,9 +199,28 @@ def summarize(sessions, resamples=4000, calibration=None, aa=False):
     return rows
 
 
+def timing_comparison(sessions):
+    """Paired app/external observations; RPC wait share is zero only for app clocks."""
+    rows=[]
+    for tier in sorted({s['tier'] for s in sessions}):
+        for side in ('point','main','upstream'):
+            group=[s for s in sessions if s['tier']==tier and s['side']==side]
+            for action in ACTIONS:
+                samples=[x for s in group for x in s['samples'] if x['action']==action and not x['warmup'] and 'in_app' in x]
+                if samples:
+                    rows.append(dict(tier=tier,side=side,action=action,n=len(samples),
+                        driver_median_ms=statistics.median(x['driver_duration_ns'] for x in samples)/1e6,
+                        app_first_response_median_ms=statistics.median(x['in_app']['first_response_ns'] for x in samples)/1e6,
+                        app_completion_median_ms=statistics.median(x['in_app']['duration_ns'] for x in samples)/1e6,
+                        control_wait_share_pct=0))
+    return rows
+
+
 def markdown(rows):
     lines = ['Ratio = exp(median log paired-session median(point)/median(main)); >1 favors main. Displayed medians/p95 pool all samples. Times in ms. Order-stratified paired-session bootstrap (ordinary CI also retained in JSON); cold = first use in a session, warm = post-warm-up. OS/shader caches are not flushed.',
              'MDE: A/A-derived approximate two-sided 5% significance, 80% power detectable change on log scale. Uncalibrated comparisons cannot say "no measurable change". An A/A interval excluding 1 rejects comparison verdicts; its width alone is not valid sensitivity.']
+    if any(r.get('timing_source')=='in-app-gpu-completion' for r in rows):
+        lines.append('Action/startup times use in-app GPU completion; quit is explicitly external process exit. Driver/capture medians are secondary in timing_comparison JSON.')
     for tier in sorted({r['tier'] for r in rows}):
         selected=[r for r in rows if r['tier']==tier]
         provisional=any(r.get('provisional') for r in selected)
@@ -242,12 +287,35 @@ def check_export_pixels(session):
 
 
 def check_pixels(sessions):
-    from PIL import Image, ImageChops, ImageStat
     checks=[]
     for session in sessions:
-        if not session.get('photo_output_checks'):session['photo_output_checks']=check_photo_frames(session)
+        if session.get('actions')!=['import'] and not session.get('photo_output_checks'):session['photo_output_checks']=check_photo_frames(session)
     for tier,pair in sorted({(s['tier'],s['pair']) for s in sessions}):
         group={s['side']:s for s in sessions if s['tier']==tier and s['pair']==pair}
+        if any(s.get('actions')==['import'] for s in group.values()):
+            if not all(s.get('actions')==['import'] for s in group.values()): raise ValueError('mismatched import-only output checks')
+            for session in group.values():
+                expected=set(session['photo_ids'])
+                for index,sample in enumerate(session['samples']):
+                    evidence=sample['evidence'];frames=evidence['frames']
+                    seen={ident for frame in frames for ident in frame['ids']}
+                    declared=evidence.get('imported_ids')
+                    # IDs change on delete/reimport. The collector verifies each
+                    # catalog's filenames and grid coverage against THAT import's IDs.
+                    # Legacy records retain that proof plus cardinality; only the
+                    # final import shares session.photo_ids. New records state IDs.
+                    if (len(seen)!=len(expected) or evidence['imported']!=len(expected)
+                            or declared is not None and seen!=set(declared)
+                            or index==len(session['samples'])-1 and seen!=expected):
+                        raise ValueError('import-only thumbnail coverage incomplete')
+            names=lambda s:sorted((p['fileName'],p.get('width'),p.get('height')) for p in s['photos'])
+            for side in ('main','upstream'):
+                if side not in group:continue
+                equivalent=names(group['point'])==names(group[side])
+                checks.append(dict(tier=tier,pair=pair,side=side,equivalent=equivalent,method='exact-catalog-membership-and-every-non-placeholder-thumbnail',photos=len(group[side]['photo_ids'])))
+                if side=='main' and not equivalent:raise ValueError('imported catalog differs')
+            continue
+        from PIL import Image, ImageChops, ImageStat
         for session in group.values():
             session['export_output_check']=check_export_pixels(session)
         for side in ('main','upstream'):
