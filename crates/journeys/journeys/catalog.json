@@ -323,7 +323,6 @@
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "filmcraft-ui-egui", "--example", "bench", "--", "--section", "project", "--cpu", "--hw", "off"], "env": { "FILMCRAFT_FIXTURES": "/jobs/work/speedcraft-labs/targets/craft-journeys/filmcraft-fixtures" }, "output": "filmcraft-project" }
     },
     {
-<<<<<<< HEAD
       "name": "materialcraft.orbit-material-preview",
       "app": "materialcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/materialcraft",
@@ -345,7 +344,9 @@
         "output": "markers"
       },
       "inputs": [{ "name": "Camera_01_CC0", "path": "materialcraft-orbit/Camera_01_1k.gltf" }]
-=======
+
+    },
+    {
       "name": "filmcraft.real-world-play-scrub-export",
       "app": "filmcraft",
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/filmcraft",
@@ -373,7 +374,6 @@
           "path": "real-av-media-2026/iss-red-camera-2015-1080p.mp4"
         }
       ]
->>>>>>> 7807a385 (bench: add 60s FilmCraft export journey)
     }
 ,
     {
