@@ -103,9 +103,9 @@ def main() -> int:
         event_type = ctypes.cast(event, ctypes.POINTER(ctypes.c_int)).contents.value
         if event_type == 16:  # CreateNotify
             created = ctypes.cast(event, ctypes.POINTER(XCreateEvent)).contents
-            # A top-level app can set WM_NAME after mapping on a bare X server. Subscribe to
-            # property changes on each new root child and match only after it has mapped.
-            x11.XSelectInput(display, created.window, 1 << 22)  # PropertyChangeMask
+            # A window manager may reparent the app window below a root child. Subscribe to
+            # descendants too, and watch title changes for windows whose name arrives after map.
+            x11.XSelectInput(display, created.window, (1 << 19) | (1 << 22))  # SubstructureNotifyMask | PropertyChangeMask
             x11.XFlush(display)
             continue
         if event_type == 19:  # MapNotify
