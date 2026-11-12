@@ -30,23 +30,30 @@ def main():
         parser.error(f'--only-pairs values must be unique integers in [0, {pairs - 1}]')
     for pair in selected_pairs:
         config=configs/f'pair-{pair:02d}.json'
+        config_value=json.loads(config.read_text())
+        expected={(side.get('role'),side.get('revision'),side.get('binary_sha256')) for side in config_value.get('sides',[])}
         selected=None
         for existing_out in sorted(reports.glob(f'pair-{pair:02d}-try-[0-9][0-9]')):
             report_path=existing_out/'report.json'
             if not report_path.exists():
                 continue
             value=json.loads(report_path.read_text())
+            recorded=value.get('config',{})
+            actual={(side.get('role'),side.get('revision'),side.get('binary_sha256')) for side in recorded.get('sides',[])}
+            if actual!=expected or recorded.get('expected_driver_sha256')!=config_value.get('expected_driver_sha256'):
+                continue
             if all(value.get(k) is True for k in ('session_complete','publishable','gpu_process_checks_passed','gpu_state_passed','output_checked')):
                 selected=existing_out
                 break
         if selected:
             failed=[item for item in failed if item != pair]
-            good=[item for item in good if Path(item).name != selected.name]
+            good=[item for item in good if not Path(item).name.startswith(f'pair-{pair:02d}-try-')]
             good.append(str(selected))
             print(f'{acquisition} pair {pair:02d}: already publishable at {selected}',flush=True)
             (reports/'successful-pairs.json').write_text(json.dumps(good,indent=2)+'\n')
             (reports/'failed-pairs.json').write_text(json.dumps(failed,indent=2)+'\n')
             continue
+        good=[item for item in good if not Path(item).name.startswith(f'pair-{pair:02d}-try-')]
         existing = [int(path.name.rsplit('-try-', 1)[1]) for path in reports.glob(f'pair-{pair:02d}-try-[0-9][0-9]') if path.is_dir()]
         first_attempt = max(existing, default=0) + 1
         for attempt in range(first_attempt,first_attempt+args.retries+1):
@@ -67,7 +74,7 @@ def main():
             print(f'{acquisition} pair {pair:02d} try {attempt} failed; preserved {out}',flush=True)
         if selected:
             failed=[item for item in failed if item != pair]
-            good=[item for item in good if Path(item).name != selected.name]
+            good=[item for item in good if not Path(item).name.startswith(f'pair-{pair:02d}-try-')]
             good.append(str(selected))
         else:
             failed=sorted(set([*failed,pair]))
