@@ -138,11 +138,16 @@ Each journey times one PdfCraft `Session` edit after open.
 
 ### Real-world app journeys
 
-The end-to-end set covers PhotoCraft, PdfCraft, GridCraft, CADCraft and WordCraft. Each app has fresh-profile
-(`startup-cold-first-frame`) and primed-profile (`startup-warm-first-frame`) starts. Startup timing
-comes from the external Python driver, from process launch until a screenshot request completes on
-the UI thread; a follow-up inspection confirms that the window accepts control requests. Cold
-means an empty app profile, not a flushed operating-system file cache. Task journeys use
+The end-to-end set covers PhotoCraft, PdfCraft, GridCraft, CADCraft, WordCraft, DeckCraft, VectorCraft,
+EffectCraft and LightCraft. Each app has fresh-profile (`startup-cold-first-frame`) and primed-profile
+(`startup-warm-first-frame`) starts. Startup timing comes from the external Python driver. On Linux/X11,
+the driver uses the matching app window's `MapNotify` event as its primary mark, then captures and
+validates a screenshot and checks UI inspection outside the mark. LightCraft instead marks when its
+asynchronously imported photo becomes active and records the window map separately. The screenshot
+is a content check, not the clock: its settled-frame wait, GPU readback, PNG encoding, and file delivery
+can finish substantially later. This applies to all desktop startup journeys that call `ui.screenshot`,
+including the CADCraft, EffectCraft, GridCraft and VectorCraft journeys. Cold means an empty app profile,
+not a flushed operating-system file cache. Task journeys use
 `wall_time: "process"`, so their primary time is measured outside the process through exit.
 
 | App | Typical payload | Tasks |
@@ -154,6 +159,8 @@ means an empty app profile, not a flushed operating-system file cache. Task jour
 | WordCraft | Autism Commission 2019 DOCX, 302,427 bytes; 316 paragraphs and 1 table | open, scroll, edit text, save DOCX |
 | DeckCraft | MDAR Unit 3 Spanish PPTX, 8,541,624 bytes; 26 slides | open, navigate, edit title, save, export PDF |
 | LightCraft | Tetons and Snake River JPEG, 1,865,607 bytes; 3,000×2,402, 7.2 MP | open, adjust exposure, save, export JPEG |
+| VectorCraft | Empty startup document | cold and warm startup |
+| EffectCraft | CC0 Typical 1080p project, 232,533 bytes; 30 layers | cold and warm startup with the project loaded |
 
 The local corpus medians are 32,738 bytes for 431 PSD files, 11,256 bytes for 993 XLSX files, and
 3,312,310 bytes for six PDFs; those sets are mostly compatibility fixtures. For the PSD payload,
