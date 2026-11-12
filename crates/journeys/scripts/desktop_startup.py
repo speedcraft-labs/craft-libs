@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure a desktop app from external launch to its first captured interactive frame."""
+"""Measure desktop startup to the first mapped window and validate its frame afterward."""
 
 from __future__ import annotations
 
@@ -14,6 +14,19 @@ import socket
 import subprocess
 import sys
 import time
+
+
+X11_STARTUP_TITLES = {
+    "cadcraft": "CADCraft",
+    "deckcraft": "DeckCraft",
+    "gridcraft": "GridCraft,Book1",
+    "pdfcraft": "PdfCraft",
+    "photocraft": "PhotoCraft",
+    "vectorcraft": "VectorCraft",
+    "effectcraft": "EffectCraft",
+    "lightcraft": "LightCraft",
+    "wordcraft": "WordCraft",
+}
 
 
 def free_port() -> int:
@@ -155,6 +168,14 @@ def launch(
         port = free_port()
         command = [str(binary), "--control", str(port)]
         token_file = profile / ".runtime" / f"cadcraft-control-{port}.token"
+    elif app == "vectorcraft":
+        port = free_port()
+        command = [str(binary), "--control", str(port), "--new-instance"]
+    elif app == "effectcraft":
+        if input_path is None:
+            raise RuntimeError("EffectCraft startup requires a project path")
+        port = free_port()
+        command = [str(binary), str(input_path), "--control", str(port)]
     elif app == "deckcraft":
         port = free_port()
         command = [str(binary), "--control", str(port)]
@@ -162,6 +183,32 @@ def launch(
         port = free_port()
         command = [str(binary), "--control", str(port), "--control-token", token]
 
+    # Attach before launch so the mark is the window's map event, not the later screenshot RPC.
+    map_watch = None
+    mapped_at_path = profile / "window-mapped.monotonic-ns"
+    if app in X11_STARTUP_TITLES and sys.platform == "linux" and os.environ.get("DISPLAY"):
+        ready_path = profile / "x11-map-watch.ready"
+        ready_path.unlink(missing_ok=True)
+        mapped_at_path.unlink(missing_ok=True)
+        map_watch = subprocess.Popen(
+            [
+                sys.executable,
+                str(Path(__file__).with_name("x11_map_watch.py")),
+                X11_STARTUP_TITLES[app],
+                str(ready_path),
+                str(mapped_at_path),
+            ],
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        ready_deadline = time.monotonic() + 2
+        while not ready_path.is_file() and map_watch.poll() is None and time.monotonic() < ready_deadline:
+            time.sleep(0.001)
+        if not ready_path.is_file():
+            map_watch.terminate()
+            map_watch.wait(timeout=2)
+            raise RuntimeError(f"X11 map observer did not attach before {app} launch")
     started = time.perf_counter_ns()
     debug_log = (profile / "startup-app.log").open("wb") if os.environ.get("CRAFT_STARTUP_DEBUG") == "1" else None
     proc = subprocess.Popen(command, cwd=profile, env=env, stdout=debug_log or subprocess.DEVNULL, stderr=debug_log or subprocess.DEVNULL)
@@ -208,7 +255,7 @@ def launch(
                 # reach its backlog before the UI callback starts the control server thread.
                 if app == "wordcraft":
                     rpc(candidate, "auth", {}, 0, token, "key")
-                elif app not in {"cadcraft", "deckcraft", "lightcraft"}:
+                elif app not in {"cadcraft", "deckcraft", "lightcraft", "vectorcraft", "effectcraft"}:
                     rpc(candidate, "auth", {"token": token}, 0)
                 stream = candidate
                 break
@@ -245,12 +292,26 @@ def launch(
                     time.sleep(0.02)
                 if not ready:
                     raise TimeoutError("LightCraft did not activate the imported photo")
+                elapsed = time.perf_counter_ns() - started
                 frame_path = profile / "first-frame.png"
                 frame_path.unlink(missing_ok=True)
+                capture_started = time.perf_counter_ns()
                 frame = rpc(stream, "ui.screenshot", {"path": str(frame_path)}, 2)
-                elapsed = time.perf_counter_ns() - started
+                screenshot_rpc_elapsed = time.perf_counter_ns() - capture_started
+                screenshot_elapsed = time.perf_counter_ns() - started
                 if not screenshot_ok(frame, frame_path):
                     raise RuntimeError("LightCraft screenshot reply did not contain a rendered PNG")
+                if map_watch is not None:
+                    map_deadline = time.monotonic() + 1
+                    while not mapped_at_path.is_file() and map_watch.poll() is None and time.monotonic() < map_deadline:
+                        time.sleep(0.001)
+                    if not mapped_at_path.is_file():
+                        raise RuntimeError("LightCraft returned a screenshot before its X11 window was mapped")
+                    mapped_ns = int(mapped_at_path.read_text().strip())
+                    print(f"CRAFT_WINDOW_MAPPED_NS={mapped_ns - started}", flush=True)
+                    print(f"CRAFT_CONTENT_READY_NS={elapsed}", flush=True)
+                    print(f"CRAFT_SCREENSHOT_NS={screenshot_elapsed}", flush=True)
+                    print(f"CRAFT_SCREENSHOT_RPC_NS={screenshot_rpc_elapsed}", flush=True)
                 rpc(stream, "ui.inspect", {}, 3)
                 try:
                     rpc(stream, "engine.execute", {"command": "app.quit"}, 4)
@@ -259,15 +320,75 @@ def launch(
                 return elapsed
             secret_field = "key" if app == "wordcraft" else "token"
             secret = token if app in {"cadcraft", "wordcraft"} else None
-            frame = rpc(stream, "ui.screenshot", {}, 1, secret, secret_field)
-            elapsed = time.perf_counter_ns() - started
-            if not screenshot_ok(frame, None):
+            content_ready_elapsed = None
+            if app == "effectcraft":
+                project_ready = False
+                while time.monotonic() < deadline:
+                    try:
+                        summary = rpc(stream, "engine.execute", {"command": "project.summary", "params": {}}, 1).get("result")
+                    except RuntimeError:
+                        time.sleep(0.02)
+                        continue
+                    items = summary.get("items", []) if isinstance(summary, dict) else []
+                    project_ready = any(
+                        item.get("name") == "Typical 1080p" and item.get("layers") == 30 and item.get("size") == [1920, 1080]
+                        for item in items if isinstance(item, dict)
+                    )
+                    if project_ready:
+                        content_ready_elapsed = time.perf_counter_ns() - started
+                        break
+                    time.sleep(0.02)
+                if not project_ready:
+                    raise TimeoutError("EffectCraft did not load the pinned 1080p project")
+            screenshot_path = profile / "first-frame.png" if app in {"vectorcraft", "effectcraft"} else None
+            capture_started = time.perf_counter_ns()
+            if screenshot_path is not None:
+                screenshot_path.unlink(missing_ok=True)
+                request_id = 2 if app == "effectcraft" else 1
+                while True:
+                    try:
+                        frame = rpc(stream, "ui.screenshot", {"path": str(screenshot_path)}, request_id, secret, secret_field)
+                    except RuntimeError as error:
+                        if app != "effectcraft" or not any(
+                            message in str(error) for message in ("window geometry is not known yet", "no frame was presented")
+                        ):
+                            raise
+                        screenshot_error = str(error)
+                    else:
+                        if screenshot_ok(frame, screenshot_path):
+                            break
+                        raise RuntimeError(f"{app} screenshot reply did not contain a rendered PNG")
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(f"EffectCraft did not produce its first frame: {screenshot_error}")
+                    request_id += 1
+                    time.sleep(0.02)
+            else:
+                frame = rpc(stream, "ui.screenshot", {}, 1, secret, secret_field)
+            screenshot_rpc_elapsed = time.perf_counter_ns() - capture_started
+            screenshot_elapsed = time.perf_counter_ns() - started
+            print(f"CRAFT_SCREENSHOT_RPC_NS={screenshot_rpc_elapsed}", flush=True)
+            if content_ready_elapsed is not None:
+                print(f"CRAFT_CONTENT_READY_NS={content_ready_elapsed}", flush=True)
+            if screenshot_path is None and not screenshot_ok(frame, None):
                 raise RuntimeError(f"{app} screenshot reply did not contain a rendered PNG")
+            elapsed = screenshot_elapsed
+            if map_watch is not None:
+                map_deadline = time.monotonic() + 1
+                while not mapped_at_path.is_file() and map_watch.poll() is None and time.monotonic() < map_deadline:
+                    time.sleep(0.001)
+                if not mapped_at_path.is_file():
+                    raise RuntimeError(f"{app} returned a screenshot before its X11 window was mapped")
+                mapped_ns = int(mapped_at_path.read_text().strip())
+                elapsed = mapped_ns - started
+                print(f"CRAFT_WINDOW_MAPPED_NS={elapsed}", flush=True)
+                print(f"CRAFT_SCREENSHOT_NS={screenshot_elapsed}", flush=True)
             # The frame capture runs on the UI thread; a subsequent inspection confirms the
             # window is accepting control requests. Its latency is deliberately outside the mark.
-            rpc(stream, "ui.inspect" if app != "pdfcraft" else "ui.state", {}, 2, secret, secret_field)
+            inspect_id = request_id + 1 if screenshot_path is not None else 2
+            rpc(stream, "ui.inspect" if app != "pdfcraft" else "ui.state", {}, inspect_id, secret, secret_field)
+            quit_id = inspect_id + 1
             try:
-                rpc(stream, "app.quit" if app != "pdfcraft" else "ui.quit", {}, 3, secret, secret_field)
+                rpc(stream, "app.quit" if app != "pdfcraft" else "ui.quit", {}, quit_id, secret, secret_field)
             except Exception:
                 pass
             return elapsed
@@ -291,6 +412,10 @@ def launch(
                     proc.wait(timeout=5)
         if debug_log is not None:
             debug_log.close()
+        if map_watch is not None:
+            if map_watch.poll() is None:
+                map_watch.terminate()
+            map_watch.wait(timeout=2)
 
 
 def main() -> int:
@@ -299,7 +424,7 @@ def main() -> int:
         return 2
     app, binary_text, mode, profile_text = sys.argv[1:5]
     input_path = Path(sys.argv[5]).resolve() if len(sys.argv) == 6 else None
-    if app not in {"photocraft", "pdfcraft", "gridcraft", "cadcraft", "wordcraft", "deckcraft", "lightcraft"} or mode not in {"cold", "warm"}:
+    if app not in {"photocraft", "pdfcraft", "gridcraft", "cadcraft", "wordcraft", "deckcraft", "lightcraft", "vectorcraft", "effectcraft"} or mode not in {"cold", "warm"}:
         print("invalid app or mode", file=sys.stderr)
         return 2
     binary, profile = Path(binary_text).resolve(), Path(profile_text).resolve()
@@ -322,9 +447,9 @@ def main() -> int:
         if mode == "cold":
             shutil.rmtree(profile, ignore_errors=True)
         elif not (profile / ".startup-seeded").exists():
-            launch(app, binary, profile, library_path=library_path)
+            launch(app, binary, profile, input_path=input_path, library_path=library_path)
             (profile / ".startup-seeded").touch()
-        elapsed = launch(app, binary, profile, library_path=library_path)
+        elapsed = launch(app, binary, profile, input_path=input_path, library_path=library_path)
         digest = hashlib.sha256(f"{app}|{mode}|first-interactive-frame".encode()).hexdigest()
         print(f"CRAFT_JOURNEY_NS={elapsed}")
         print(f"CRAFT_OUTPUT_SHA256={digest}")

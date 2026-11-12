@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "name": "effectcraft-typical",
+  "files": [
+    {
+      "path": "typical-1080p.ecproj",
+      "sha256": "634d45b19eaf186b54824e629439826f6fe438cf153c796079ac0a96063821da",
+      "bytes": 232533,
+      "tags": [
+        "effectcraft",
+        "synthetic",
+        "1080p",
+        "30-layers",
+        "3-gaussian-blurs",
+        "spatial-bezier-keyframes"
+      ],
+      "redistributable": true,
+      "licence": "CC0-1.0"
+    }
+  ]
+}
