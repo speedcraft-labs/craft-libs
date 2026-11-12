@@ -52,7 +52,7 @@ def capture_canvas(path: Path, ui: dict[str, Any], control: Control) -> dict[str
             "crop_sha256": hashlib.sha256(crop.tobytes()).hexdigest(), "crop_fnv1a64": fnv1a64(crop.tobytes()), "path": str(path)}
 
 
-def pixel_proof(before: dict[str, Any], immediate: dict[str, Any], settled: dict[str, Any], recorded_frame_hash: str | None = None) -> dict[str, Any]:
+def pixel_proof(before: dict[str, Any], immediate: dict[str, Any], settled: dict[str, Any], raw: dict[str, Any]) -> dict[str, Any]:
     from PIL import ImageChops
     base = before["crop"].getdata()
     now = immediate["crop"].getdata()
@@ -62,20 +62,73 @@ def pixel_proof(before: dict[str, Any], immediate: dict[str, Any], settled: dict
     settled_diff = ImageChops.difference(immediate["crop"], settled["crop"])
     stable_pixels = sum(max(p) <= 2 for p in settled_diff.getdata())
     total = immediate["crop"].width * immediate["crop"].height
+    input_samples = [sample for sample in raw.get("input_samples", []) if sample.get("kind") in {"down", "move"}]
+    median_sample = sorted(input_samples, key=lambda sample: int(sample["duration_ns"]))[len(input_samples) // 2]
+    sample_key = (median_sample["kind"], median_sample["accepted_ns"])
+    capture_samples = {
+        (sample.get("kind"), sample.get("accepted_ns")): sample
+        for sample in raw.get("input_samples", [])
+    }
+    captures = []
+    median_capture = None
+    for capture in raw.get("frame_captures", []):
+        events = capture.get("accepted_events", [])
+        matched = [capture_samples[(event.get("kind"), event.get("accepted_ns"))]
+                   for event in events
+                   if (event.get("kind"), event.get("accepted_ns")) in capture_samples]
+        frame_times = sorted({sample.get("presented_frame_ns") for sample in matched})
+        pixel_hash = capture.get("pixel_hash")
+        captures.append({
+            "accepted_event_count": len(events),
+            "event_kinds": sorted({event.get("kind") for event in events}),
+            "presented_frame_ns": frame_times[0] if len(frame_times) == 1 else None,
+            "same_recorded_frame": len(frame_times) == 1,
+            "pixel_hash": pixel_hash,
+            "matches_before": pixel_hash == before["crop_fnv1a64"],
+            "matches_immediate": pixel_hash == immediate["crop_fnv1a64"],
+            "matches_settled": pixel_hash == settled["crop_fnv1a64"],
+        })
+        if any((event.get("kind"), event.get("accepted_ns")) == sample_key for event in events):
+            median_capture = captures[-1]
+    median_point_frame = {
+        "kind": median_sample["kind"],
+        "accepted_ns": median_sample["accepted_ns"],
+        "presented_frame_ns": median_sample.get("presented_frame_ns"),
+        "latency_ms": int(median_sample["duration_ns"]) / 1e6,
+        "capture_found": median_capture is not None,
+        "frame_pixel_hash": median_capture.get("pixel_hash") if median_capture else None,
+        "frame_matches_before": median_capture.get("matches_before") if median_capture else None,
+        "frame_matches_immediate": median_capture.get("matches_immediate") if median_capture else None,
+        "frame_matches_settled": median_capture.get("matches_settled") if median_capture else None,
+    }
     return {
         "roi": immediate["crop_box"],
         "before_sha256": before["crop_sha256"],
         "immediate_sha256": immediate["crop_sha256"],
         "settled_sha256": settled["crop_sha256"],
-        "recorded_frame_hash": recorded_frame_hash,
-        "recorded_frame_matches_immediate": recorded_frame_hash == immediate["crop_fnv1a64"] if recorded_frame_hash else None,
-        "recorded_frame_matches_settled": recorded_frame_hash == settled["crop_fnv1a64"] if recorded_frame_hash else None,
+        "recorded_release_frame_hash": raw.get("frame_pixel_hash"),
+        "release_frame_matches_immediate": raw.get("frame_pixel_hash") == immediate["crop_fnv1a64"] if raw.get("frame_pixel_hash") else None,
+        "release_frame_matches_settled": raw.get("frame_pixel_hash") == settled["crop_fnv1a64"] if raw.get("frame_pixel_hash") else None,
+        "median_point_frame": median_point_frame,
+        "frame_captures": captures,
         "changed_pixels_immediate": changed_now,
         "changed_pixels_settled": changed_later,
         "immediate_settled_mae": sum(sum(p) for p in settled_diff.getdata()) / (total * 3),
         "immediate_settled_stable_pct": 100 * stable_pixels / total,
-        "pixel_capture_boundary": "viewport screenshot callback requested in the same UI pass as the latency endpoint; follow-up app screenshots checked after completion and 1000ms later",
+        "pixel_capture_boundary": "viewport screenshot callback requested in the UI pass associated with each down/move/up event batch; event timestamps map each capture to its recorded frame; app screenshots checked after completion and 1000ms later",
     }
+
+
+def has_median_point_frame_capture(raw: dict[str, Any]) -> bool:
+    points = [sample for sample in raw.get("input_samples", []) if sample.get("kind") in {"down", "move"}]
+    if not points:
+        return False
+    median = sorted(points, key=lambda sample: int(sample["duration_ns"]))[len(points) // 2]
+    key = (median.get("kind"), median.get("accepted_ns"))
+    return any(
+        any((event.get("kind"), event.get("accepted_ns")) == key for event in capture.get("accepted_events", []))
+        for capture in raw.get("frame_captures", [])
+    )
 
 
 def free_port() -> int:
@@ -484,11 +537,11 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
                 raw = control.result(ident)
                 if config.get("pixel_proof"):
                     capture_deadline = time.monotonic() + 2.0
-                    while raw.get("frame_pixel_hash") is None and time.monotonic() < capture_deadline:
+                    while (raw.get("frame_pixel_hash") is None or not has_median_point_frame_capture(raw)) and time.monotonic() < capture_deadline:
                         time.sleep(0.01)
                         raw = control.result(ident)
-                    if raw.get("frame_pixel_hash") is None:
-                        raise RuntimeError(f"{label} latency frame screenshot did not complete")
+                    if raw.get("frame_pixel_hash") is None or not has_median_point_frame_capture(raw):
+                        raise RuntimeError(f"{label} median point frame screenshot did not complete")
                 proof = None
                 if pixels_before is not None:
                     capture_path = profile / f"{label}-immediate.png"
@@ -502,7 +555,7 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
                     archived = out / capture_path.name
                     shutil.copyfile(capture_path, archived)
                     pixels_settled["path"] = str(archived)
-                    proof = pixel_proof(pixels_before, pixels_now, pixels_settled, raw.get("frame_pixel_hash"))
+                    proof = pixel_proof(pixels_before, pixels_now, pixels_settled, raw)
                     proof["files"] = [pixels_before["path"], pixels_now["path"], pixels_settled["path"]]
                 point_latencies = [sample["duration_ns"] for sample in raw["input_samples"] if sample["kind"] in {"down", "move"}]
                 if len(point_latencies) != npoints:
