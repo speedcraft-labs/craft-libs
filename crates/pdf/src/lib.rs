@@ -13,8 +13,6 @@ pub mod crypt;
 pub mod filters;
 #[cfg(feature = "interpret")]
 pub use hayro_interpret as interpret;
-#[cfg(feature = "filters")]
-pub mod filters;
 mod link;
 #[cfg(feature = "read")]
 pub use hayro_syntax as syntax;
