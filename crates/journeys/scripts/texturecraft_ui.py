@@ -20,9 +20,12 @@ port = 41000 + os.getpid() % 20000
 token = "craft-journey-texturecraft-291-token"
 env = os.environ.copy()
 cache = tempfile.TemporaryDirectory(prefix="texturecraft-journey-cache-")
-env.update(TEXTURECRAFT_NO_PREFS="1", TEXTURECRAFT_CONTROL_TOKEN=token, WGPU_BACKEND="vulkan", XDG_CACHE_HOME=cache.name)
+env.update(TEXTURECRAFT_NO_PREFS="1", TEXTURECRAFT_CONTROL_TOKEN=token, XDG_CACHE_HOME=cache.name)
 if platform.system() == "Linux":
+    env["WGPU_BACKEND"] = "vulkan"
     env["__EGL_VENDOR_LIBRARY_FILENAMES"] = "/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+elif platform.system() == "Darwin":
+    env["WGPU_BACKEND"] = "metal"
 cmd = [binary, "--control", str(port)]
 if platform.system() == "Linux" and os.environ.get("DISPLAY") is None:
     cmd = ["xvfb-run", "-a", "--server-args=-extension GLX", *cmd]
@@ -75,17 +78,47 @@ def stable(value):
         return [stable(v) for v in value]
     return value
 
+
+def stable_session():
+    state = request("session.inspect", request_id=8)
+    selected = state.get("selectedLayer")
+    def layer_name(layers):
+        for layer in layers or []:
+            if layer.get("id") == selected:
+                return layer.get("name")
+            nested = layer_name(layer.get("children", []))
+            if nested is not None:
+                return nested
+        return None
+    state["selectedLayer"] = layer_name(state.get("layers"))
+    if isinstance(state.get("target"), int):
+        state["target"] = "effect"
+    for key in ("memoryBytes", "pendingTiles"):
+        state.pop(key, None)
+    return stable(state)
+
+
 try:
-    proc = launch()
-    wait_for_server(proc)
     if action == "startup-warm":
-        request("ui.screenshot")
-        stop(proc)
         proc = launch()
         wait_for_server(proc)
-    started = time.perf_counter_ns()
-    request("ui.screenshot")
-    first_frame_ns = time.perf_counter_ns() - started
+        request("ui.screenshot")
+        stop(proc)
+        started = time.perf_counter_ns()
+        proc = launch()
+        wait_for_server(proc)
+        request("ui.screenshot")
+        first_frame_ns = time.perf_counter_ns() - started
+    elif action == "startup-cold":
+        started = time.perf_counter_ns()
+        proc = launch()
+        wait_for_server(proc)
+        request("ui.screenshot")
+        first_frame_ns = time.perf_counter_ns() - started
+    else:
+        proc = launch()
+        wait_for_server(proc)
+        request("ui.screenshot")
     if action not in ("startup-cold", "startup-warm"):
         if action == "open":
             started = time.perf_counter_ns()
@@ -136,7 +169,8 @@ try:
                         digest.update(block)
         identity = digest.hexdigest()
     else:
-        identity = hashlib.sha256(json.dumps(stable(request("session.inspect", request_id=8)), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        state = stable_session()
+        identity = hashlib.sha256(json.dumps(state, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     print(f"CRAFT_JOURNEY_NS={duration}")
     print(f"CRAFT_OUTPUT_SHA256={identity}")
 finally:
