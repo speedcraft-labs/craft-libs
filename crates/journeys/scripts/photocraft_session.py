@@ -27,6 +27,13 @@ def digest(path: Path) -> str:
     return h.hexdigest()
 
 
+def fnv1a64(data: bytes) -> str:
+    value = 0xCBF29CE484222325
+    for byte in data:
+        value = ((value ^ byte) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return f"{value:016x}"
+
+
 def capture_canvas(path: Path, ui: dict[str, Any], control: Control) -> dict[str, Any]:
     """Capture PhotoCraft's next rendered screenshot and crop the same canvas region."""
     control.rpc("ui.screenshot", {"path": str(path), "focus": False})
@@ -42,10 +49,10 @@ def capture_canvas(path: Path, ui: dict[str, Any], control: Control) -> dict[str
     radius = min(180, w // 2, h // 2)
     crop = image.crop((cx - radius, cy - radius, cx + radius, cy + radius))
     return {"image": image, "crop": crop, "crop_box": [cx - radius, cy - radius, cx + radius, cy + radius],
-            "crop_sha256": hashlib.sha256(crop.tobytes()).hexdigest(), "path": str(path)}
+            "crop_sha256": hashlib.sha256(crop.tobytes()).hexdigest(), "crop_fnv1a64": fnv1a64(crop.tobytes()), "path": str(path)}
 
 
-def pixel_proof(before: dict[str, Any], immediate: dict[str, Any], settled: dict[str, Any]) -> dict[str, Any]:
+def pixel_proof(before: dict[str, Any], immediate: dict[str, Any], settled: dict[str, Any], recorded_frame_hash: str | None = None) -> dict[str, Any]:
     from PIL import ImageChops
     base = before["crop"].getdata()
     now = immediate["crop"].getdata()
@@ -60,11 +67,14 @@ def pixel_proof(before: dict[str, Any], immediate: dict[str, Any], settled: dict
         "before_sha256": before["crop_sha256"],
         "immediate_sha256": immediate["crop_sha256"],
         "settled_sha256": settled["crop_sha256"],
+        "recorded_frame_hash": recorded_frame_hash,
+        "recorded_frame_matches_immediate": recorded_frame_hash == immediate["crop_fnv1a64"] if recorded_frame_hash else None,
+        "recorded_frame_matches_settled": recorded_frame_hash == settled["crop_fnv1a64"] if recorded_frame_hash else None,
         "changed_pixels_immediate": changed_now,
         "changed_pixels_settled": changed_later,
         "immediate_settled_mae": sum(sum(p) for p in settled_diff.getdata()) / (total * 3),
         "immediate_settled_stable_pct": 100 * stable_pixels / total,
-        "pixel_capture_boundary": "first PhotoCraft screenshot frame after ui.latency.wait returned; settled capture 1000ms later",
+        "pixel_capture_boundary": "viewport screenshot callback requested in the same UI pass as the latency endpoint; follow-up app screenshots checked after completion and 1000ms later",
     }
 
 
@@ -209,6 +219,10 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
             env[key] = str(side[key])
         else:
             env.pop(key, None)
+    if config.get("pixel_proof"):
+        env["PHOTOCRAFT_LATENCY_FRAME_CAPTURE"] = "1"
+    else:
+        env.pop("PHOTOCRAFT_LATENCY_FRAME_CAPTURE", None)
     log_path = out / side["name"] / "app.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("wb") as log:
@@ -454,6 +468,13 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
                 send([{"kind": "move", "x": x, "y": y} for x, y in path[1:]])
                 send([{"kind": "up", "x": path[-1][0], "y": path[-1][1]}])
                 raw = control.result(ident)
+                if config.get("pixel_proof"):
+                    capture_deadline = time.monotonic() + 2.0
+                    while raw.get("frame_pixel_hash") is None and time.monotonic() < capture_deadline:
+                        time.sleep(0.01)
+                        raw = control.result(ident)
+                    if raw.get("frame_pixel_hash") is None:
+                        raise RuntimeError(f"{label} latency frame screenshot did not complete")
                 proof = None
                 if pixels_before is not None:
                     capture_path = profile / f"{label}-immediate.png"
@@ -467,7 +488,7 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
                     archived = out / capture_path.name
                     shutil.copyfile(capture_path, archived)
                     pixels_settled["path"] = str(archived)
-                    proof = pixel_proof(pixels_before, pixels_now, pixels_settled)
+                    proof = pixel_proof(pixels_before, pixels_now, pixels_settled, raw.get("frame_pixel_hash"))
                     proof["files"] = [pixels_before["path"], pixels_now["path"], pixels_settled["path"]]
                 point_latencies = [sample["duration_ns"] for sample in raw["input_samples"] if sample["kind"] in {"down", "move"}]
                 if len(point_latencies) != npoints:
@@ -479,93 +500,94 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
                 if len(after_document.get("history", [])) <= before_history_count:
                     raise RuntimeError(f"{label} input was timed but did not commit a brush stroke")
 
-        # Layer eye and blend coordinates are calibrated once for the fixed 1600×1000 layout.
-        eye_x, eye_y = ui["visibility_eye"]
-        blend_x, blend_y = ui["blend_dropdown"]
-        mode_points = ui["blend_options"]
-        for repetition in range(4):
-            phase = "cold" if repetition == 0 else "warm"
-            send([{"kind": "move", "x": eye_x, "y": eye_y}])
-            _, before_layer = selected_target(control.rpc("ui.inspect", {}))
-            expected_visibility = not before_layer["visible"]
-            ident = arm("visibility", "large-layer-visibility", phase)
-            send([{"kind": "down", "x": eye_x, "y": eye_y}, {"kind": "up", "x": eye_x, "y": eye_y}])
-            record("visibility", "large-layer-visibility", phase, ident)
-            _, after_layer = selected_target(control.rpc("ui.inspect", {}))
-            if after_layer["visible"] is not expected_visibility:
-                raise RuntimeError("PhotoCraft did not toggle the selected layer visibility")
-
-        for repetition in range(4):
-            phase = "cold" if repetition == 0 else "warm"
-            send([{"kind": "move", "x": blend_x, "y": blend_y}])
-            ident = arm("blend", "large-layer-blend-mode", phase)
-            send([{"kind": "down", "x": blend_x, "y": blend_y}, {"kind": "up", "x": blend_x, "y": blend_y}], complete=False)
-            option = "multiply" if repetition % 2 == 0 else "normal"
-            option_x, option_y = mode_points[option]
-            send([
-                {"kind": "move", "x": option_x, "y": option_y},
-                {"kind": "down", "x": option_x, "y": option_y},
-                {"kind": "up", "x": option_x, "y": option_y},
-            ], complete=True)
-            record("blend", "large-layer-blend-mode", phase, ident, {"selected_mode": option})
-            _, after_layer = selected_target(control.rpc("ui.inspect", {}))
-            if after_layer["blend"] != ("Multiply" if option == "multiply" else "Normal"):
-                raise RuntimeError(f"PhotoCraft did not apply the {option} blend mode")
-
-        move_tool = ui.get("move_tool_name", "Move")
-        control.rpc("ui.set", {"tool": move_tool})
-        move_state = control.rpc("ui.inspect", {})
-        if move_state.get("toolOptions", {}).get("move_auto_select", False):
-            auto_x, auto_y = ui["move_auto_select"]
-            control.rpc("ui.click", {"x": auto_x, "y": auto_y})
-            move_state = control.rpc("ui.inspect", {})
-        if move_state.get("toolOptions", {}).get("move_auto_select") is not False:
-            raise RuntimeError("PhotoCraft Move Auto-Select could not be disabled for the selected large-layer drag")
-        identity["move_auto_select_disabled"] = True
-        for action, button, label in (("move", "left", "large-layer-move-60-step"), ("pan", "middle", "canvas-pan-60-step")):
+        if not config.get("brush_only"):
+                # Layer eye and blend coordinates are calibrated once for the fixed 1600×1000 layout.
+            eye_x, eye_y = ui["visibility_eye"]
+            blend_x, blend_y = ui["blend_dropdown"]
+            mode_points = ui["blend_options"]
             for repetition in range(4):
                 phase = "cold" if repetition == 0 else "warm"
-                direction = 1 if repetition % 2 == 0 else -1
-                start = (center_x - direction * 90, center_y)
-                path = [(start[0] + direction * 180 * i / 60, start[1] + math.sin(i / 60 * math.pi) * 24) for i in range(61)]
-                send([{"kind": "move", "x": start[0], "y": start[1]}])
-                before_state = control.rpc("ui.inspect", {})
-                before_document, before_layer = selected_target(before_state)
-                before_bounds = before_layer["bounds"]
-                before_view = before_state.get("views", [{}])[0]
-                ident = arm(action, label, phase)
-                send([{"kind": "down", "x": path[0][0], "y": path[0][1], "button": button}])
-                send([{"kind": "move", "x": x, "y": y} for x, y in path[1:]])
-                send([{"kind": "up", "x": path[-1][0], "y": path[-1][1], "button": button}])
-                raw = control.result(ident)
-                records.append({"action": action, "label": label, "phase": phase, "id": ident, **raw,
-                                "step_count": 60, "step_latencies_ns": [s["duration_ns"] for s in raw["input_samples"] if s["kind"] == "move"]})
-                after_state = control.rpc("ui.inspect", {})
-                after_document, after_layer = selected_target(after_state)
-                if action == "move" and after_layer["bounds"] == before_bounds:
-                    raise RuntimeError("PhotoCraft Move tool did not move the selected large layer")
-                if action == "pan":
-                    after_view = after_state.get("views", [{}])[0]
-                    old_center = before_view.get("center", [0.0, 0.0])
-                    new_center = after_view.get("center", [0.0, 0.0])
-                    if math.dist(old_center, new_center) < 50:
-                        raise RuntimeError("PhotoCraft canvas pan did not change the view center")
+                send([{"kind": "move", "x": eye_x, "y": eye_y}])
+                _, before_layer = selected_target(control.rpc("ui.inspect", {}))
+                expected_visibility = not before_layer["visible"]
+                ident = arm("visibility", "large-layer-visibility", phase)
+                send([{"kind": "down", "x": eye_x, "y": eye_y}, {"kind": "up", "x": eye_x, "y": eye_y}])
+                record("visibility", "large-layer-visibility", phase, ident)
+                _, after_layer = selected_target(control.rpc("ui.inspect", {}))
+                if after_layer["visible"] is not expected_visibility:
+                    raise RuntimeError("PhotoCraft did not toggle the selected layer visibility")
 
-        for repetition in range(20):
-            phase = "cold" if repetition == 0 else "warm"
-            ident = arm("zoom", "canvas-zoom-wheel-step", phase)
-            send([{"kind": "wheel", "deltaY": 120 if repetition % 2 == 0 else -120}])
-            record("zoom", "canvas-zoom-wheel-step", phase, ident, {"step_count": 1})
+            for repetition in range(4):
+                phase = "cold" if repetition == 0 else "warm"
+                send([{"kind": "move", "x": blend_x, "y": blend_y}])
+                ident = arm("blend", "large-layer-blend-mode", phase)
+                send([{"kind": "down", "x": blend_x, "y": blend_y}, {"kind": "up", "x": blend_x, "y": blend_y}], complete=False)
+                option = "multiply" if repetition % 2 == 0 else "normal"
+                option_x, option_y = mode_points[option]
+                send([
+                    {"kind": "move", "x": option_x, "y": option_y},
+                    {"kind": "down", "x": option_x, "y": option_y},
+                    {"kind": "up", "x": option_x, "y": option_y},
+                ], complete=True)
+                record("blend", "large-layer-blend-mode", phase, ident, {"selected_mode": option})
+                _, after_layer = selected_target(control.rpc("ui.inspect", {}))
+                if after_layer["blend"] != ("Multiply" if option == "multiply" else "Normal"):
+                    raise RuntimeError(f"PhotoCraft did not apply the {option} blend mode")
 
-        for repetition in range(4):
-            output_name = f"save-output-{repetition + 1}"
-            phase = "cold" if repetition == 0 else "warm"
-            measure_command("save", "save-psd", phase, "app.save", {"path": f"{output_name}.psd"}, {"save_output": output_name})
-            output_path = profile / f"{output_name}.psd"
-            if not output_path.is_file() or output_path.stat().st_size == 0:
-                raise RuntimeError(f"PhotoCraft save did not produce {output_path.name}")
-            saved_files[output_path.name] = {"sha256": digest(output_path), "bytes": output_path.stat().st_size}
-            output_path.unlink()
+            move_tool = ui.get("move_tool_name", "Move")
+            control.rpc("ui.set", {"tool": move_tool})
+            move_state = control.rpc("ui.inspect", {})
+            if move_state.get("toolOptions", {}).get("move_auto_select", False):
+                auto_x, auto_y = ui["move_auto_select"]
+                control.rpc("ui.click", {"x": auto_x, "y": auto_y})
+                move_state = control.rpc("ui.inspect", {})
+            if move_state.get("toolOptions", {}).get("move_auto_select") is not False:
+                raise RuntimeError("PhotoCraft Move Auto-Select could not be disabled for the selected large-layer drag")
+            identity["move_auto_select_disabled"] = True
+            for action, button, label in (("move", "left", "large-layer-move-60-step"), ("pan", "middle", "canvas-pan-60-step")):
+                for repetition in range(4):
+                    phase = "cold" if repetition == 0 else "warm"
+                    direction = 1 if repetition % 2 == 0 else -1
+                    start = (center_x - direction * 90, center_y)
+                    path = [(start[0] + direction * 180 * i / 60, start[1] + math.sin(i / 60 * math.pi) * 24) for i in range(61)]
+                    send([{"kind": "move", "x": start[0], "y": start[1]}])
+                    before_state = control.rpc("ui.inspect", {})
+                    before_document, before_layer = selected_target(before_state)
+                    before_bounds = before_layer["bounds"]
+                    before_view = before_state.get("views", [{}])[0]
+                    ident = arm(action, label, phase)
+                    send([{"kind": "down", "x": path[0][0], "y": path[0][1], "button": button}])
+                    send([{"kind": "move", "x": x, "y": y} for x, y in path[1:]])
+                    send([{"kind": "up", "x": path[-1][0], "y": path[-1][1], "button": button}])
+                    raw = control.result(ident)
+                    records.append({"action": action, "label": label, "phase": phase, "id": ident, **raw,
+                                    "step_count": 60, "step_latencies_ns": [s["duration_ns"] for s in raw["input_samples"] if s["kind"] == "move"]})
+                    after_state = control.rpc("ui.inspect", {})
+                    after_document, after_layer = selected_target(after_state)
+                    if action == "move" and after_layer["bounds"] == before_bounds:
+                        raise RuntimeError("PhotoCraft Move tool did not move the selected large layer")
+                    if action == "pan":
+                        after_view = after_state.get("views", [{}])[0]
+                        old_center = before_view.get("center", [0.0, 0.0])
+                        new_center = after_view.get("center", [0.0, 0.0])
+                        if math.dist(old_center, new_center) < 50:
+                            raise RuntimeError("PhotoCraft canvas pan did not change the view center")
+
+            for repetition in range(20):
+                phase = "cold" if repetition == 0 else "warm"
+                ident = arm("zoom", "canvas-zoom-wheel-step", phase)
+                send([{"kind": "wheel", "deltaY": 120 if repetition % 2 == 0 else -120}])
+                record("zoom", "canvas-zoom-wheel-step", phase, ident, {"step_count": 1})
+
+            for repetition in range(4):
+                output_name = f"save-output-{repetition + 1}"
+                phase = "cold" if repetition == 0 else "warm"
+                measure_command("save", "save-psd", phase, "app.save", {"path": f"{output_name}.psd"}, {"save_output": output_name})
+                output_path = profile / f"{output_name}.psd"
+                if not output_path.is_file() or output_path.stat().st_size == 0:
+                    raise RuntimeError(f"PhotoCraft save did not produce {output_path.name}")
+                saved_files[output_path.name] = {"sha256": digest(output_path), "bytes": output_path.stat().st_size}
+                output_path.unlink()
 
         state_after = control.rpc("ui.inspect", {})
         identity["final_document_inspect"] = state_after
@@ -663,11 +685,11 @@ def run(config_path: Path, out: Path) -> int:
             result["sessions"].append(spawn_side(side, {}, config, out))
         result["gpu_process_checks_passed"] = all(session["gpu_process_checks_passed"] for session in result["sessions"])
         result["gpu_state_passed"] = all(session["gpu_state_passed"] for session in result["sessions"])
-        expected_samples = 1 if config.get("smoke") else 56
+        expected_samples = 1 if config.get("smoke") else (12 if config.get("brush_only") else 56)
         result["session_complete"] = all(session["process_exit_code"] == 0 and len(session["samples"]) == expected_samples for session in result["sessions"])
         result["comparison_complete"] = result["session_complete"] and len(result["sessions"]) == 2
         result["prior_acquisitions_passed"] = True
-        result["output_checked"] = all(session.get("document_opened") if config.get("smoke") else session["saved_files"] for session in result["sessions"])
+        result["output_checked"] = all(session.get("document_opened") if config.get("smoke") else (session.get("first_document_inspect") if config.get("brush_only") else session["saved_files"]) for session in result["sessions"])
         result["gpu_adapters"] = sorted({str(session.get("gpu", {}).get("gpuInfo", {}).get("adapter", "")) for session in result["sessions"]})
     except Exception as error:
         result["error"] = str(error)

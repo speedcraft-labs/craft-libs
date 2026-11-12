@@ -1,0 +1,46 @@
+diff --git a/crates/engine/src/cmd/brush_cmds.rs b/crates/engine/src/cmd/brush_cmds.rs
+index 0a4109267..39d8775f3 100644
+--- a/crates/engine/src/cmd/brush_cmds.rs
++++ b/crates/engine/src/cmd/brush_cmds.rs
+@@ -601,6 +601,11 @@ impl LiveCommit {
+ }
+ 
+ impl LiveStroke {
++    /// Number of primary dabs already rasterized, including the finishing tail.
++    pub fn dab_count(&self) -> usize {
++        self.renderer.dab_count() + self.renderer.tail_dabs().len()
++    }
++
+     /// Start from `paint.stroke` params; their `points` are rendered.
+     pub fn begin(s: &Session, p: &Value) -> Result<Self> {
+         Self::begin_with(s, "paint.stroke", p)
+diff --git a/crates/ui-egui/src/canvas/strokes.rs b/crates/ui-egui/src/canvas/strokes.rs
+index e2eaab80c..91ef5bf2e 100644
+--- a/crates/ui-egui/src/canvas/strokes.rs
++++ b/crates/ui-egui/src/canvas/strokes.rs
+@@ -182,6 +182,13 @@ pub(super) enum EngineStroke {
+ }
+ 
+ impl EngineStroke {
++    fn dab_count(&self) -> Option<usize> {
++        match self {
++            EngineStroke::Brush(s) => Some(s.dab_count()),
++            EngineStroke::Retouch(_) | EngineStroke::Dab(_) | EngineStroke::Mixer(_) => None,
++        }
++    }
++
+     /// The brush engine's strokes can change while the pointer is held still (see
+     /// `LiveStroke::wants_time`); the retouch strokes don't.
+     pub(super) fn wants_time(&self) -> bool {
+@@ -732,6 +739,11 @@ pub(super) fn commit_brush_stroke(app: &mut PhotocraftApp, d: &Drag) {
+         let _ = app.run(stroke_command(app, d.tool), p);
+         return;
+     };
++    if let Some(count) = stroke.dab_count()
++        && let Some(recorder) = app.latency.as_mut()
++    {
++        recorder.record_brush_dab_count(count);
++    }
+     let before = app.session.documents().iter().find(|st| st.doc.id == doc).map(|st| st.doc.clone());
+     if let EngineStroke::Brush(stroke) = stroke
+         && app.session.offer_live_stroke(*stroke).is_err()
