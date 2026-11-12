@@ -16,7 +16,8 @@ import time
 binary, project, action, output = sys.argv[1:]
 if os.path.exists(output):
     shutil.rmtree(output) if os.path.isdir(output) else os.unlink(output)
-port = 41000 + os.getpid() % 20000
+port_base = 41000 + os.getpid() % 20000
+port = port_base
 token = "craft-journey-texturecraft-291-token"
 env = os.environ.copy()
 cache = tempfile.TemporaryDirectory(prefix="texturecraft-journey-cache-")
@@ -26,12 +27,16 @@ if platform.system() == "Linux":
     env["__EGL_VENDOR_LIBRARY_FILENAMES"] = "/usr/share/glvnd/egl_vendor.d/50_mesa.json"
 elif platform.system() == "Darwin":
     env["WGPU_BACKEND"] = "metal"
-cmd = [binary, "--control", str(port)]
-if platform.system() == "Linux" and os.environ.get("DISPLAY") is None:
-    cmd = ["xvfb-run", "-a", "--server-args=-extension GLX", *cmd]
 proc = None
+launch_index = 0
 
 def launch():
+    global launch_index, port
+    launch_index += 1
+    port = port_base + launch_index - 1
+    cmd = [binary, "--control", str(port)]
+    if platform.system() == "Linux" and os.environ.get("DISPLAY") is None:
+        cmd = ["xvfb-run", "-a", "--server-args=-extension GLX", *cmd]
     return subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 def stop(process):
@@ -71,6 +76,19 @@ def request(method, params=None, request_id=1):
         raise RuntimeError(response.get("error", "control request failed"))
     return response.get("result")
 
+def request_until_ready(process, method):
+    deadline = time.monotonic() + 15
+    last_error = None
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise RuntimeError("TextureCraft exited before its first frame")
+        try:
+            return request(method)
+        except (ConnectionError, OSError, json.JSONDecodeError) as error:
+            last_error = error
+            time.sleep(0.05)
+    raise RuntimeError(f"TextureCraft did not answer {method} within 15 seconds: {last_error}")
+
 def stable(value):
     if isinstance(value, dict):
         return {k: stable(v) for k, v in sorted(value.items()) if k not in {"id", "uuid", "path", "filePath", "timestamp"}}
@@ -102,23 +120,23 @@ try:
     if action == "startup-warm":
         proc = launch()
         wait_for_server(proc)
-        request("ui.screenshot")
+        request_until_ready(proc, "ui.screenshot")
         stop(proc)
         started = time.perf_counter_ns()
         proc = launch()
         wait_for_server(proc)
-        request("ui.screenshot")
+        request_until_ready(proc, "ui.screenshot")
         first_frame_ns = time.perf_counter_ns() - started
     elif action == "startup-cold":
         started = time.perf_counter_ns()
         proc = launch()
         wait_for_server(proc)
-        request("ui.screenshot")
+        request_until_ready(proc, "ui.screenshot")
         first_frame_ns = time.perf_counter_ns() - started
     else:
         proc = launch()
         wait_for_server(proc)
-        request("ui.screenshot")
+        request_until_ready(proc, "ui.screenshot")
     if action not in ("startup-cold", "startup-warm"):
         if action == "open":
             started = time.perf_counter_ns()
