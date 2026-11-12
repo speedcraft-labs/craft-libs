@@ -67,11 +67,11 @@
     "legacy1259": "confirmation AA20pairs and real5pairs preserved separately, retired"
   },
   "reporting_patch": "ALREADY INTEGRATED in production ad0f520c; never reapply",
-  "native_driver_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+  "native_driver_sha256": "191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd",
   "real50_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-derived-report.json",
   "real50_complete": "10pairs +10upstream; developedpixels unequal, descriptive only",
   "ci_fix": "ci-lts-pin.json",
-  "archive_branch": "wip/313b-inapp-analysis a47886cb",
+  "archive_branch": "wip/313b-inapp-analysis 5575ec26",
   "heavy_aa_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-19-primary-attempt0/report.json",
   "heavy_aa_summary": "20pairs COMPLETE; ratio.9852 CI[.8908,1.1158], half-width11.42% FAIL(limit10), MDE17.46%",
   "failed_precision_branch": "failed/313b-warm-precision e7b0c5f5",
@@ -103,5 +103,38 @@
     "direct_import": "191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd"
   },
   "source_integration": "production-integration-safe.json; current measurement WT unchanged",
-  "unit_tests": "final-journeys-tests.log: 3Rust/55Python PASS; cargo fmt/diff checks PASS"
+  "unit_tests": "final-journeys-tests.log: 3Rust/55Python PASS; cargo fmt/diff checks PASS",
+  "continuation": "CONTINUATION.md (latest; production source already integrated and green)",
+  "metadata_updated_utc": "2026-11-12T00:04:25.004571+00:00",
+  "harness_binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/craft-journeys-direct-import",
+  "harness_binary_sha256": "c179b7bc951239eefedfdc053fd43f7eef131afd5f05d222e7a56e6e547ba4fd",
+  "legacy_harness_binary_sha256": "054ea4f977a63eccd0c4f9d2d492f666503878f654936adb0b0e72c21644b92e",
+  "legacy_driver_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+  "controller_log": "aa-import-1259-direct-campaign.log",
+  "controller_resume": "Collector already running: do NOT duplicate. If absent, inspect latest cumulative then use a NEW campaign name with identical config plus resume_report; never overwrite completed/incomplete directories. Preserve fixed20AA/10real totals.",
+  "branch_manifest": "branch-refs-20261111.json; refresh archivehead/final failures at end",
+  "failed_branches": {
+    "lightcraft": [
+      "failed/313b-startup-filmstrip",
+      "failed/313b-ui-record-wake"
+    ],
+    "craft-libs": [
+      "failed/313b-ci-latest",
+      "failed/313b-default-process-equivalence",
+      "failed/313b-forecast-selection",
+      "failed/313b-import-admission",
+      "failed/313b-import-coverage",
+      "failed/313b-lease12",
+      "failed/313b-real-pair-budget",
+      "failed/313b-retry-config",
+      "failed/313b-reviewed-import-budget",
+      "failed/313b-ui-record-wake",
+      "failed/313b-warm-precision",
+      "failed/313b-workspace-artifacts"
+    ]
+  },
+  "direct_heavy_aa_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-19-primary-attempt0/report.json",
+  "direct_heavy_aa_summary": "COMPLETE20pairs; ratio.9504 CI[.8177,1.0033],HW9.77% PASS10;MDE15.75%;no incomplete acquisitions",
+  "current_aa_summary": "5/7 app/tier gates pass; approximate80%-power5% detection exposure/export only",
+  "direct_heavy_diagnostics": "aa-import-1259-direct-residual-variation.json;clock-isolation-proof.json;action-diagnostics.json"
 }

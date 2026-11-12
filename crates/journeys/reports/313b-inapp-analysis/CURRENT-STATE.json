@@ -8,12 +8,12 @@
   ],
   "patch_proof": "patch-application.json",
   "tests": {
-    "journeys": "3 Rust,45 Python pass",
+    "journeys": "final ad0f520c:3 Rust,55 Python pass; fmt/diff pass",
     "recorder": "3 CPU recorder plus socket no-UI-dispatch/no-repaint regression pass",
     "libs_workspace": "3835 pass,0 fail,127 ignored",
     "app_workspace": "6365 pass;4 matching-clean-main-reproduced denoise GPU failures; UI32 pass before full-suite exit SIGSEGV (targeted baseline UI exits0)"
   },
-  "status": "aa-import-1259-direct: 12/20 complete pairs",
+  "status": "aa-import-1259-direct: 20/20 complete pairs",
   "next": [
     "Finish fresh direct20AA then10real; active WT191b35 remains frozen",
     "After ALL run final identity proof/tables/diagnostics/plots/prune/NASonce",
@@ -36,38 +36,47 @@
       "failed/313b-ui-record-wake"
     ],
     "craft-libs": [
-      "failed/313b-workspace-artifacts",
+      "failed/313b-ci-latest",
+      "failed/313b-default-process-equivalence",
+      "failed/313b-forecast-selection",
+      "failed/313b-import-admission",
+      "failed/313b-import-coverage",
+      "failed/313b-lease12",
+      "failed/313b-real-pair-budget",
+      "failed/313b-retry-config",
+      "failed/313b-reviewed-import-budget",
       "failed/313b-ui-record-wake",
-      "failed/313b-lease12"
+      "failed/313b-warm-precision",
+      "failed/313b-workspace-artifacts"
     ]
   },
   "frozen_patch_sha256": "44fe9373aab994e3db26f2e3f95683bcc827fe84e3717709036426430bfbc8c9",
-  "controller_resume": "operators/campaign-v2.py aa-r4-config.json aa-inapp-r4 (resume latest cumulative into a new campaign name, never overwrite)",
-  "controller_log": "aa-inapp-r4-campaign.log",
+  "controller_resume": "Collector already running: do NOT duplicate. If absent, inspect latest cumulative then use a NEW campaign name with identical config plus resume_report; never overwrite completed/incomplete directories. Preserve fixed20AA/10real totals.",
+  "controller_log": "aa-import-1259-direct-campaign.log",
   "controller_policy": "flock bench.lock then flock -x -w5 -E76 gpu.lock; release/retry without app start when sharedGPU tests hold lock",
   "unit_tests": "final-journeys-tests.log: 3Rust/55Python PASS; cargo fmt/diff checks PASS",
   "libs_workspace": "3835 pass,0fail,127ignored",
-  "latest_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-11-primary-attempt0/report.json",
+  "latest_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-19-primary-attempt0/report.json",
   "app_workspace": "6365pass;4 GPUdenoise baseline-reproduced failures; UI32pass; prior full-suite exit segfault not reproduced in targeted baseline UI",
   "scheduling_observer": "operators/scheduling_observer.py on CPUs0-21, read-only /proc/stat and pressure every2s; supplemental coverage starts after pair0, no sample selection",
-  "harness_binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/craft-journeys",
-  "harness_binary_sha256": "054ea4f977a63eccd0c4f9d2d492f666503878f654936adb0b0e72c21644b92e",
+  "harness_binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/craft-journeys-direct-import",
+  "harness_binary_sha256": "c179b7bc951239eefedfdc053fd43f7eef131afd5f05d222e7a56e6e547ba4fd",
   "binary_pruning_policy": "All app AND harness executables copied outside targets; benchmark queue cannot lose them to hourly target pruning. No binaries go to NAS.",
   "superseded_services_stopped": [
     "313-aa-validation.service",
     "313-switch-proof-calibrated.service"
   ],
-  "active_campaign": "aa-import-1259-direct",
+  "active_campaign": "real-import-1259-direct",
   "controller_parent": 312957,
   "pipeline": "operators/post-direct-import.py",
   "pipeline_log": "post-direct-import.log",
   "failed_lease_protocol_branch": "failed/313b-lease12 f54d0a17",
   "process_observer": "operators/process-observer.py; read-only thread schedstat/page faults every2s on CPUs0-21; partial R4 coverage, never filters",
   "foreign_process_rule": "User steering08:32UTC: never stop another worker process. Daily upstream-sync GPUtests legitimate. After>45min foreign GPU block AND about0%CPU, report PID/age/CPU%/command and continue lock-free work; otherwise wait.",
-  "archive_branch": "wip/313b-inapp-analysis a47886cb",
-  "metadata_updated_utc": "2026-11-11T12:06:59.725596+00:00",
-  "pipeline_phase": "aa-import-1259-direct",
-  "pipeline_config": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-config.json",
+  "archive_branch": "wip/313b-inapp-analysis 5575ec26",
+  "metadata_updated_utc": "2026-11-12T00:04:25.001789+00:00",
+  "pipeline_phase": "real-import-1259-direct",
+  "pipeline_config": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-config.json",
   "aa_summary": "20pairs:4/6 app gates pass;5% approximate80%-power MDE for exposure4.64%,export3.79%",
   "slowdown_summary": "PASS slower .9038986 CI[.8371055,.9126458], actualdose9.583%; physical-slowdown-proof.json",
   "independent_collectors": [
@@ -89,7 +98,7 @@
     "legacy1259": "confirmation AA20pairs and real5pairs preserved separately, retired"
   },
   "reporting_patch": "ALREADY INTEGRATED in production ad0f520c; never reapply",
-  "native_driver_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+  "native_driver_sha256": "191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd",
   "real50_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-derived-report.json",
   "real50_complete": "10pairs +10upstream; developedpixels unequal, descriptive only",
   "ci_fix": "ci-lts-pin.json",
@@ -133,5 +142,13 @@
     "typical": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
     "direct_import": "191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd"
   },
-  "source_integration": "production-integration-safe.json; current measurement WT unchanged"
+  "source_integration": "production-integration-safe.json; current measurement WT unchanged",
+  "continuation": "CONTINUATION.md (latest; production source already integrated and green)",
+  "legacy_harness_binary_sha256": "054ea4f977a63eccd0c4f9d2d492f666503878f654936adb0b0e72c21644b92e",
+  "legacy_driver_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+  "branch_manifest": "branch-refs-20261111.json; refresh archivehead/final failures at end",
+  "direct_heavy_aa_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-19-primary-attempt0/report.json",
+  "direct_heavy_aa_summary": "COMPLETE20pairs; ratio.9504 CI[.8177,1.0033],HW9.77% PASS10;MDE15.75%;no incomplete acquisitions",
+  "current_aa_summary": "5/7 app/tier gates pass; approximate80%-power5% detection exposure/export only",
+  "direct_heavy_diagnostics": "aa-import-1259-direct-residual-variation.json;clock-isolation-proof.json;action-diagnostics.json"
 }

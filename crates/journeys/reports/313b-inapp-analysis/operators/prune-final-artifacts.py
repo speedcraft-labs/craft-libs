@@ -1,6 +1,6 @@
 """After all checks close, hash passing captures and remove regenerable caches.
 
-The nine pair-0 default-process comparison oracles remain disputed evidence.
+Pair-0 descriptive oracles and the original failed primary gate oracles remain disputed evidence.
 Failed-session and explicitly rejected capture files are retained as failures.
 No acquired RAW, catalog, log, report, or source file is deleted.
 """
@@ -22,6 +22,13 @@ assert real['comparison_complete'] and real['primary_output_equivalent'] is Fals
 disputed = {Path(s[k]).resolve() for s in real['sessions'] if s['pair'] == 0
             for k in ('oracle', 'export_sample', 'export_oracle')}
 assert len(disputed) == 9 and all(p.is_file() for p in disputed)
+original_failure = json.loads((root / 'default-process-mismatch.json').read_text())
+original_report = json.loads(Path(original_failure['raw_report']).read_text())
+assert original_report['failure'].startswith('primary output equivalence failed')
+original_oracles = {Path(s[k]).resolve() for s in original_report['sessions']
+                    for k in ('oracle', 'export_sample', 'export_oracle')}
+assert len(original_oracles) == 6 and all(p.is_file() for p in original_oracles)
+disputed.update(original_oracles)
 failed = {p.parent.resolve() for p in root.rglob('failed-session.json')}
 files = [Path(p) for p in subprocess.check_output(['rg', '--files', '--hidden', str(root)], text=True).splitlines()]
 captures = []

@@ -1,0 +1,84 @@
+{
+  "report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-19-primary-attempt0/report.json",
+  "note": "All fixed20 pairs retained. Direct folder-drop includes expansion/probing/preparation and frame-paced commits. First-photo stamps and completion stamps locate observed variation but do not partition CPU, disk, GPU, scheduler or recorder confirmation delay causally. Completion pending snapshot precedes GPU callback.",
+  "rows": [
+    {
+      "side": "point",
+      "sessions": 20,
+      "warm_samples": 40,
+      "boundary": "folder-drop-to-usable-grid",
+      "session_completion_medians_ms": {
+        "min": 15349.658854000001,
+        "median": 16543.64563875,
+        "max": 79408.78013900001
+      },
+      "first_photo_ms": {
+        "min": 76.176216,
+        "median": 102.96806799999999,
+        "max": 488.303308
+      },
+      "first_photo_to_complete_ms": {
+        "min": 15225.900065,
+        "median": 15795.3504045,
+        "max": 80194.320922
+      },
+      "completion_frames": {
+        "min": 478,
+        "median": 493.5,
+        "max": 1265
+      },
+      "first_frames": {
+        "min": 6,
+        "median": 6.0,
+        "max": 10
+      },
+      "first_pending_labels": {
+        "Importing": 40,
+        "import": 40,
+        "renderer": 2
+      },
+      "completion_pending_labels": {},
+      "within_log_sd": 0.1456145024861828,
+      "between_log_sd": 0.37040324197914365
+    },
+    {
+      "side": "main",
+      "sessions": 20,
+      "warm_samples": 40,
+      "boundary": "folder-drop-to-usable-grid",
+      "session_completion_medians_ms": {
+        "min": 15435.341638,
+        "median": 18454.69446625,
+        "max": 72832.46510100001
+      },
+      "first_photo_ms": {
+        "min": 81.529631,
+        "median": 109.088428,
+        "max": 502.787405
+      },
+      "first_photo_to_complete_ms": {
+        "min": 15247.803053,
+        "median": 18131.8627895,
+        "max": 85102.84003
+      },
+      "completion_frames": {
+        "min": 479,
+        "median": 508.0,
+        "max": 1340
+      },
+      "first_frames": {
+        "min": 6,
+        "median": 6.0,
+        "max": 10
+      },
+      "first_pending_labels": {
+        "Importing": 40,
+        "import": 40,
+        "renderer": 4
+      },
+      "completion_pending_labels": {},
+      "within_log_sd": 0.1509114148171877,
+      "between_log_sd": 0.351536023379833
+    }
+  ]
+}

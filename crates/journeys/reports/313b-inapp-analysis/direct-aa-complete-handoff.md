@@ -1,0 +1,20 @@
+HANDOFF 313b — on Agentbox, 5% sensitivity is established only for typical exposure/export in these fixed cohorts. The fresh direct-folder 1,259-RAW A/A is COMPLETE: 20 pairs, every completed pair retained, zero incomplete acquisitions. It passes the specified import half-width gate, while its approximate 80%-power MDE remains above5%. The current app/tier A/A gates now pass5/7 (typical4/6 plus direct import1/1); preview/switch failures remain unchanged.
+
+HANDOFF 313b — fixed 20-pair A/A complete. Ratios are A/B; unity must be inside the 95% CI, with unrounded half-width≤5% (import/startup≤10%). Thresholds are unchanged; failed gates retained. MDE is a separate approximate 80%-power estimate, not the half-width. Quit is external process exit and does not validate app-clock precision.
+| Warm action | A/B ratio | 95% CI | Half-width | MDE | Gate |
+|---|---:|---:|---:|---:|---|
+| import | 0.9504 | 0.8177–1.0033 | 9.77% | 15.75% | PASS |
+
+| Warm action (B) | Driver upper bound ms | App first-response ms | App completion ms | Control wait in app clock |
+|---|---:|---:|---:|---:|
+| import | 18674.55 | 109.09 | 18237.69 | 0% |
+
+Raw cumulative report `/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-19-primary-attempt0/report.json`. First/complete app stamps are UI acceptance→same-frame GPU work confirmed complete, prior to any socket reply; all record control_wait_ns=0. External medians are retained upper bounds, not an isolated RPC-overhead estimate. Same additive patch and byte-identical recorder source on both clean builds;31 allocated ELF sections match except build-id. Cold/warm whole-session bootstrap and all per-action evidence retained. Earlier 12-repeat and incomplete acquisitions are diagnostic only, never pooled. For active continuation use CURRENT-STATE.json and CONTINUATION.md; leave the existing coordinator running.
+
+Timing driver SHA256: `191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd`. Import boundary: folder-drop acceptance through usable grid, including expansion/preparation; never pooled with retired confirmation timings.
+
+Measured residuals: A/B native warm completion medians15,890.49/18,237.69ms; first photo medians102.97/109.09ms. Across sessions, completion medians span15.35–79.41s onA and15.44–72.83s onB, with478–1265 and479–1340 completion frames. Every first-photo snapshot still has Importing/import pending; all completion snapshots are empty. The large spread lies after first photo while the app continues the import; source runs folder expansion/probing/preparation on its import worker and commits at most4prepared batches per host frame. This is not timed control polling. These observations locate the stage but do not causally divide CPU, disk, GPU, frame pacing or callback scheduling. Threshold unchanged; no outlier removal or rerun to pass. See direct-aa-closure.json, aa-import-1259-direct-residual-variation.json, action-diagnostics and clock-isolation-proof. Native reads:160 tagged commands, each immediately followed by one socket-thread native wait; all native control_wait_ns=0.
+
+The clock is broader than the retired confirmation protocol: folder-drop acceptance includes expansion/preparation. Never pool the two. Legacy confirmation20-pair A/A FAIL11.42%/MDE17.46% and all5real pairs+5upstream remain separately archived/insufficient. Frozen driver191b35b1 and recorder patch44fe9373 unchanged. The existing post-direct-import.py has automatically started real-import-1259-direct (10contiguous primarypairs+10separate upstream), calibrated against this fresh20-pair control. DO NOT start another collector.
+
+Production appbe68fb49 andlibsad0f520c are tested/pushed/CI GREEN, both still draft until final evidence review. Next finish real10+upstream, final identityproof/tables/plots, prune passing images to hashes while preserving original failed/disputed oracles, NASonce, ready/merge queues. Source already integrated: do not reapply staged patch. No manual NAS yet; no foreign process stopped.

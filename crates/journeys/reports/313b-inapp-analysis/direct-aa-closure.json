@@ -1,0 +1,63 @@
+{
+  "report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-19-primary-attempt0/report.json",
+  "report_sha256": "e8862ccc0e6f8682f0a0c1f2837d63be280909662c6259b41befc29ec07b8400",
+  "protocol": "folder-drop-to-usable-grid",
+  "driver_sha256": "191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd",
+  "pairs": 20,
+  "incomplete_acquisitions": 0,
+  "all_completed_pairs_retained": true,
+  "warm": {
+    "aa_pass": true,
+    "action": "import",
+    "calibration_contains_unity": null,
+    "calibration_pairs": 20,
+    "ci95": [
+      0.8176508338577064,
+      1.0032916101876503
+    ],
+    "estimated_mde_pct": 15.746541097731923,
+    "gpu_offenders": [],
+    "half_width_pct": 9.766791863210237,
+    "is_aa": true,
+    "minimum_detectable_effect_pct": 15.746541097731923,
+    "observed_pairs": 20,
+    "ordinary_ci95": [
+      0.817136754837772,
+      1.0032916101876503
+    ],
+    "phase": "warm",
+    "pooled_ci95": [
+      0.7536760847968424,
+      1.0631708282865175
+    ],
+    "pooled_ratio": 0.8712996009567653,
+    "provisional": false,
+    "sides": {
+      "main": {
+        "between_log_sd": 0.351536023379833,
+        "max_ns": 85605627435,
+        "median_ns": 18237685084.5,
+        "n": 40,
+        "p95_ns": 45221952994.899956,
+        "within_log_sd": 0.1509114148171877
+      },
+      "point": {
+        "between_log_sd": 0.37040324197914365,
+        "max_ns": 80682624230,
+        "median_ns": 15890487736.5,
+        "n": 40,
+        "p95_ns": 35036968689.49987,
+        "within_log_sd": 0.1456145024861828
+      }
+    },
+    "speedup": 0.9503672184784628,
+    "threshold_pct": 10,
+    "tier": "import-1259",
+    "timing_source": "in-app-gpu-completion",
+    "upstream_equivalent": true,
+    "verdict": "no measurable change"
+  },
+  "control_wait_share_pct": 0,
+  "clock_audit": "aa-import-1259-direct-clock-isolation-proof.json",
+  "residuals": "aa-import-1259-direct-residual-variation.json"
+}
