@@ -1,0 +1,579 @@
+{
+  "count": 143,
+  "maximum_scoped_seconds": 842.487558091,
+  "note": "Clock scopes include workload and restore; initial bounded probes/admission are outside this duration.840s work limit reserves cleanup inside15minutes. All scoped durations <885s.",
+  "rows": [
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r2-0.gpu-condition.json",
+      "scoped_seconds": 602.680818577
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/smoke-r3.gpu-condition.json",
+      "scoped_seconds": 65.585416855
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r3-0.gpu-condition.json",
+      "scoped_seconds": 595.680177403
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r3-1.gpu-condition.json",
+      "scoped_seconds": 592.078735327
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r3-2.gpu-condition.json",
+      "scoped_seconds": 601.600611375
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r3-3.gpu-condition.json",
+      "scoped_seconds": 750.310746084
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r3-4.gpu-condition.json",
+      "scoped_seconds": 486.251973636
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r3-cont-4.gpu-condition.json",
+      "scoped_seconds": 477.000921621
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-0-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 431.964686832
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-1-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 842.431548707
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-1-primary-attempt1.gpu-condition.json",
+      "scoped_seconds": 441.670382281
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-2-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 460.551256705
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-3-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 563.922769043
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-4-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 420.424885786
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-5-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 428.01291708
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-6-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 410.825272863
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-7-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 510.051176172
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-8-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 813.659989832
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-8-primary-attempt1.gpu-condition.json",
+      "scoped_seconds": 842.291582565
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-8-primary-attempt2.gpu-condition.json",
+      "scoped_seconds": 405.456154737
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-9-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 391.444474421
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-10-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 411.051234478
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-11-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 478.057678801
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-12-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 420.71620968
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-13-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 411.575497546
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-14-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 425.592944371
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-15-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 440.294315737
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-16-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 416.967576234
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-17-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 431.247925626
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-18-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 437.183618944
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-19-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 416.113412314
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-dose-pilot-0-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 348.510736598
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-dose-pilot-1-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 352.665899696
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-0-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 355.410861085
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-1-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 359.730018488
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-2-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 362.860786639
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-3-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 366.447631618
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-4-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 370.041914062
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-5-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 374.372539465
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-6-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 421.70024369
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-7-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 396.474583798
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-8-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 399.387666864
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-9-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 411.042585058
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-r4-0-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 352.431414265
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-0-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 329.177335297
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-0-primary-attempt1.gpu-condition.json",
+      "scoped_seconds": 424.462387389
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-0-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 196.515265032
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-1-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 365.32271996
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-1-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 185.299691815
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-1-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 411.283232325
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-2-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 370.416268276
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-2-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 203.176370085
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-2-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 412.057750565
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-3-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 359.825858425
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-3-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 190.00472763
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-2-primary-attempt1.gpu-condition.json",
+      "scoped_seconds": 543.727579328
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-4-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 378.486723004
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-4-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 198.835015044
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-3-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 500.263921496
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-5-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 450.079004782
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-5-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 199.094533585
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-4-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 583.822386259
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-6-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 370.724096943
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-6-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 181.776482782
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-7-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 345.734037288
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-7-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 186.709002153
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-8-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 399.526256808
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-8-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 261.694138456
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-5-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 621.340211512
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 460.101005529
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 248.080222696
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-6-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 568.099834165
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-7-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 452.639028208
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-8-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 460.643129648
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-9-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 422.057939766
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-10-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 411.66032788
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-11-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 414.306886156
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-12-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 443.348180295
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-13-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 443.336239503
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-14-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 426.938798302
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-15-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 500.529807878
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-16-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 453.118785759
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-17-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 458.769882765
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-18-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 521.836733616
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-19-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 712.568726947
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-0-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 459.31660567
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-0-primary-attempt1.gpu-condition.json",
+      "scoped_seconds": 467.601430171
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-0-primary-attempt2.gpu-condition.json",
+      "scoped_seconds": 714.475078177
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-0-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 496.836458073
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-1-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 534.507842578
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-1-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 283.422778409
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-2-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 531.08750791
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-2-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 241.000852562
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-3-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 496.110354916
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-3-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 432.174924946
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-4-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 842.487558091
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-4-primary-attempt1.gpu-condition.json",
+      "scoped_seconds": 842.292876525
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-4-primary-attempt2.gpu-condition.json",
+      "scoped_seconds": 842.412647219
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-cont-4-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 17.651199925
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-cont2-4-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 792.571563282
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/direct-import-probe-0-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 19.70144073
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/direct-import-probe-0-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 11.242014093
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-cont2-4-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 282.369917423
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-0-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 374.729789125
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-1-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 506.294817122
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-2-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 712.162244856
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-3-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 713.498847111
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-4-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 521.971958276
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-5-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 446.839892634
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-6-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 441.43085279
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-7-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 407.282539665
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-8-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 378.776975357
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-9-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 399.091291419
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-10-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 381.597220785
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-11-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 409.462614321
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-12-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 403.419785423
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-13-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 421.201875162
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-14-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 435.893417083
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-15-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 432.07542949
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-16-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 391.263773733
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-17-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 426.803984645
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-18-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 393.531969267
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-19-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 397.693245035
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-0-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 417.888858878
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-0-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 203.020016528
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-1-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 594.561775956
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-1-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 221.488969718
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-2-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 478.900969228
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-2-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 201.15797627
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-3-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 492.56000256
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-3-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 194.39434668
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-4-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 449.793801416
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-4-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 218.990026445
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-5-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 414.866675259
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-5-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 194.04407106
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-6-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 418.289664828
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-6-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 195.21346151
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-7-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 464.924597883
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-7-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 238.45922573
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-8-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 445.676728129
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-8-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 197.009069924
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-9-primary-attempt0.gpu-condition.json",
+      "scoped_seconds": 422.579857359
+    },
+    {
+      "path": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-9-descriptive-attempt0.gpu-condition.json",
+      "scoped_seconds": 200.631058702
+    }
+  ]
+}

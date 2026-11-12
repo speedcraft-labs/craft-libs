@@ -1,0 +1,8 @@
+{
+  "passing_captures_removed": 4634,
+  "disputed_captures_retained": 9,
+  "regenerable_caches_removed": 161881,
+  "original_failed_oracles_in_retained_set": true,
+  "full_manifest_sha256": "fd89b76a971f66988741d383289ae38baef0212cd2d33c8c29193511b7a8bf54",
+  "full_manifest": "final-artifact-pruning.json (raw NAS dataset; not duplicated into git)"
+}

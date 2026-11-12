@@ -1,0 +1,23 @@
+{
+  "original_failed_oracles": [
+    "real-50-r4-0-primary-attempt0/main/typical-50-0-main-attempt-0/export-7.jpg",
+    "real-50-r4-0-primary-attempt0/main/typical-50-0-main-attempt-0/export-oracle.png",
+    "real-50-r4-0-primary-attempt0/main/typical-50-0-main-attempt-0/oracle.png",
+    "real-50-r4-0-primary-attempt0/point/typical-50-0-point-attempt-0/export-7.jpg",
+    "real-50-r4-0-primary-attempt0/point/typical-50-0-point-attempt-0/export-oracle.png",
+    "real-50-r4-0-primary-attempt0/point/typical-50-0-point-attempt-0/oracle.png"
+  ],
+  "retained_oracles": [
+    "real-50-descriptive-0-descriptive-attempt0/upstream/typical-50-0-point-attempt-0/export-7.jpg",
+    "real-50-descriptive-0-descriptive-attempt0/upstream/typical-50-0-point-attempt-0/export-oracle.png",
+    "real-50-descriptive-0-descriptive-attempt0/upstream/typical-50-0-point-attempt-0/oracle.png",
+    "real-50-r4-0-primary-attempt0/main/typical-50-0-main-attempt-0/export-7.jpg",
+    "real-50-r4-0-primary-attempt0/main/typical-50-0-main-attempt-0/export-oracle.png",
+    "real-50-r4-0-primary-attempt0/main/typical-50-0-main-attempt-0/oracle.png",
+    "real-50-r4-0-primary-attempt0/point/typical-50-0-point-attempt-0/export-7.jpg",
+    "real-50-r4-0-primary-attempt0/point/typical-50-0-point-attempt-0/export-oracle.png",
+    "real-50-r4-0-primary-attempt0/point/typical-50-0-point-attempt-0/oracle.png"
+  ],
+  "original_six_are_subset_of_nine": true,
+  "note": "Derived real50pair0 retains the original failed primary pair, so its six oracles overlap the nine retained point/main/upstream oracles."
+}

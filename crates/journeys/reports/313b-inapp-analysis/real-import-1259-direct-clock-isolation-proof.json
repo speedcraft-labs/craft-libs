@@ -1,0 +1,220 @@
+{
+  "report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-9-descriptive-attempt0/report.json",
+  "sessions": 30,
+  "action_intervals": 120,
+  "startup_read_first": 0,
+  "all_commands_immediately_followed_by_single_native_read": true,
+  "all_app_control_wait_ns_zero": true,
+  "rows": [
+    {
+      "pair": 0,
+      "side": "point",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 0,
+      "side": "main",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 0,
+      "side": "upstream",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 1,
+      "side": "main",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 1,
+      "side": "point",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 1,
+      "side": "upstream",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 2,
+      "side": "point",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 2,
+      "side": "main",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 2,
+      "side": "upstream",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 3,
+      "side": "main",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 3,
+      "side": "point",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 3,
+      "side": "upstream",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 4,
+      "side": "point",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 4,
+      "side": "main",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 4,
+      "side": "upstream",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 5,
+      "side": "main",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 5,
+      "side": "point",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 5,
+      "side": "upstream",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 6,
+      "side": "point",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 6,
+      "side": "main",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 6,
+      "side": "upstream",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 7,
+      "side": "main",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 7,
+      "side": "point",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 7,
+      "side": "upstream",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 8,
+      "side": "point",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 8,
+      "side": "main",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 8,
+      "side": "upstream",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 9,
+      "side": "main",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 9,
+      "side": "point",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    },
+    {
+      "pair": 9,
+      "side": "upstream",
+      "tier": "import-1259",
+      "actions": 4,
+      "startup_read_first_pids": []
+    }
+  ]
+}

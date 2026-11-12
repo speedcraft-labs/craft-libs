@@ -1,0 +1,18 @@
+{
+  "status": "all fixed cohorts complete; final integration/report/backup/queues remain",
+  "aa": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-inapp-r4-19-primary-attempt0/report.json",
+  "slowdown": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/switch-delay-10pct-9-primary-attempt0/report.json",
+  "real50": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-derived-report.json",
+  "heavy_aa": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-19-primary-attempt0/report.json",
+  "heavy_real": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-9-descriptive-attempt0/report.json",
+  "legacy_heavy_aa": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-19-primary-attempt0/report.json",
+  "legacy_heavy_real_partial": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-cont2-4-descriptive-attempt0/report.json",
+  "driver_sha256_by_cohort": {
+    "typical": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
+    "direct_import": "191b35b1fbff2ce9db087093ccd9b8434f32df612c47abf4c3ef3802d9c185cd"
+  },
+  "completed_utc": "2026-11-12T03:01:24Z",
+  "real50_scope": "defaultV4/V7 outputs differ; descriptive only",
+  "heavy_scope": "direct Add-in-place folder drop with review disabled; catalog/thumbnail parity",
+  "legacy_scope": "confirmation-to-grid A/A and every complete/incomplete real attempt preserved separately; never pooled with direct mode"
+}

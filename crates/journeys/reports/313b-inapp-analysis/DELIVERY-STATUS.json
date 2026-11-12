@@ -1,0 +1,27 @@
+{
+  "measurements_complete": true,
+  "completed_utc": "2026-11-12T03:18:34.267529+00:00",
+  "all_phases": "ALL-PHASES.json",
+  "full_5pct_target_met": false,
+  "approximate_80pct_power_5pct_actions": [
+    "exposure",
+    "export"
+  ],
+  "current_precision_gates_pass": 5,
+  "current_precision_gates_total": 7,
+  "real1259_verdict": "no measurable change",
+  "real1259_mde_pct": 44.42,
+  "app_head": "be68fb49482096d0a4b3def38e5938b3d731480d",
+  "libs_head": "ad0f520c5bf295cfd20091d36c9baf4f7a701b1c",
+  "checks": "both green;reviews none;mergeable CLEAN",
+  "source_changes_finished": true,
+  "passing_images_pruned": true,
+  "nas_status": "not started;run manual backup exactly once after final archive/cleanup",
+  "pr_status": "draft;final descriptions ready;mark ready and queue merge_when_green AFTER NAS",
+  "notes": [
+    "No foreign process stopped",
+    "Both import protocols retained separately;legacy5real insufficient",
+    "Experiment start pins frozen;origin/main later advanced59cc810d",
+    "Final proof preserves every A/A ratio/CI/gate,comparisons only conservative MDE can change"
+  ]
+}
