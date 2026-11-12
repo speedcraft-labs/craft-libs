@@ -16,19 +16,27 @@ import time
 binary, project, action, output = sys.argv[1:]
 if os.path.exists(output):
     shutil.rmtree(output) if os.path.isdir(output) else os.unlink(output)
-port = 41000 + os.getpid() % 20000
+port_base = 41000 + os.getpid() % 20000
+port = port_base
 token = "craft-journey-texturecraft-291-token"
 env = os.environ.copy()
 cache = tempfile.TemporaryDirectory(prefix="texturecraft-journey-cache-")
-env.update(TEXTURECRAFT_NO_PREFS="1", TEXTURECRAFT_CONTROL_TOKEN=token, WGPU_BACKEND="vulkan", XDG_CACHE_HOME=cache.name)
+env.update(TEXTURECRAFT_NO_PREFS="1", TEXTURECRAFT_CONTROL_TOKEN=token, XDG_CACHE_HOME=cache.name)
 if platform.system() == "Linux":
+    env["WGPU_BACKEND"] = "vulkan"
     env["__EGL_VENDOR_LIBRARY_FILENAMES"] = "/usr/share/glvnd/egl_vendor.d/50_mesa.json"
-cmd = [binary, "--control", str(port)]
-if platform.system() == "Linux" and os.environ.get("DISPLAY") is None:
-    cmd = ["xvfb-run", "-a", "--server-args=-extension GLX", *cmd]
+elif platform.system() == "Darwin":
+    env["WGPU_BACKEND"] = "metal"
 proc = None
+launch_index = 0
 
 def launch():
+    global launch_index, port
+    launch_index += 1
+    port = port_base + launch_index - 1
+    cmd = [binary, "--control", str(port)]
+    if platform.system() == "Linux" and os.environ.get("DISPLAY") is None:
+        cmd = ["xvfb-run", "-a", "--server-args=-extension GLX", *cmd]
     return subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 def stop(process):
@@ -68,24 +76,76 @@ def request(method, params=None, request_id=1):
         raise RuntimeError(response.get("error", "control request failed"))
     return response.get("result")
 
+def request_until_ready(process, method):
+    deadline = time.monotonic() + 15
+    last_error = None
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise RuntimeError("TextureCraft exited before its first frame")
+        try:
+            return request(method)
+        except (ConnectionError, OSError, json.JSONDecodeError) as error:
+            last_error = error
+            time.sleep(0.05)
+    raise RuntimeError(f"TextureCraft did not answer {method} within 15 seconds: {last_error}")
+
+def stable(value):
+    if isinstance(value, dict):
+        return {k: stable(v) for k, v in sorted(value.items()) if k not in {"id", "uuid", "path", "filePath", "timestamp"}}
+    if isinstance(value, list):
+        return [stable(v) for v in value]
+    return value
+
+
+def stable_session():
+    state = request("session.inspect", request_id=8)
+    selected = state.get("selectedLayer")
+    def layer_name(layers):
+        for layer in layers or []:
+            if layer.get("id") == selected:
+                return layer.get("name")
+            nested = layer_name(layer.get("children", []))
+            if nested is not None:
+                return nested
+        return None
+    state["selectedLayer"] = layer_name(state.get("layers"))
+    if isinstance(state.get("target"), int):
+        state["target"] = "effect"
+    for key in ("memoryBytes", "pendingTiles"):
+        state.pop(key, None)
+    return stable(state)
+
+
 try:
-    proc = launch()
-    wait_for_server(proc)
     if action == "startup-warm":
-        request("ui.screenshot")
-        stop(proc)
         proc = launch()
         wait_for_server(proc)
-    started = time.perf_counter_ns()
-    request("ui.screenshot")
-    first_frame_ns = time.perf_counter_ns() - started
+        request_until_ready(proc, "ui.screenshot")
+        stop(proc)
+        started = time.perf_counter_ns()
+        proc = launch()
+        wait_for_server(proc)
+        request_until_ready(proc, "ui.screenshot")
+        first_frame_ns = time.perf_counter_ns() - started
+    elif action == "startup-cold":
+        started = time.perf_counter_ns()
+        proc = launch()
+        wait_for_server(proc)
+        request_until_ready(proc, "ui.screenshot")
+        first_frame_ns = time.perf_counter_ns() - started
+    else:
+        proc = launch()
+        wait_for_server(proc)
+        request_until_ready(proc, "ui.screenshot")
     if action not in ("startup-cold", "startup-warm"):
         if action == "open":
             started = time.perf_counter_ns()
             request("command.run", {"id": "file.open", "params": {"path": project}}, 2)
+            request("ui.screenshot", request_id=9)
             duration = time.perf_counter_ns() - started
         else:
             request("command.run", {"id": "file.open", "params": {"path": project}}, 2)
+            request("ui.screenshot", request_id=9)
             started = time.perf_counter_ns()
         if action == "paint":
             layer = request("command.run", {"id": "layer.add.paint", "params": {}}, 3)
@@ -116,11 +176,21 @@ try:
         duration = time.perf_counter_ns() - started
     else:
         duration = first_frame_ns
-    # The runner's equivalence gate identifies this pinned project/action pair. The action itself
-    # must succeed above; startup's generated default project contains random IDs, so session JSON
-    # is not a stable identity across launches.
-    digest = hashlib.sha256(open(project, "rb").read()).hexdigest()
-    identity = hashlib.sha256(f"{digest}:{action}".encode()).hexdigest()
+    if action == "save":
+        identity = hashlib.sha256(open(output + ".tcraft", "rb").read()).hexdigest()
+    elif action == "export":
+        digest = hashlib.sha256()
+        for name in sorted(os.listdir(output)):
+            path = os.path.join(output, name)
+            if os.path.isfile(path):
+                digest.update(name.encode())
+                with open(path, "rb") as exported_file:
+                    for block in iter(lambda: exported_file.read(1024 * 1024), b""):
+                        digest.update(block)
+        identity = digest.hexdigest()
+    else:
+        state = stable_session()
+        identity = hashlib.sha256(json.dumps(state, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     print(f"CRAFT_JOURNEY_NS={duration}")
     print(f"CRAFT_OUTPUT_SHA256={identity}")
 finally:
