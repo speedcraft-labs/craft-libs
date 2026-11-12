@@ -496,7 +496,7 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
         for repetition in range(4):
             output_name = f"save-output-{repetition + 1}"
             phase = "cold" if repetition == 0 else "warm"
-            measure_command("save", output_name, phase, "app.save", {"path": f"{output_name}.psd"})
+            measure_command("save", "save-psd", phase, "app.save", {"path": f"{output_name}.psd"}, {"save_output": output_name})
             output_path = profile / f"{output_name}.psd"
             if not output_path.is_file() or output_path.stat().st_size == 0:
                 raise RuntimeError(f"PhotoCraft save did not produce {output_path.name}")
