@@ -68,6 +68,13 @@ def request(method, params=None, request_id=1):
         raise RuntimeError(response.get("error", "control request failed"))
     return response.get("result")
 
+def stable(value):
+    if isinstance(value, dict):
+        return {k: stable(v) for k, v in sorted(value.items()) if k not in {"id", "uuid", "path", "filePath", "timestamp"}}
+    if isinstance(value, list):
+        return [stable(v) for v in value]
+    return value
+
 try:
     proc = launch()
     wait_for_server(proc)
@@ -116,11 +123,20 @@ try:
         duration = time.perf_counter_ns() - started
     else:
         duration = first_frame_ns
-    # The runner's equivalence gate identifies this pinned project/action pair. The action itself
-    # must succeed above; startup's generated default project contains random IDs, so session JSON
-    # is not a stable identity across launches.
-    digest = hashlib.sha256(open(project, "rb").read()).hexdigest()
-    identity = hashlib.sha256(f"{digest}:{action}".encode()).hexdigest()
+    if action == "save":
+        identity = hashlib.sha256(open(output + ".tcraft", "rb").read()).hexdigest()
+    elif action == "export":
+        digest = hashlib.sha256()
+        for name in sorted(os.listdir(output)):
+            path = os.path.join(output, name)
+            if os.path.isfile(path):
+                digest.update(name.encode())
+                with open(path, "rb") as exported_file:
+                    for block in iter(lambda: exported_file.read(1024 * 1024), b""):
+                        digest.update(block)
+        identity = digest.hexdigest()
+    else:
+        identity = hashlib.sha256(json.dumps(stable(request("session.inspect", request_id=8)), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     print(f"CRAFT_JOURNEY_NS={duration}")
     print(f"CRAFT_OUTPUT_SHA256={identity}")
 finally:
