@@ -1,4 +1,3 @@
-//! First-party provenance: DeckCraft `crates/metafile/src/bytes.rs` (reader, originally from WordCraft).
 //! Bounds-checked little-endian access to hostile input. Every read returns `None` past the end, so
 //! a truncated or lying size field stops the parse instead of panicking.
 

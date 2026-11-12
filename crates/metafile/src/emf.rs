@@ -1,13 +1,10 @@
-//! First-party provenance: DeckCraft `crates/metafile/src/emf.rs` (reader, originally from WordCraft).
-//! Record additions compared with VectorCraft `crates/metafile/src/import/emf.rs`:
-//! extent scaling, arc direction, abort-path and non-drawing object slots.
 //! EMF reader (MS-EMF). Records are (type, size in bytes) followed by a payload; offsets inside a
 //! record (bitmap info and bits) are relative to the record start, so each handler reads the record slice.
 
 use std::sync::Arc;
 
 use crate::bytes::Bytes;
-use crate::canvas::{BS_HATCHED, BS_NULL, Brush, Canvas, LogFont, Obj, PS_NULL, PS_STYLE_MASK, Pen, Xform, colorref};
+use crate::canvas::{BS_HATCHED, BS_NULL, Brush, Canvas, LogFont, MAX_DASH_ENTRIES, Obj, PS_NULL, Pen, Xform, colorref};
 use crate::dib::{self, Blend};
 use crate::geom::{self, ArcKind, P};
 use crate::text::{ETO_GLYPH_INDEX, ETO_PDY, Font, MAX_CHARS, decode_bytes, decode_utf16};
@@ -33,7 +30,7 @@ pub(crate) fn is_emf(b: Bytes) -> bool {
 
 /// The picture frame: `rclFrame` (0.01 mm) mapped to device units through `szlDevice` and
 /// `szlMillimeters`, sized in points. Without a usable frame, the device bounds stand in (1 unit = 1 point).
-pub(crate) fn parse(input: Bytes, budget: crate::limits::Budget) -> Result<(Canvas, Option<Frame>), Error> {
+pub(crate) fn parse(input: Bytes) -> Result<(Canvas, Option<Frame>), Error> {
     if !is_emf(input) {
         return Err(Error::BadHeader);
     }
@@ -41,14 +38,14 @@ pub(crate) fn parse(input: Bytes, budget: crate::limits::Budget) -> Result<(Canv
     let bounds = rect32(input, 8).ok_or(Error::BadHeader)?;
     let [l, t, r, b] = bounds;
     let frame = frame_from_header(input).or_else(|| (r > l && b > t).then_some(Frame { rect: [l, t, r - l, b - t], size: None }));
-    let mut cv = Canvas::with_budget(budget);
+    let mut cv = Canvas::new();
     if r > l && b > t {
         cv.set_clip_surface([l, t, r, b]);
     }
     if let Some(px_mm) = device_px_per_mm(input) {
         cv.set_device_mm(px_mm);
     }
-    let mut plus = crate::emfplus::Plus::with_budget(cv.budget.clone());
+    let mut plus = crate::emfplus::Plus::new();
     plus.frame = frame.as_ref().map(|f| f.rect);
     let mut parsed = 0usize;
     let mut pos = hsize.max(88);
@@ -59,9 +56,6 @@ pub(crate) fn parse(input: Bytes, budget: crate::limits::Budget) -> Result<(Canv
             break;
         }
         let Some(rec) = input.slice(pos, size) else { break };
-        if !cv.budget.record(size) {
-            break;
-        }
         if typ == 14 {
             break;
         }
@@ -69,7 +63,7 @@ pub(crate) fn parse(input: Bytes, budget: crate::limits::Budget) -> Result<(Canv
             if let Some(data) = Bytes(rec).tail(16) {
                 plus.comment(&mut cv, data);
             }
-        } else {
+        } else if plus.plays_gdi() {
             record(&mut cv, typ, Bytes(rec));
         }
         parsed += 1;
@@ -82,15 +76,27 @@ pub(crate) fn parse(input: Bytes, budget: crate::limits::Budget) -> Result<(Canv
     Ok((cv, frame))
 }
 
-/// Device pixels per millimetre on each axis, from `szlDevice` (72) and `szlMillimeters` (80).
+/// Device pixels per millimetre on each axis, from `szlDevice` (72) and the device's size:
+/// `szlMicrometers` (100) when the header has that extension (a header of 108 bytes or more) and
+/// it is set, which is a thousand times finer, else `szlMillimeters` (80).
 fn device_px_per_mm(input: Bytes) -> Option<(f64, f64)> {
     let (dw, dh) = (input.i32(72)?, input.i32(76)?);
+    if dw <= 0 || dh <= 0 {
+        return None;
+    }
+    if input.u32(4)? >= 108
+        && let (Some(uw), Some(uh)) = (input.u32(100), input.u32(104))
+        && uw > 0
+        && uh > 0
+    {
+        return Some((f64::from(dw) * 1000.0 / f64::from(uw), f64::from(dh) * 1000.0 / f64::from(uh)));
+    }
     let (mw, mh) = (input.i32(80)?, input.i32(84)?);
-    (dw > 0 && dh > 0 && mw > 0 && mh > 0).then(|| (f64::from(dw) / f64::from(mw), f64::from(dh) / f64::from(mh)))
+    (mw > 0 && mh > 0).then(|| (f64::from(dw) / f64::from(mw), f64::from(dh) / f64::from(mh)))
 }
 
 /// The frame from `rclFrame` (offset 24), `szlDevice` (72) and `szlMillimeters` (80) in the header.
-fn frame_from_header(input: Bytes) -> Option<Frame> {
+pub(crate) fn frame_from_header(input: Bytes) -> Option<Frame> {
     let [fl, ft, fr, fb] = rect32(input, 24)?;
     if fr <= fl || fb <= ft {
         return None;
@@ -113,28 +119,25 @@ fn record(cv: &mut Canvas, typ: u32, r: Bytes) {
         12 => xy32(r, 8).map(|p| cv.set_viewport_org(p)),
         17 => r.u32(8).map(|m| cv.set_map_mode(m)),
         19 => r.u32(8).map(|m| cv.set_polyfill(m)),
-        31 | 32 => {
-            let ratios = [8, 12, 16, 20].map(|offset| r.i32(offset).map(f64::from));
-            match ratios {
-                [Some(xn), Some(xd), Some(yn), Some(yd)] => {
-                    cv.scale_ext(typ == 32, [xn, xd, yn, yd]);
-                    Some(())
-                }
-                _ => None,
-            }
-        }
-        57 => r.u32(8).map(|direction| cv.set_arc_direction(direction)),
-        68 => {
-            cv.abort_path();
-            Some(())
-        }
-        49 | 99 | 122 => r.u32(8).map(|slot| cv.add_object(Some(slot as usize), Obj::Other)),
         20 => r.u32(8).map(|m| cv.set_rop2(m)),
         33 => {
             cv.save_dc();
             Some(())
         }
         34 => r.i32(8).map(|n| cv.restore_dc(n)),
+        // SCALEVIEWPORTEXTEX (31) and SCALEWINDOWEXTEX (32): xNum, xDenom, yNum, yDenom.
+        31 | 32 => (|| {
+            let v = [r.i32(8)?, r.i32(12)?, r.i32(16)?, r.i32(20)?].map(f64::from);
+            cv.scale_ext(typ == 32, (v[0], v[1]), (v[2], v[3]));
+            Some(())
+        })(),
+        57 => r.u32(8).map(|d| cv.set_arc_direction(d)),
+        58 => r.u32(8).map(|m| cv.set_miter_limit(f64::from(m))),
+        67 => r.u32(8).map(|m| cv.select_clip_path(m)),
+        68 => {
+            cv.abort_path();
+            Some(())
+        }
         35 => xform(r, 8).map(|x| cv.modify_world(x, 4)),
         36 => xform(r, 8).zip(r.u32(32)).map(|(x, m)| cv.modify_world(x, m)),
         37 => r.u32(8).map(|i| cv.select(i)),
@@ -155,13 +158,13 @@ fn record(cv: &mut Canvas, typ: u32, r: Bytes) {
         75 => ext_select_clip(cv, r),
         27 => xy32(r, 8).map(|p| cv.move_to(p)),
         54 => xy32(r, 8).map(|p| cv.line_to(p)),
-        42 => rect32(r, 8).map(|[l, t, rr, b]| cv.shape(&geom::ellipse(l, t, rr, b), true, true)),
-        43 => rect32(r, 8).map(|[l, t, rr, b]| cv.shape(&geom::rect(l, t, rr, b), true, true)),
+        42 => rect32(r, 8).map(|[l, t, rr, b]| cv.shape(geom::ellipse(l, t, rr, b), true, true)),
+        43 => rect32(r, 8).map(|[l, t, rr, b]| cv.shape(geom::rect(l, t, rr, b), true, true)),
         44 => {
             let (cw, ch) = (r.i32(24), r.i32(28));
             let (Some(cw), Some(ch)) = (cw, ch) else { return };
             rect32(r, 8).map(|[l, t, rr, b]| {
-                cv.shape(&geom::round_rect(l, t, rr, b, f64::from(cw), f64::from(ch)), true, true);
+                cv.shape(geom::round_rect(l, t, rr, b, f64::from(cw), f64::from(ch)), true, true);
             })
         }
         45..=47 => arc32(r).map(|(bounds, s, e)| {
@@ -170,7 +173,9 @@ fn record(cv: &mut Canvas, typ: u32, r: Bytes) {
                 46 => ArcKind::Chord,
                 _ => ArcKind::Pie,
             };
-            cv.arc(bounds, s, e, kind);
+            let [l, t, rr, b] = bounds;
+            let (s, e) = cv.arc_ends(s, e);
+            cv.shape(geom::arc_shape(l, t, rr, b, s, e, kind), kind != ArcKind::Arc, true);
         }),
         4 | 87 => counted(r, typ == 4).map(|pts| cv.poly(&pts, false, false, true)),
         3 | 86 => counted(r, typ == 3).map(|pts| cv.poly(&pts, true, true, true)),
@@ -183,8 +188,8 @@ fn record(cv: &mut Canvas, typ: u32, r: Bytes) {
             Some(())
         }),
         5 | 88 => counted(r, typ == 5).map(|pts| cv.bezier_to(&pts)),
-        7 | 90 => poly_groups(r, typ == 7).map(|(counts, pts)| cv.shape(&geom::subpaths(&pts, &counts, false), false, true)),
-        8 | 91 => poly_groups(r, typ == 8).map(|(counts, pts)| cv.shape(&geom::subpaths(&pts, &counts, true), true, true)),
+        7 | 90 => poly_groups(r, typ == 7).map(|(counts, pts)| cv.shape(geom::subpaths(&pts, &counts, false), false, true)),
+        8 | 91 => poly_groups(r, typ == 8).map(|(counts, pts)| cv.shape(geom::subpaths(&pts, &counts, true), true, true)),
         59 => {
             cv.begin_path();
             Some(())
@@ -213,9 +218,19 @@ fn record(cv: &mut Canvas, typ: u32, r: Bytes) {
         80 => set_dibits(cv, r),
         81 => stretch_dibits(cv, r),
         114 => alphablend(cv, r),
-        _ => Some(()),
+        t if IGNORED.contains(&t) => Some(()),
+        _ => {
+            cv.skipped = cv.skipped.saturating_add(1);
+            Some(())
+        }
     };
 }
+
+/// Records that change nothing the picture keeps: the header, the brush origin, mapper flags,
+/// stretch mode, colour adjustment, palettes, FLATTENPATH, comments (EMF+ ones are read before
+/// they get here), colour management and colour spaces, pixel formats, font linking and text
+/// justification. Every other record the reader does not play is counted as skipped.
+const IGNORED: &[u32] = &[1, 13, 16, 21, 23, 48, 49, 50, 51, 52, 65, 70, 98, 99, 100, 101, 104, 109, 110, 111, 112, 113, 119, 120, 121, 122];
 
 /// EMR_EXTSELECTCLIPRGN: `cbRgnData` bytes of `RGNDATA` (rectangles in logical units) and a region
 /// mode. No region data selects the default clip.
@@ -307,19 +322,22 @@ fn create_pen(cv: &mut Canvas, r: Bytes) -> Option<()> {
     let style = r.u32(12)?;
     let width = r.i32(16)?;
     let color = r.u32(24)?;
-    cv.add_object(Some(slot), Obj::Pen(Pen { style, width: f64::from(width), color: colorref(color) }));
+    cv.add_object(Some(slot), Obj::Pen(Pen::new(style, f64::from(width), colorref(color))));
     Some(())
 }
 
-/// EMR_EXTCREATEPEN: handle, bitmap offsets (unused), LogPenEx (style, width, brush style, colour).
-/// A cosmetic pen's width is in device pixels (always 1), so it is a hairline; a BS_NULL brush draws
-/// no line at all.
+/// EMR_EXTCREATEPEN: handle, bitmap offsets (unused), LogPenEx (style, width, brush style, colour,
+/// hatch, the number of style entries at 48 and the entries from 52). A cosmetic pen's width is in
+/// device pixels (always 1), so it is a hairline; a BS_NULL brush draws no line at all. The style
+/// word keeps its end cap and join; the entries are the dashes and gaps of a PS_USERSTYLE pen.
 fn create_ext_pen(cv: &mut Canvas, r: Bytes) -> Option<()> {
     let slot = r.u32(8)? as usize;
     let (style, width, brush, color) = (r.u32(28)?, r.u32(32)?, r.u32(36)?, r.u32(40)?);
     let width = if style & PS_TYPE_MASK == PS_COSMETIC { 0.0 } else { f64::from(width) };
-    let style = if brush == BS_NULL { PS_NULL } else { style & PS_STYLE_MASK };
-    cv.add_object(Some(slot), Obj::Pen(Pen { style, width, color: colorref(color) }));
+    let n = (r.u32(48).unwrap_or(0) as usize).min(MAX_DASH_ENTRIES);
+    let entries = (0..n).map_while(|i| r.u32(52 + i * 4)).map(f64::from).collect();
+    let style = if brush == BS_NULL { PS_NULL } else { style };
+    cv.add_object(Some(slot), Obj::Pen(Pen { style, width, color: colorref(color), entries }));
     Some(())
 }
 
@@ -345,7 +363,7 @@ fn create_dib_brush(cv: &mut Canvas, r: Bytes, mono: bool) -> Option<()> {
     let usage = r.u32(12)?;
     let (bo, bl) = (r.u32(16)? as usize, r.u32(20)? as usize);
     let (po, pl) = (r.u32(24)? as usize, r.u32(28)? as usize);
-    let img = dib::decode_budget(Bytes(r.slice(bo, bl)?), Bytes(r.slice(po, pl)?), false, &cv.budget)?;
+    let img = dib::decode(Bytes(r.slice(bo, bl)?), Bytes(r.slice(po, pl)?), false)?;
     let b = Brush::pattern(img, mono || usage == 1)?;
     cv.add_object(Some(slot), Obj::Brush(b));
     Some(())
@@ -491,7 +509,7 @@ fn blit(cv: &mut Canvas, r: Bytes, dst: [f64; 4], src: [f64; 4], at: (usize, usi
     }
     let info = Bytes(r.slice(bo, bl)?);
     let pixels = Bytes(r.slice(po, pl)?);
-    let (mut img, dst) = dib::decode_clip_budget(info, pixels, blend.per_pixel(), src.map(|value| value as i64), dst, &cv.budget)?;
+    let (mut img, dst) = dib::decode_clip(info, pixels, blend.per_pixel(), src.map(|v| v as i64), dst)?;
     dib::prepare(&mut img, blend);
     cv.bitmap(dst, img);
     Some(())

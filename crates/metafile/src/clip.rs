@@ -1,4 +1,3 @@
-//! First-party provenance: DeckCraft `crates/metafile/src/clip.rs` (DeckCraft reader additions).
 //! Clipping regions for EMF and WMF (MS-EMF 2.3.12, MS-WMF 2.3.5).
 //!
 //! A region is a set of axis-aligned rectangles in device units: `None` is the default clip (the

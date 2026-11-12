@@ -1,4 +1,3 @@
-//! First-party provenance: DeckCraft `crates/metafile/src/wmf.rs` (reader, originally from WordCraft).
 //! WMF reader (MS-WMF). A file is an optional 22-byte placeable header, a 9-word standard header, then
 //! records of (size in 16-bit words, function, parameters). Parameters are read at byte 6 of each record.
 
@@ -25,7 +24,7 @@ pub(crate) fn is_wmf(b: Bytes) -> bool {
 
 /// Reads all records. Returns the drawing state and the picture frame, or an error when no record
 /// could be read at all.
-pub(crate) fn parse(input: Bytes, budget: crate::limits::Budget) -> Result<(Canvas, Option<Frame>), Error> {
+pub(crate) fn parse(input: Bytes) -> Result<(Canvas, Option<Frame>), Error> {
     let placeable = input.u32(0) == Some(PLACEABLE_KEY);
     // Placeable bounds: logical corners (left, top, right, bottom) and their size in points.
     let (hdr, bounds) = if placeable {
@@ -45,7 +44,7 @@ pub(crate) fn parse(input: Bytes, budget: crate::limits::Budget) -> Result<(Canv
     let mut pos = hdr.checked_add(hsize.checked_mul(2).ok_or(Error::BadHeader)?).ok_or(Error::BadHeader)?;
     // Played into a target like Word does: the placeable bounds are the first window, the target (the
     // picture size) the viewport. A plain WMF's target is its first window.
-    let mut cv = Canvas::with_budget(budget);
+    let mut cv = Canvas::new();
     if let Some((c, size)) = bounds {
         cv.play_into(Some([c[0], c[1], c[2] - c[0], c[3] - c[1]]), size);
         cv.set_clip_surface([0.0, 0.0, size.0, size.1]);
@@ -57,9 +56,6 @@ pub(crate) fn parse(input: Bytes, budget: crate::limits::Budget) -> Result<(Canv
         let (Some(words), Some(func)) = (input.u32(pos), pos.checked_add(4).and_then(|o| input.u16(o))) else { break };
         let Some(len) = (words as usize).checked_mul(2).filter(|l| *l >= 6) else { break };
         let Some(rec) = input.slice(pos, len) else { break };
-        if !cv.budget.record(len) {
-            break;
-        }
         if func == 0 {
             break;
         }
@@ -118,25 +114,18 @@ fn record(cv: &mut Canvas, func: u16, r: Bytes) {
         0x0213 => xy16(r, 6).map(|p| cv.line_to(p)),
         0x0325 => counted_points(r).map(|pts| cv.poly(&pts, false, false, true)),
         0x0324 => counted_points(r).map(|pts| cv.poly(&pts, true, true, true)),
-        0x0538 => polypolygon(r).map(|ops| cv.shape(&ops, true, true)),
-        0x041B => rect16(r, 6).map(|[l, t, rr, b]| cv.shape(&geom::rect(l, t, rr, b), true, true)),
+        0x0538 => polypolygon(r).map(|ops| cv.shape(ops, true, true)),
+        0x041B => rect16(r, 6).map(|[l, t, rr, b]| cv.shape(geom::rect(l, t, rr, b), true, true)),
         0x061C => {
             let [ew, eh] = [r.i16(8), r.i16(6)];
             let (Some(ew), Some(eh)) = (ew, eh) else { return };
             rect16(r, 10).map(|[l, t, rr, b]| {
-                cv.shape(&geom::round_rect(l, t, rr, b, f64::from(ew), f64::from(eh)), true, true);
+                cv.shape(geom::round_rect(l, t, rr, b, f64::from(ew), f64::from(eh)), true, true);
             })
-        }
-        // META_SELECTCLIPREGION: Office writes it with the null region after each clipped run, to
-        // restore the default clip. Regions themselves (META_CREATEREGION) are object slots only, so
-        // any selection ends the rectangle clip: the picture is drawn, not lost.
-        0x012C => {
-            cv.reset_clip();
-            Some(())
         }
         0x0415 => rect16(r, 6).map(|rect| cv.exclude_clip_rect(rect)),
         0x0416 => rect16(r, 6).map(|rect| cv.intersect_clip_rect(rect)),
-        0x0418 => rect16(r, 6).map(|[l, t, rr, b]| cv.shape(&geom::ellipse(l, t, rr, b), true, true)),
+        0x0418 => rect16(r, 6).map(|[l, t, rr, b]| cv.shape(geom::ellipse(l, t, rr, b), true, true)),
         0x0817 | 0x081A | 0x0830 => arc16(r).map(|(bounds, s, e)| {
             let kind = match func {
                 0x0817 => ArcKind::Arc,
@@ -144,7 +133,7 @@ fn record(cv: &mut Canvas, func: u16, r: Bytes) {
                 _ => ArcKind::Chord,
             };
             let [l, t, rr, b] = bounds;
-            cv.shape(&geom::arc_shape(l, t, rr, b, s, e, kind), kind != ArcKind::Arc, true);
+            cv.shape(geom::arc_shape(l, t, rr, b, s, e, kind), kind != ArcKind::Arc, true);
         }),
         0x02FA => create_pen(cv, r),
         0x02FC => create_brush(cv, r),
@@ -155,7 +144,7 @@ fn record(cv: &mut Canvas, func: u16, r: Bytes) {
         }
         0x0142 => {
             // A pattern the reader cannot decode still takes its handle slot.
-            let b = dib_pattern_brush(cv, r).map_or(Obj::Other, Obj::Brush);
+            let b = dib_pattern_brush(r).map_or(Obj::Other, Obj::Brush);
             cv.add_object(None, b);
             Some(())
         }
@@ -182,9 +171,18 @@ fn record(cv: &mut Canvas, func: u16, r: Bytes) {
         }
         0x0B41 => dib_stretchblt(cv, r),
         0x0940 => dib_bitblt(cv, r),
-        _ => Some(()),
+        f if IGNORED.contains(&f) => Some(()),
+        _ => {
+            cv.skipped = cv.skipped.saturating_add(1);
+            Some(())
+        }
     };
 }
+
+/// Records that change nothing the picture keeps: relative-absolute and stretch modes, character
+/// spacing and justification, mapper flags, palettes, escapes and the layout. Every other record
+/// the reader does not play is counted as skipped.
+const IGNORED: &[u16] = &[0x0105, 0x0107, 0x0108, 0x020A, 0x0231, 0x0234, 0x0035, 0x0037, 0x0139, 0x0436, 0x0626, 0x0149];
 
 /// A 16-bit WMF handle as a canvas object index: stock objects are `0x8000 | index`, which the
 /// canvas reads with the 32-bit stock flag.
@@ -203,7 +201,7 @@ fn create_pen(cv: &mut Canvas, r: Bytes) -> Option<()> {
     let style = r.u16(6)?;
     let width = r.i16(8)?;
     let color = r.u32(12)?;
-    cv.add_object(None, Obj::Pen(Pen { style: u32::from(style), width: f64::from(width), color: colorref(color) }));
+    cv.add_object(None, Obj::Pen(Pen::new(u32::from(style), f64::from(width), colorref(color))));
     Some(())
 }
 
@@ -222,11 +220,11 @@ fn create_brush(cv: &mut Canvas, r: Bytes) -> Option<()> {
 /// DIBCREATEPATTERNBRUSH: style, colour usage, then a DIB (MS-WMF 2.3.4.8). The DIB's own palette
 /// gives the colours; with DIB_PAL_COLORS (indices into a palette the reader does not keep) a
 /// monochrome DIB takes the text and background colours.
-fn dib_pattern_brush(cv: &Canvas, r: Bytes) -> Option<Brush> {
+fn dib_pattern_brush(r: Bytes) -> Option<Brush> {
     let usage = r.u16(8)?;
     let dib = r.tail(10)?;
     let n = dib::info_len(dib)?;
-    let img = dib::decode_budget(Bytes(dib.slice(0, n)?), dib.tail(n)?, false, &cv.budget)?;
+    let img = dib::decode(Bytes(dib.slice(0, n)?), dib.tail(n)?, false)?;
     Brush::pattern(img, usage == 1)
 }
 
@@ -243,8 +241,9 @@ fn font(r: Bytes) -> Option<LogFont> {
     let name = r.0.get(24..).unwrap_or(&[]);
     let name = name.get(..32).unwrap_or(name);
     let name = name.split(|b| *b == 0).next().unwrap_or(&[]);
-    // Face names are plain ASCII in practice; other bytes go through the Western code page.
-    let (family, _) = decode_bytes(name, 0, &[]);
+    // A face name is in the font's own code page (East Asian fonts are often named in their
+    // script); a symbol font's name is not in symbol codes.
+    let (family, _) = decode_bytes(name, if charset == crate::SYMBOL_CHARSET { 0 } else { charset }, &[]);
     Some(LogFont {
         font: Font {
             family: family.trim().to_string(),
@@ -325,7 +324,6 @@ fn counted_points(r: Bytes) -> Option<Vec<P>> {
 /// POLYPOLYGON: polygon count, one 16-bit point count per polygon, then all points.
 fn polypolygon(r: Bytes) -> Option<Vec<geom::Op>> {
     let n = r.u16(6)? as usize;
-    r.slice(8, n.checked_mul(2)?)?;
     let mut counts = Vec::with_capacity(n);
     for i in 0..n {
         counts.push(r.u16(i.checked_mul(2)?.checked_add(8)?)? as usize);
@@ -387,7 +385,7 @@ fn dib_blit(cv: &mut Canvas, r: Bytes, at: usize, rop: u32, dst: [f64; 4], src: 
     let n = dib::info_len(dib)?;
     let info = dib.slice(0, n)?;
     let bits = dib.tail(n)?;
-    let (mut img, dst) = dib::decode_clip_budget(Bytes(info), bits, false, src.map(|value| value as i64), dst, &cv.budget)?;
+    let (mut img, dst) = dib::decode_clip(Bytes(info), bits, false, src.map(|v| v as i64), dst)?;
     dib::prepare(&mut img, dib::Blend::Rop(rop));
     cv.bitmap(dst, img);
     Some(())

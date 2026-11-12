@@ -1,6 +1,5 @@
 use super::*;
 
-mod huffman;
 
 /// The test image decoded by `zune-jpeg`, as interleaved 8-bit samples, and its size.
 fn zune_decode(bytes: &[u8]) -> (Vec<u8>, (u32, u32)) {

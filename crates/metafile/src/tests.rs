@@ -1,9 +1,12 @@
-//! First-party provenance: DeckCraft `crates/metafile/src/tests.rs` (reader, originally from WordCraft).
 //! Hand-built WMF and EMF buffers: each test writes the records it needs and checks the parsed model.
 
 use crate::canvas::Canvas;
 use crate::dib::Rgba;
-use crate::{Error, Item, MAX_ITEMS, Seg, is_metafile, parse};
+use crate::{Error, Item, MAX_BYTES, MAX_ITEMS, Seg, is_metafile, parse};
+
+mod limits;
+mod model;
+mod played;
 
 fn h16(v: i32) -> Vec<u8> {
     (v as i16).to_le_bytes().to_vec()
@@ -291,10 +294,11 @@ fn emf_path_bracket_strokeandfill_uses_stock_black_brush() {
 }
 
 #[test]
-fn item_cap_returns_a_limit_error() {
+fn item_cap_stops_the_parse_and_keeps_the_rest() {
     let rect = wrec(0x041B, &cat(vec![h16(10), h16(10), h16(0), h16(0)]));
     let recs: Vec<Vec<u8>> = (0..MAX_ITEMS + 10).map(|_| rect.clone()).collect();
-    assert_eq!(parse(&wmf(&recs, None)), Err(Error::LimitExceeded));
+    let p = parse(&wmf(&recs, None)).unwrap();
+    assert_eq!(p.items.len(), MAX_ITEMS);
 }
 
 #[test]
@@ -468,9 +472,9 @@ fn emf_savedc_past_the_stack_cap_stops_the_parse() {
 
 #[test]
 fn canvas_stops_at_the_byte_budget() {
-    // Two bitmap allocations and their scene copies fit; the third stops the canvas.
-    let mut cv = Canvas::with_budget(crate::limits::Budget::new(crate::Limits { max_bytes: 16384, ..crate::Limits::default() }));
-    let big = || Rgba { w: 1, h: 1, bottom_up: false, px: vec![0u8; 3072] };
+    // Two 128 MB bitmaps fit the budget; the third would exceed it and stops the canvas.
+    let mut cv = Canvas::new();
+    let big = || Rgba { w: 1, h: 1, px: vec![0u8; MAX_BYTES / 2] };
     cv.bitmap([0.0, 0.0, 1.0, 1.0], big());
     cv.bitmap([0.0, 0.0, 1.0, 1.0], big());
     assert!(!cv.full());
@@ -868,11 +872,11 @@ fn emf_ext_pen_cosmetic_is_a_hairline_and_null_brush_draws_nothing() {
 
 #[test]
 fn flip_tolerates_a_short_pixel_buffer() {
-    let mut img = Rgba { w: 2, h: 2, bottom_up: false, px: vec![1u8; 7] };
+    let mut img = Rgba { w: 2, h: 2, px: vec![1u8; 7] };
     crate::dib::flip(&mut img, true, true);
     assert_eq!(img.px.len(), 7);
     // Three rows held of four: only the rows present swap (0 with 2).
-    let mut img = Rgba { w: 1, h: 4, bottom_up: false, px: (0u8..12).collect() };
+    let mut img = Rgba { w: 1, h: 4, px: (0u8..12).collect() };
     crate::dib::flip(&mut img, false, true);
     assert_eq!(img.px, [8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3]);
 }
@@ -887,11 +891,22 @@ fn place_fits_the_frame_scales_strokes_and_drops_far_paths() {
                 segs: vec![Seg::Move(0.0, 0.0), Seg::Line(10.0, 10.0)],
                 fill: None,
                 stroke: Some(([0, 0, 0, 255], 4.0)),
+                line: crate::LineStyle::default(),
                 even_odd: true,
                 region: None,
+                clips: Vec::new(),
             },
-            Item::Path { segs: vec![Seg::Move(0.0, 0.0), Seg::Line(2e6, 0.0)], fill: None, stroke: None, even_odd: true, region: None },
+            Item::Path {
+                segs: vec![Seg::Move(0.0, 0.0), Seg::Line(2e6, 0.0)],
+                fill: None,
+                stroke: None,
+                even_odd: true,
+                line: crate::LineStyle::default(),
+                region: None,
+                clips: Vec::new(),
+            },
         ],
+        skipped_records: 0,
     };
     let placed = pic.place(kurbo::Rect::new(0.0, 0.0, 200.0, 100.0), [0.0; 4]);
     assert_eq!(placed.len(), 1);
@@ -900,8 +915,177 @@ fn place_fits_the_frame_scales_strokes_and_drops_far_paths() {
 }
 
 #[test]
+fn a_huge_pen_is_held_to_what_covers_the_frame() {
+    // A pen of 1e30 units on a short path: round caps that wide took a renderer forever to
+    // flatten. Past twice the distance across the frame and the path it covers no more.
+    let width = |w: f32| {
+        let pic = crate::Picture {
+            width: 100.0,
+            height: 50.0,
+            items: vec![Item::Path {
+                segs: vec![Seg::Move(0.0, 0.0), Seg::Line(10.0, 0.0)],
+                fill: None,
+                stroke: Some(([0, 0, 0, 255], w)),
+                line: crate::LineStyle::default(),
+                even_odd: true,
+                region: None,
+                clips: Vec::new(),
+            }],
+            skipped_records: 0,
+        };
+        match pic.place(kurbo::Rect::new(0.0, 0.0, 200.0, 100.0), [0.0; 4]).first() {
+            Some(crate::PlacedItem::Path { stroke, .. }) => stroke.map(|s| s.1),
+            _ => None,
+        }
+    };
+    let cap = 2.0 * 200f64.hypot(100.0);
+    assert_eq!(width(1e30), Some(cap));
+    assert_eq!(width(f32::MAX), Some(cap));
+    assert_eq!(width(4.0), Some(8.0), "an ordinary pen is untouched");
+}
+
+/// #1899: a crop keeps what the file says down to a sliver (a header's bar is 2.7% of a page-sized
+/// metafile), and junk sides give a finite part of the source with some area.
+#[test]
+fn crop_window_keeps_a_sliver_and_stays_finite() {
+    let [x, y, w, h] = crate::crop_window([0.0, 0.51771, 0.0, 0.45485]);
+    assert!(x == 0.0 && w == 1.0 && (y - 0.51771).abs() < 1e-6 && (h - 0.02744).abs() < 1e-5, "{y} {h}");
+    let pic = crate::Picture { width: 100.0, height: 1000.0, items: Vec::new(), skipped_records: 0 };
+    let tf = pic.fit(kurbo::Rect::new(0.0, 0.0, 100.0, 27.44), [0.0, 0.51771, 0.0, 0.45485]).unwrap();
+    // The kept band of the source (517.71..545.15) is the frame (0..27.44).
+    let top = tf * kurbo::Point::new(0.0, 517.71);
+    let bottom = tf * kurbo::Point::new(0.0, 545.15);
+    assert!(top.y.abs() < 1e-3 && (bottom.y - 27.44).abs() < 1e-3, "{top:?} {bottom:?}");
+    for c in [[f32::NAN, f32::INFINITY, -1.0, 2.0], [0.9; 4], [1.0, 1.0, 0.0, 0.0], [f32::MAX, f32::MIN, f32::NEG_INFINITY, 0.5]] {
+        let [x, y, w, h] = crate::crop_window(c);
+        assert!([x, y, w, h].iter().all(|v| v.is_finite()) && w > 0.0 && h > 0.0, "{c:?}");
+        // Only a negative side (padding) lets the window reach past the source.
+        if c.iter().all(|v| v.is_nan() || *v >= 0.0) {
+            assert!(x >= 0.0 && y >= 0.0 && x + w <= 1.0 + 1e-9 && y + h <= 1.0 + 1e-9, "{c:?}");
+        }
+    }
+}
+
+/// A negative side pads the source: the window starts before the source or ends past it and is
+/// larger than it, so the picture keeps its proportions instead of being stretched over the frame.
+#[test]
+fn crop_window_with_negative_sides_pads_the_source() {
+    let [x, y, w, h] = crate::crop_window([-0.25, -0.5, 0.0, 0.0]);
+    assert!((x + 0.25).abs() < 1e-6 && (y + 0.5).abs() < 1e-6 && (w - 1.25).abs() < 1e-6 && (h - 1.5).abs() < 1e-6, "{x} {y} {w} {h}");
+    // A picture fitted whole into a taller frame: half its height added above and below.
+    let [x, y, w, h] = crate::crop_window([0.0, -0.5, 0.0, -0.5]);
+    assert!(x == 0.0 && w == 1.0 && y == -0.5 && h == 2.0, "{y} {h}");
+    // Padding stops at a hundred times the source a side, so the window stays finite.
+    let [x, _, w, _] = crate::crop_window([f32::MIN, 0.0, -1e9, 0.0]);
+    assert!(x == -100.0 && w == 201.0, "{x} {w}");
+    // The source sits in the middle half of the frame.
+    let pic = crate::Picture { width: 100.0, height: 50.0, items: Vec::new(), skipped_records: 0 };
+    let tf = pic.fit(kurbo::Rect::new(0.0, 0.0, 100.0, 100.0), [0.0, -0.5, 0.0, -0.5]).unwrap();
+    let (top, bottom) = (tf * kurbo::Point::new(0.0, 0.0), tf * kurbo::Point::new(100.0, 50.0));
+    assert!((top.y - 25.0).abs() < 1e-9 && (bottom.y - 75.0).abs() < 1e-9 && (bottom.x - 100.0).abs() < 1e-9, "{top:?} {bottom:?}");
+}
+
+/// The narrowest crop on the largest frame layout makes (4000 pt, far down a 22-inch page) still
+/// places the source's content: none of it is left out as far off the page.
+#[test]
+fn the_narrowest_crop_on_the_largest_frame_keeps_its_content() {
+    let pic = crate::Picture {
+        width: 100.0,
+        height: 100.0,
+        items: vec![
+            Item::Bitmap {
+                rect: [0.0, 0.0, 100.0, 100.0],
+                transform: [0.0; 6],
+                width: 1,
+                height: 1,
+                rgba: vec![255; 4],
+                region: None,
+                clips: Vec::new(),
+            },
+            Item::Path {
+                segs: vec![Seg::Move(0.0, 0.0), Seg::Line(100.0, 100.0)],
+                fill: None,
+                stroke: Some(([0, 0, 0, 255], 1.0)),
+                even_odd: false,
+                line: crate::LineStyle::default(),
+                region: None,
+                clips: Vec::new(),
+            },
+        ],
+        skipped_records: 0,
+    };
+    let frame = kurbo::Rect::new(1584.0, 1584.0, 5584.0, 5584.0);
+    // The last sliver, the first sliver, and sides that overlap.
+    for crop in [[1.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0], [0.9999, 0.6, 0.5, 0.9999]] {
+        assert_eq!(pic.place(frame, crop).len(), 2, "{crop:?}");
+    }
+}
+
+#[test]
+fn place_counts_the_items_own_clip_region_before_keeping_it() {
+    // A path of 499,998 elements nearly fills the 500,000 budget; a second item whose new clip
+    // region adds elements goes past it and is left out, whatever kind of item it is.
+    let mut segs = vec![Seg::Move(0.0, 0.0)];
+    segs.extend((0..499_997).map(|i| Seg::Line(1.0 + (i % 50) as f32, 1.0)));
+    let path = |segs: Vec<Seg>, region: Option<Vec<[f32; 4]>>| Item::Path {
+        segs,
+        fill: None,
+        stroke: None,
+        line: crate::LineStyle::default(),
+        even_odd: false,
+        region,
+        clips: Vec::new(),
+    };
+    let region = || Some(vec![[0.0, 0.0, 50.0, 25.0], [10.0, 10.0, 20.0, 20.0]]);
+    let frame = kurbo::Rect::new(0.0, 0.0, 100.0, 50.0);
+    let placed = |second: Item| {
+        let pic = crate::Picture { width: 100.0, height: 50.0, items: vec![path(segs.clone(), None), second], skipped_records: 0 };
+        pic.place(frame, [0.0; 4]).len()
+    };
+    let small = vec![Seg::Move(0.0, 0.0), Seg::Line(1.0, 1.0)];
+    assert_eq!(placed(path(small.clone(), None)), 2, "without a region the second path fits");
+    assert_eq!(placed(path(small, region())), 1);
+    let bitmap = Item::Bitmap {
+        rect: [0.0, 0.0, 10.0, 10.0],
+        transform: [10.0, 0.0, 0.0, 10.0, 0.0, 0.0],
+        width: 1,
+        height: 1,
+        rgba: vec![0; 4],
+        region: region(),
+        clips: Vec::new(),
+    };
+    assert_eq!(placed(bitmap), 1);
+}
+
+#[test]
+fn place_expands_a_clip_region_once_for_the_items_that_share_it() {
+    // 2,000 items under one 64-rectangle region: 320 region elements, not 640,000.
+    let region: Vec<[f32; 4]> = (0..64).map(|i| [i as f32, 0.0, i as f32 + 0.5, 10.0]).collect();
+    let item = || Item::Path {
+        segs: vec![Seg::Move(0.0, 0.0), Seg::Line(1.0, 1.0)],
+        fill: None,
+        stroke: None,
+        line: crate::LineStyle::default(),
+        even_odd: false,
+        region: Some(region.clone()),
+        clips: Vec::new(),
+    };
+    let pic = crate::Picture { width: 100.0, height: 50.0, items: (0..2000).map(|_| item()).collect(), skipped_records: 0 };
+    let placed = pic.place(kurbo::Rect::new(0.0, 0.0, 100.0, 50.0), [0.0; 4]);
+    assert_eq!(placed.len(), 2000);
+    let regions: Vec<_> = placed
+        .iter()
+        .filter_map(|p| match p {
+            crate::PlacedItem::Path { region: Some(r), .. } => Some(std::sync::Arc::as_ptr(r)),
+            _ => None,
+        })
+        .collect();
+    assert!(regions.len() == 2000 && regions.iter().all(|r| *r == regions[0]));
+}
+
+#[test]
 fn place_keeps_only_finite_bounded_bitmaps_with_area() {
-    let bitmap = |rect: [f32; 4]| Item::Bitmap { rect, width: 1, height: 1, rgba: vec![0; 4], region: None };
+    let bitmap = |rect: [f32; 4]| Item::Bitmap { rect, transform: [0.0; 6], width: 1, height: 1, rgba: vec![0; 4], region: None, clips: Vec::new() };
     let pic = crate::Picture {
         width: 100.0,
         height: 50.0,
@@ -912,6 +1096,7 @@ fn place_keeps_only_finite_bounded_bitmaps_with_area() {
             bitmap([0.0, 0.0, f32::INFINITY, 10.0]),
             bitmap([10.0, 5.0, 10.0, 10.0]),
         ],
+        skipped_records: 0,
     };
     let placed = pic.place(kurbo::Rect::new(0.0, 0.0, 200.0, 100.0), [0.0; 4]);
     assert_eq!(placed.len(), 1);
@@ -919,19 +1104,152 @@ fn place_keeps_only_finite_bounded_bitmaps_with_area() {
     assert_eq!((*index, *rect), (4, kurbo::Rect::new(20.0, 10.0, 40.0, 30.0)));
 }
 
+/// `size` against the full parse: same numbers or same error, and whether the header decided it.
+fn assert_size_matches_parse(file: &[u8], from_header: bool, what: &str) {
+    let full = parse(file).map(|p| (p.width, p.height));
+    assert_eq!(crate::size(file), full, "{what}");
+    assert_eq!(crate::size::header_size(crate::bytes::Bytes(file)).is_some(), from_header, "{what}: header path");
+    if let Some(s) = crate::size::header_size(crate::bytes::Bytes(file)) {
+        assert_eq!(Ok(s), full, "{what}: header size");
+    }
+}
+
+#[test]
+fn size_from_the_header_equals_the_full_parse() {
+    let rect = || erec(43, &cat(vec![e32(0), e32(0), e32(50), e32(25)]));
+    let emfs = [
+        ("emf with a frame", emf(&[rect()], [0, 0, 50, 25], [0, 0, 2500, 1250]), true),
+        ("emf with a large frame", emf(&[rect()], [0, 0, 50, 25], [-90_000, 0, 900_000, 1_250_000]), true),
+        ("emf with an empty frame", emf(&[rect()], [0, 0, 50, 25], [0; 4]), false),
+        ("emf with no records", emf(&[], [0, 0, 50, 25], [0, 0, 2500, 1250]), false),
+        ("emf with no frame and no bounds", emf(&[rect()], [0; 4], [0; 4]), false),
+    ];
+    for (what, file, header) in &emfs {
+        assert_size_matches_parse(file, *header, what);
+    }
+    let draw = [wrec(0x041B, &cat(vec![h16(1440), h16(2880), h16(0), h16(0)]))];
+    let wmfs = [
+        ("placeable wmf", wmf(&draw, Some([0, 0, 2880, 1440])), true),
+        (
+            "placeable wmf with a window mapping",
+            wmf(
+                &[wrec(0x0103, &h16(8)), wrec(0x020C, &cat(vec![h16(100), h16(200)])), wrec(0x020E, &cat(vec![h16(50), h16(100)])), draw[0].clone()],
+                Some([0, 0, 200, 100]),
+            ),
+            false,
+        ),
+        (
+            "placeable wmf with a zero viewport",
+            wmf(&[wrec(0x0103, &h16(8)), wrec(0x020E, &cat(vec![h16(0), h16(0)])), draw[0].clone()], Some([0, 0, 200, 100])),
+            false,
+        ),
+        ("placeable wmf with a window only", wmf(&[wrec(0x020C, &cat(vec![h16(100), h16(200)])), draw[0].clone()], Some([0, 0, 200, 100])), true),
+        ("placeable wmf with an empty box", wmf(&draw, Some([0, 0, 0, 0])), false),
+        ("placeable wmf with no records", wmf(&[], Some([0, 0, 2880, 1440])), false),
+        ("plain wmf", wmf(&draw, None), false),
+    ];
+    for (what, file, header) in &wmfs {
+        assert_size_matches_parse(file, *header, what);
+    }
+    assert_size_matches_parse(b"not a metafile at all", false, "garbage");
+    assert_size_matches_parse(&[], false, "empty");
+}
+
+#[test]
+fn size_of_a_truncated_or_mutated_file_equals_the_full_parse() {
+    let rect = erec(43, &cat(vec![e32(0), e32(0), e32(50), e32(25)]));
+    let draw = wrec(0x041B, &cat(vec![h16(1440), h16(2880), h16(0), h16(0)]));
+    let files = [emf(&[rect], [0, 0, 50, 25], [0, 0, 2500, 1250]), wmf(&[draw], Some([0, 0, 2880, 1440]))];
+    let mut seed = 0x1234_5678_9ABC_DEF0u64;
+    for file in &files {
+        for len in 0..=file.len() {
+            let cut = &file[..len];
+            assert_eq!(crate::size(cut), parse(cut).map(|p| (p.width, p.height)), "cut at {len}");
+        }
+        for _ in 0..3000 {
+            let mut m = file.clone();
+            for _ in 0..3 {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                let at = (seed % m.len() as u64) as usize;
+                m[at] = (seed >> 32) as u8;
+            }
+            let full = parse(&m).map(|p| (p.width, p.height));
+            let fast = crate::size(&m);
+            assert_eq!(fast, full, "{m:?}");
+        }
+    }
+}
+
+/// Time of the full parse against the header-only size for an EMF with one 8000 x 5000, 1 bpp bitmap
+/// (5 MB, decodes to 160 MB): `cargo test -p craft-metafile --release -- --ignored --nocapture size_speed`.
+#[test]
+#[ignore = "timing only"]
+fn size_speed() {
+    let (w, h) = (8000i32, 5000i32);
+    let mut payload = vec![0u8; 16];
+    payload.extend(cat(vec![
+        e32(0),
+        e32(0),
+        e32(0),
+        e32(0),
+        e32(w),
+        e32(h),
+        e32(80),
+        e32(48),
+        e32(128),
+        h32((w / 8 * h) as u32),
+        e32(0),
+        e32(0x00CC_0020),
+        e32(100),
+        e32(50),
+    ]));
+    payload.extend(info_header(w, h, 1, 0));
+    payload.extend([0, 0, 0, 0, 255, 255, 255, 0]);
+    payload.extend((0..(w / 8 * h) as usize).map(|i| (i * 31) as u8));
+    let file = emf(&[erec(81, &payload)], [0, 0, 100, 50], [0, 0, 2500, 1250]);
+    for round in 0..4 {
+        let t = std::time::Instant::now();
+        let full = parse(&file).map(|p| (p.width, p.height));
+        let full_ms = t.elapsed().as_secs_f64() * 1e3;
+        let t = std::time::Instant::now();
+        let fast = crate::size(&file);
+        let fast_ms = t.elapsed().as_secs_f64() * 1e6;
+        assert_eq!(full, fast);
+        eprintln!("round {round}: parse {full_ms:.1} ms, size {fast_ms:.1} us");
+    }
+}
+
 #[test]
 fn take_pixels_returns_only_drawable_bitmaps() {
-    let mut ok = Item::Bitmap { rect: [0.0; 4], width: 2, height: 1, rgba: vec![7; 8], region: None };
+    let mut ok = Item::Bitmap { rect: [0.0; 4], transform: [0.0; 6], width: 2, height: 1, rgba: vec![7; 8], region: None, clips: Vec::new() };
     assert_eq!(ok.take_pixels(), Some((2, 1, vec![7; 8])));
     assert!(matches!(&ok, Item::Bitmap { rgba, .. } if rgba.is_empty()), "the pixels move out");
-    let mut short = Item::Bitmap { rect: [0.0; 4], width: 2, height: 2, rgba: vec![0; 8], region: None };
+    let mut short = Item::Bitmap { rect: [0.0; 4], transform: [0.0; 6], width: 2, height: 2, rgba: vec![0; 8], region: None, clips: Vec::new() };
     assert_eq!(short.take_pixels(), None);
     let side = crate::MAX_BITMAP_SIDE + 1;
-    let mut wide = Item::Bitmap { rect: [0.0; 4], width: side, height: 1, rgba: vec![0; side as usize * 4], region: None };
+    let mut wide = Item::Bitmap {
+        rect: [0.0; 4],
+        transform: [0.0; 6],
+        width: side,
+        height: 1,
+        rgba: vec![0; side as usize * 4],
+        region: None,
+        clips: Vec::new(),
+    };
     assert_eq!(wide.take_pixels(), None);
-    let mut path = Item::Path { segs: Vec::new(), fill: None, stroke: None, even_odd: false, region: None };
+    let mut path = Item::Path {
+        segs: Vec::new(),
+        fill: None,
+        stroke: None,
+        even_odd: false,
+        line: crate::LineStyle::default(),
+        region: None,
+        clips: Vec::new(),
+    };
     assert_eq!(path.take_pixels(), None);
-    let pic = |width: f32, height: f32| crate::Picture { width, height, items: Vec::new() };
+    let pic = |width: f32, height: f32| crate::Picture { width, height, items: Vec::new(), skipped_records: 0 };
     assert!(pic(1.0, 2.0).has_size());
     assert!(!pic(0.0, 2.0).has_size() && !pic(f32::NAN, 2.0).has_size() && !pic(1.0, f32::INFINITY).has_size());
 }
@@ -1179,11 +1497,76 @@ fn character_sets_decode_bytes() {
     assert_eq!(one(204, &[0xC0, 0xFF, 0xA8]), "АяЁ");
     assert_eq!(one(2, b"n\xA7"), "\u{F06E}\u{F0A7}", "symbol fonts keep their codes in the private-use area");
     assert_eq!(one(0, &[0x81]), "\u{FFFD}", "an undefined byte");
-    // A double-byte character set: a lead and trail byte become one blank with both advances.
-    let p =
-        wmf200(&[wfont(-10, 400, [0, 0, 0], 128, 0, b"F"), wrec(0x012D, &h16(0)), wtext(0, 0, &[0x41, 0x82, 0xA0, 0x42], 0, None, &[1, 2, 3, 4])]);
-    let t = texts(&p)[0];
-    assert_eq!((t.text.as_str(), t.dx.as_slice()), ("A B", [1.0, 5.0, 4.0].as_slice()));
+    // Hebrew (177): letters, a point, the sheqel sign; an undefined byte.
+    assert_eq!(one(177, &[0xF9, 0xEC, 0xE5, 0xED, b' ', 0xC8, 0xA4]), "שלום \u{05B8}₪");
+    assert_eq!(one(177, &[0xFA, 0xE0, 0xFB]), "תא\u{FFFD}");
+    // Arabic (178): "سلام", an Arabic comma and question mark.
+    assert_eq!(one(178, &[0xD3, 0xE1, 0xC7, 0xE3, 0xA1, 0xBF]), "سلام،؟");
+    // Greek, Turkish, Vietnamese, Baltic and Thai.
+    assert_eq!(one(161, &[0xE1, 0xD9]), "αΩ");
+    assert_eq!(one(162, &[0xD0, 0xFD, 0xFE]), "Ğış");
+    assert_eq!(one(163, &[0xD5, 0xF0]), "Ơđ");
+    assert_eq!(one(186, &[0xE0, 0xFE]), "ąž");
+    assert_eq!(one(222, &[0xA1, 0xE4]), "กไ");
+    // A string is in the font's code page: EF BB BF is three characters, not a byte order mark.
+    assert_eq!(one(0, &[0xEF, 0xBB, 0xBF, 0x41]), "ï»¿A");
+    assert_eq!(one(161, &[0xEF, 0xBB, 0xBF, 0x41]), "ο»ΏA");
+}
+
+#[test]
+fn double_byte_character_sets_decode_pairs_with_both_advances() {
+    let run = |charset: u8, s: &[u8]| {
+        let dx: Vec<i32> = (1..=s.len() as i32).collect();
+        let p = wmf200(&[wfont(-10, 400, [0, 0, 0], charset, 0, b"F"), wrec(0x012D, &h16(0)), wtext(0, 0, s, 0, None, &dx)]);
+        let t = texts(&p)[0];
+        (t.text.clone(), t.dx.clone())
+    };
+    // Shift_JIS: a pair is one character with the sum of its two advances.
+    assert_eq!(run(128, &[0x41, 0x82, 0xA0, 0x42]), ("AあB".into(), vec![1.0, 5.0, 4.0]));
+    // Its half-width katakana are single bytes: 0xA6 is no lead byte and the 'A' after it no trail.
+    assert_eq!(run(128, &[0xA6, 0x41, 0xB1]), ("ｦAｱ".into(), vec![1.0, 2.0, 3.0]));
+    // Big5 A1D0 is the fullwidth hyphen-minus equation editors write for a minus sign.
+    assert_eq!(run(136, &[0xA1, 0xD0]), ("－".into(), vec![3.0]));
+    // UHC and GBK.
+    assert_eq!(run(129, &[0xB0, 0xA1]), ("가".into(), vec![3.0]));
+    assert_eq!(run(134, &[0xB0, 0xA1]), ("啊".into(), vec![3.0]));
+    // 0x7F is never a GBK trail byte: the lead before it is one undefined byte, 0x7F stands
+    // alone and the pair after them decodes.
+    assert_eq!(run(134, &[0xB0, 0x7F, 0xB0, 0xA1]), ("\u{FFFD}\u{7F}啊".into(), vec![1.0, 2.0, 7.0]));
+    // A lead byte at the end of the string is one undefined byte, as is the lead of a pair
+    // inside Big5's ranges that Big5 does not define; the byte after it is read on its own.
+    assert_eq!(run(136, &[0x81]), ("\u{FFFD}".into(), vec![1.0]));
+    assert_eq!(run(136, &[0x81, 0x40]), ("\u{FFFD}@".into(), vec![1.0, 2.0]));
+    // Johab is not decoded: a pair is one blank with both advances.
+    assert_eq!(run(130, &[0x41, 0x88, 0x61, 0x42]), ("A B".into(), vec![1.0, 5.0, 4.0]));
+}
+
+#[test]
+fn a_wmf_face_name_is_read_in_the_fonts_code_page() {
+    // 新細明體 (PMingLiU) in Big5.
+    let p = wmf200(&[
+        wfont(-10, 400, [0, 0, 0], 136, 0, &[0xB7, 0x73, 0xB2, 0xD3, 0xA9, 0xFA, 0xC5, 0xE9]),
+        wrec(0x012D, &h16(0)),
+        wtext(0, 0, b"A", 0, None, &[]),
+    ]);
+    assert_eq!(texts(&p)[0].font.family, "新細明體");
+    // A symbol font's name is plain text, not symbol codes.
+    let p = wmf200(&[wfont(-10, 400, [0, 0, 0], 2, 0, b"Wingdings"), wrec(0x012D, &h16(0)), wtext(0, 0, b"A", 0, None, &[])]);
+    assert_eq!(texts(&p)[0].font.family, "Wingdings");
+}
+
+#[test]
+fn the_symbol_font_under_the_default_character_set_keeps_symbol_codes() {
+    let one = |charset: u8, face: &[u8]| {
+        let p = wmf200(&[wfont(-10, 400, [0, 0, 0], charset, 0, face), wrec(0x012D, &h16(0)), wtext(0, 0, &[0x61, 0xE6], 0, None, &[])]);
+        texts(&p)[0].text.clone()
+    };
+    // Equation editors select "Symbol" with DEFAULT_CHARSET: the bytes are the font's own codes.
+    assert_eq!(one(1, b"Symbol"), "\u{F061}\u{F0E6}");
+    assert_eq!(one(1, b"symbol (PCL6)"), "\u{F061}\u{F0E6}");
+    // Another font under DEFAULT_CHARSET, and Symbol asked for as an ANSI font, are Western text.
+    assert_eq!(one(1, b"Arial"), "aæ");
+    assert_eq!(one(0, b"Symbol"), "aæ");
 }
 
 #[test]
@@ -1509,65 +1892,8 @@ fn hostile_text_and_brush_records_never_panic() {
 fn text_items_are_capped_like_any_other() {
     let t = wtext(0, 0, b"x", 0, None, &[]);
     let recs: Vec<Vec<u8>> = (0..MAX_ITEMS + 5).map(|_| t.clone()).collect();
-    assert_eq!(parse(&wmf(&recs, None)), Err(Error::LimitExceeded));
-}
-
-#[test]
-fn emf_extent_scaling_and_zero_denominators() {
-    let picture = parse(&emf(
-        &[
-            erec(17, &h32(8)),
-            erec(9, &cat(vec![e32(200), e32(100)])),
-            erec(11, &cat(vec![e32(200), e32(100)])),
-            erec(31, &cat(vec![e32(2), e32(1), e32(3), e32(1)])),
-            erec(32, &cat(vec![e32(2), e32(1), e32(1), e32(1)])),
-            erec(31, &cat(vec![e32(99), e32(0), e32(99), e32(0)])),
-            erec(43, &cat(vec![e32(0), e32(0), e32(10), e32(10)])),
-        ],
-        [0; 4],
-        [0; 4],
-    ))
-    .unwrap();
-    assert_eq!((picture.width, picture.height), (10.0, 30.0));
-}
-
-#[test]
-fn emf_abort_path_discards_bracketed_geometry() {
-    let picture =
-        parse(&emf(&[erec(59, &[]), erec(43, &cat(vec![e32(0), e32(0), e32(10), e32(10)])), erec(68, &[]), erec(64, &[])], [0; 4], [0; 4])).unwrap();
-    assert!(picture.items.is_empty());
-}
-
-#[test]
-fn emf_arc_direction_is_saved_and_restored() {
-    let arc = erec(45, &cat(vec![e32(0), e32(0), e32(100), e32(100), e32(100), e32(50), e32(50), e32(100)]));
-    let picture = parse(&emf(&[erec(57, &h32(2)), erec(33, &[]), erec(57, &h32(1)), arc.clone(), erec(34, &e32(-1)), arc], [0; 4], [0; 4])).unwrap();
-    let first = path_segs(&picture.items[0]).0;
-    let second = path_segs(&picture.items[1]).0;
-    assert_eq!(first.iter().filter(|segment| matches!(segment, Seg::Cubic(..))).count(), 3);
-    assert_eq!(second.iter().filter(|segment| matches!(segment, Seg::Cubic(..))).count(), 1);
-}
-
-#[test]
-fn dib_and_emfplus_bitmap_limits_precede_decoding() {
-    let dib = dib24_bottom_up();
-    let dib = wrec(0x0F43, &cat(vec![h32(0x00CC_0020), h16(0), h16(2), h16(2), h16(0), h16(0), h16(2), h16(2), h16(0), h16(0), dib]));
-    let plus = emf(&[plus_comment(&[plus_header(false), prec(0x4008, 0x0501, &bitmap_2x2()), draw_image(1, [0.0, 0.0, 2.0, 2.0])])], [0; 4], [0; 4]);
-    for bytes in [wmf(&[dib], None), plus] {
-        assert_eq!(crate::parse_with_limits(&bytes, crate::Limits { max_bitmap_pixels: 3, ..crate::Limits::default() }), Err(Error::LimitExceeded));
-        assert!(crate::parse_with_limits(&bytes, crate::Limits { max_bitmap_pixels: 4, ..crate::Limits::default() }).is_ok());
-    }
-}
-
-#[test]
-fn nested_metafiles_share_record_and_item_limits() {
-    let inner = emf(&[erec(43, &cat(vec![e32(0), e32(0), e32(10), e32(10)]))], [0; 4], [0; 4]);
-    let object = cat(vec![h32(0xDBC0_1002), h32(2), h32(3), h32(inner.len() as u32), inner]);
-    let bytes = emf(&[plus_comment(&[plus_header(false), prec(0x4008, 0x0501, &object), draw_image(1, [0.0, 0.0, 10.0, 10.0])])], [0; 4], [0; 4]);
-    assert!(parse(&bytes).is_ok());
-    for limits in [crate::Limits { max_records: 5, ..crate::Limits::default() }, crate::Limits { max_items: 1, ..crate::Limits::default() }] {
-        assert_eq!(crate::parse_with_limits(&bytes, limits), Err(Error::LimitExceeded));
-    }
+    let p = wmf200(&recs);
+    assert_eq!(p.items.len(), MAX_ITEMS);
 }
 
 #[test]
@@ -1580,7 +1906,8 @@ fn pattern_brush_pixels_count_against_the_byte_budget() {
     let brush = wrec(0x0142, &cat(vec![h16(5), h16(0), dib]));
     let mut recs: Vec<Vec<u8>> = (0..1100).map(|_| brush.clone()).collect();
     recs.push(wrec(0x041B, &cat(vec![h16(9), h16(9), h16(0), h16(0)])));
-    assert_eq!(parse(&wmf(&recs, None)), Err(Error::LimitExceeded));
+    let p = wmf200(&recs);
+    assert!(p.items.is_empty(), "the parse stopped at the budget: {:?}", p.items.len());
 }
 
 fn item_region(item: &Item) -> Option<&[[f32; 4]]> {
@@ -1661,20 +1988,6 @@ fn wmf_intersect_clip_rect_limits_later_records() {
     assert_eq!(item_region(&p.items[0]), Some(&[[10.0, 5.0, 40.0, 30.0]][..]));
 }
 
-/// META_SELECTCLIPREGION: Office writes `INTERSECTCLIPRECT .. text .. SELECTCLIPREGION(0)` around each
-/// clipped run, the null region restoring the default clip. A reader that keeps the rectangle clips
-/// every later shape (found by the #185 oracle: GeomLec1.pptx image5.wmf lost its arcs).
-#[test]
-fn wmf_select_clip_region_restores_the_default_clip() {
-    let clip = cat(vec![h16(30), h16(40), h16(5), h16(10)]);
-    let rect = cat(vec![h16(40), h16(80), h16(0), h16(0)]);
-    let p = parse(&wmf(&[wrec(0x0416, &clip), wrec(0x012C, &h16(0)), wrec(0x041B, &rect)], None)).unwrap();
-    assert_eq!(item_region(&p.items[0]), None);
-    // Without the reset the rectangle still applies.
-    let p = parse(&wmf(&[wrec(0x0416, &clip), wrec(0x041B, &rect)], None)).unwrap();
-    assert_eq!(item_region(&p.items[0]), Some(&[[10.0, 5.0, 40.0, 30.0]][..]));
-}
-
 // ---- EMF+ ----
 
 fn f32s(v: &[f32]) -> Vec<u8> {
@@ -1728,12 +2041,37 @@ fn emfplus_only_fill_rects_with_argb_colour() {
 }
 
 #[test]
-fn emfplus_dual_files_draw_only_the_emf_records() {
+fn emfplus_dual_files_draw_the_emfplus_records_like_gdiplus() {
     let fill = prec(0x400A, 0x8000, &cat(vec![h32(0xFFFF_0000), h32(1), f32s(&[0.0, 0.0, 5.0, 5.0])]));
     let gdi = erec(43, &cat(vec![e32(0), e32(0), e32(9), e32(9)]));
     let p = parse(&emf(&[plus_comment(&[plus_header(true), fill]), gdi], [0; 4], [0; 4])).unwrap();
     assert_eq!(p.items.len(), 1);
-    assert_eq!(path_segs(&p.items[0]).1, Some([255, 255, 255, 255]));
+    assert_eq!(path_segs(&p.items[0]).1, Some([255, 0, 0, 255]));
+}
+
+#[test]
+fn emfplus_dual_files_play_plain_records_after_get_dc() {
+    let gdi = erec(43, &cat(vec![e32(0), e32(0), e32(9), e32(9)]));
+    let get_dc = prec(0x4004, 0, &[]);
+    let p = parse(&emf(&[plus_comment(&[plus_header(true)]), plus_comment(&[get_dc]), gdi], [0; 4], [0; 4])).unwrap();
+    assert_eq!(p.items.len(), 1);
+}
+
+#[test]
+fn emfplus_record_after_get_dc_in_one_comment_closes_the_plain_window() {
+    let gdi = erec(43, &cat(vec![e32(0), e32(0), e32(9), e32(9)]));
+    let get_dc = prec(0x4004, 0, &[]);
+    let fill = prec(0x400A, 0x8000, &cat(vec![h32(0xFFFF_0000), h32(1), f32s(&[0.0, 0.0, 5.0, 5.0])]));
+    let p = parse(&emf(&[plus_comment(&[plus_header(true), get_dc, fill]), gdi], [0; 4], [0; 4])).unwrap();
+    assert_eq!(p.items.len(), 1);
+    assert_eq!(path_segs(&p.items[0]).1, Some([255, 0, 0, 255]));
+}
+
+#[test]
+fn an_emf_without_an_emfplus_header_plays_its_plain_records() {
+    let gdi = erec(43, &cat(vec![e32(0), e32(0), e32(9), e32(9)]));
+    let p = parse(&emf(&[gdi], [0; 4], [0; 4])).unwrap();
+    assert_eq!(p.items.len(), 1);
 }
 
 #[test]
@@ -1837,44 +2175,6 @@ fn emfplus_compressed_png_image_decodes() {
     assert!(matches!(&p.items[0], Item::Bitmap { width: 3, height: 1, rgba, .. } if rgba[..4] == [1, 2, 3, 255]));
 }
 
-#[test]
-fn compressed_images_obey_pixel_limits() {
-    let mut png = Vec::new();
-    let image = image::RgbaImage::from_pixel(3, 1, image::Rgba([1, 2, 3, 255]));
-    image::DynamicImage::ImageRgba8(image).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
-    let object = cat(vec![h32(0xDBC0_1002), h32(1), h32(0), h32(0), h32(0), h32(0), h32(1), png]);
-    let bytes = emf(&[plus_comment(&[plus_header(false), prec(0x4008, 0x0502, &object)])], [0; 4], [0; 4]);
-    assert_eq!(crate::parse_with_limits(&bytes, crate::Limits { max_bitmap_pixels: 2, ..crate::Limits::default() }), Err(Error::LimitExceeded));
-    assert!(crate::parse_with_limits(&bytes, crate::Limits { max_bitmap_pixels: 3, ..crate::Limits::default() }).is_ok());
-}
-
-#[test]
-fn bitmap_pixel_limit_is_aggregate_across_objects() {
-    let bytes = emf(&[plus_comment(&[plus_header(false), prec(0x4008, 0x0501, &bitmap_2x2()), prec(0x4008, 0x0502, &bitmap_2x2())])], [0; 4], [0; 4]);
-    assert_eq!(crate::parse_with_limits(&bytes, crate::Limits { max_bitmap_pixels: 7, ..crate::Limits::default() }), Err(Error::LimitExceeded));
-    assert!(crate::parse_with_limits(&bytes, crate::Limits { max_bitmap_pixels: 8, ..crate::Limits::default() }).is_ok());
-}
-
-#[test]
-fn subnormal_shading_bounds_do_not_overflow() {
-    let mut canvas = Canvas::new();
-    let ops = crate::geom::rect(0.0, 0.0, f64::from_bits(1), f64::from_bits(1));
-    canvas.shade_shape(&ops, &|_| [255; 4]);
-}
-
-#[test]
-fn wordcraft_text_layout_uses_deckcraft_affine_text_units() {
-    let picture = wmf200(&[wtext(0, 0, b"ab", 0, None, &[])]);
-    let mut text = texts(&picture)[0].clone();
-    text.font.height = -10.0;
-    text.h_align = HAlign::Right;
-    text.v_align = VAlign::Top;
-    text.dx = vec![4.0, 6.0];
-    let layout = text.layout(1000.0, 800.0, 200.0, &[(0, 500.0, 0.0, 0.0), (1, 500.0, 0.0, 0.0)]).unwrap();
-    assert_eq!(layout.em, 10.0);
-    assert_eq!(layout.glyphs, vec![(-10.0, 8.0), (-6.0, 8.0)]);
-}
-
 fn font_obj(family: &str, em: f32, unit: u32, style: u32) -> Vec<u8> {
     cat(vec![h32(0xDBC0_1002), f32s(&[em]), h32(unit), h32(style), h32(0), h32(family.encode_utf16().count() as u32), u16s(family)])
 }
@@ -1941,15 +2241,6 @@ fn emfplus_hatch_brush_fills_with_an_8x8_tile() {
     let fill = prec(0x400A, 0, &cat(vec![h32(0), h32(1), f32s(&[0.0, 0.0, 16.0, 16.0])]));
     let p = plus_pic(vec![prec(0x4008, 0x0100, &brush), fill]);
     assert!(matches!(&p.items[0], Item::Pattern { tile, .. } if tile.width == 8 && tile.height == 8));
-}
-
-#[test]
-fn emfplus_hatch_tiles_obey_pixel_limits() {
-    let brush = cat(vec![h32(0xDBC0_1002), h32(1), h32(4), h32(0xFF00_0000), h32(0xFFFF_FFFF)]);
-    let fill = prec(0x400A, 0, &cat(vec![h32(0), h32(1), f32s(&[0.0, 0.0, 16.0, 16.0])]));
-    let bytes = emf(&[plus_comment(&[plus_header(false), prec(0x4008, 0x0100, &brush), fill])], [0; 4], [0; 4]);
-    assert_eq!(crate::parse_with_limits(&bytes, crate::Limits { max_bitmap_pixels: 63, ..crate::Limits::default() }), Err(Error::LimitExceeded));
-    assert!(crate::parse_with_limits(&bytes, crate::Limits { max_bitmap_pixels: 64, ..crate::Limits::default() }).is_ok());
 }
 
 #[test]
@@ -2081,7 +2372,7 @@ fn emfplus_nested_metafile_image_draws_its_items_into_the_destination() {
     assert!(segs.contains(&Seg::Line(40.0, 20.0)), "{segs:?}");
 }
 
-/// Curves and a region fill, as an EMF+ only file (also written to `$DECKCRAFT_EMF_OUT` to look at).
+/// Curves and a region fill, as an EMF+ only file (also written to `$CRAFT_METAFILE_EMF_OUT` to look at).
 fn curves_file() -> Vec<u8> {
     let pen = prec(0x4008, 0x0200 | 1, &solid_pen(0xFF20_60C0, 3.0));
     // A closed curve through a diamond's corners, filled orange.
@@ -2104,7 +2395,7 @@ fn curves_file() -> Vec<u8> {
 #[test]
 fn emfplus_cardinal_curves_and_region_fill() {
     let bytes = curves_file();
-    if let Ok(path) = std::env::var("DECKCRAFT_EMF_OUT") {
+    if let Ok(path) = std::env::var("CRAFT_METAFILE_EMF_OUT") {
         let _ = std::fs::write(path, &bytes);
     }
     let p = parse(&bytes).unwrap();
@@ -2190,6 +2481,151 @@ fn emfplus_wrap_line_linear_performance() {
 fn clip_polygon_work_bound() {
     let poly: Vec<(f64, f64)> = (0..2000).map(|i| (i as f64, i as f64)).collect();
     let clip: Vec<(f64, f64)> = (0..2000).map(|i| (i as f64, i as f64)).collect();
-    let clipped = crate::cliprect::clip_polygon(&poly, &clip);
-    assert!(clipped.is_empty(), "excessive polygon clip product rejected");
+    assert!(crate::cliprect::clip_polygon_within(&poly, &clip, &mut 1_000_000).is_none(), "excessive polygon clip product rejected");
+}
+
+#[test]
+fn clip_polygon_charges_actual_work_not_projected_growth() {
+    // Two convex 1,000-gons: the product is exactly the budget, and a cut that adds a vertex must
+    // not make a later step look over budget.
+    let gon = |cx: f64| -> Vec<(f64, f64)> {
+        (0..1000).map(|i| (i as f64 / 1000.0 * std::f64::consts::TAU).sin_cos()).map(|(s, c)| (cx + 100.0 * c, 100.0 * s)).collect()
+    };
+    let clipped = crate::cliprect::clip_polygon_within(&gon(0.0), &gon(30.0), &mut 4_000_000).unwrap();
+    assert!(clipped.len() > 100, "the intersection is kept: {}", clipped.len());
+}
+
+#[test]
+fn clip_work_is_shared_by_fill_and_stroke() {
+    use crate::canvas::Raw;
+    use crate::geom::Op;
+    // One zigzag subpath crossing a 512-gon's edge: about 510k point-edge tests per pass, so a
+    // fill alone fits the allowance but a fill plus a stroke would spend it twice.
+    let clip: Vec<(f64, f64)> =
+        (0..512).map(|i| (i as f64 / 512.0 * std::f64::consts::TAU).sin_cos()).map(|(s, c)| (100.0 + 100.0 * c, 100.0 + 100.0 * s)).collect();
+    let mut ops = vec![Op::M((0.0, 95.0))];
+    ops.extend((1..1000).map(|i| Op::L((i as f64 * 0.19, if i % 2 == 0 { 95.0 } else { 300.0 }))));
+    ops.push(Op::Z);
+    let raw = |fill, stroke| Raw::Path {
+        ops: ops.clone(),
+        fill,
+        stroke,
+        even_odd: false,
+        line: crate::LineStyle::default(),
+        region: crate::canvas::RawClip::default(),
+    };
+    let black = [0, 0, 0, 255];
+    assert!(!crate::cliprect::clip_raw(raw(Some(black), None), &clip).is_empty(), "a fill alone is within the allowance");
+    assert!(crate::cliprect::clip_raw(raw(Some(black), Some((black, 1.0))), &clip).is_empty(), "fill and stroke share one allowance");
+}
+
+#[test]
+fn clip_work_is_bounded_across_subpaths() {
+    use crate::canvas::Raw;
+    use crate::geom::Op;
+    // 512-gon clip; 4,000 small triangles crossing its edge: each under the per-polygon cap, together
+    // far over it, for both the fill and the stroke.
+    let clip: Vec<(f64, f64)> =
+        (0..512).map(|i| (i as f64 / 512.0 * std::f64::consts::TAU).sin_cos()).map(|(s, c)| (100.0 + 100.0 * c, 100.0 + 100.0 * s)).collect();
+    let tri = |x: f64| [Op::M((x, 95.0)), Op::L((x + 1.0, 95.0)), Op::L((x, 300.0)), Op::Z];
+    let many: Vec<Op> = (0..4000).flat_map(|i| tri(i as f64 % 200.0)).collect();
+    let raw = |ops| Raw::Path {
+        ops,
+        fill: Some([0, 0, 0, 255]),
+        stroke: Some(([0, 0, 0, 255], 1.0)),
+        even_odd: false,
+        line: crate::LineStyle::default(),
+        region: crate::canvas::RawClip::default(),
+    };
+    assert!(crate::cliprect::clip_raw(raw(many), &clip).is_empty(), "the whole item's clipping work is bounded");
+    assert_eq!(crate::cliprect::clip_raw(raw(tri(100.0).to_vec()), &clip).len(), 2, "a small crossing shape is still clipped");
+}
+
+/// Clipping a fill can add a vertex at every clip edge, so a polygon's work isn't its input size:
+/// shapes that pass the up-front estimate but grow while clipped are charged as they grow, against
+/// one budget for the whole item.
+#[test]
+fn growing_fill_clips_share_one_budget() {
+    use crate::canvas::Raw;
+    use crate::geom::Op;
+    let clip: Vec<(f64, f64)> =
+        (0..512).map(|i| (i as f64 / 512.0 * std::f64::consts::TAU).sin_cos()).map(|(s, c)| (100.0 + 100.0 * c, 100.0 + 100.0 * s)).collect();
+    // A triangle around the whole circle: clipped, it becomes the 512-gon, about 130,000 steps.
+    let tri = [Op::M((-1000.0, -1000.0)), Op::L((1000.0, -1000.0)), Op::L((100.0, 1000.0)), Op::Z];
+    let raw = |n: usize| Raw::Path {
+        ops: tri.repeat(n),
+        fill: Some([0, 0, 0, 255]),
+        stroke: None,
+        even_odd: false,
+        line: crate::LineStyle::default(),
+        region: crate::canvas::RawClip::default(),
+    };
+    // 400 of them pass the estimate (400 x 4 x 512 is under a million) but cost about 52 million.
+    assert!(crate::cliprect::clip_raw(raw(400), &clip).is_empty(), "the growing work is charged");
+    assert_eq!(crate::cliprect::clip_raw(raw(2), &clip).len(), 1, "a couple of them are still clipped");
+}
+
+#[test]
+fn stroke_work_is_charged_and_outside_items_are_cheap() {
+    use crate::canvas::Raw;
+    use crate::geom::Op;
+    let clip: Vec<(f64, f64)> =
+        (0..512).map(|i| (i as f64 / 512.0 * std::f64::consts::TAU).sin_cos()).map(|(s, c)| (100.0 + 100.0 * c, 100.0 + 100.0 * s)).collect();
+    // A stroke-only zigzag of 4,000 segments across the edge: 4,000 x 512 tests, over the allowance.
+    let mut ops = vec![Op::M((0.0, 95.0))];
+    ops.extend((1..4000).map(|i| Op::L((i as f64 * 0.05, if i % 2 == 0 { 95.0 } else { 300.0 }))));
+    let raw = Raw::Path {
+        ops,
+        fill: None,
+        stroke: Some(([0, 0, 0, 255], 1.0)),
+        even_odd: false,
+        line: crate::LineStyle::default(),
+        region: crate::canvas::RawClip::default(),
+    };
+    assert!(crate::cliprect::clip_raw(raw, &clip).is_empty(), "stroke work is bounded");
+}
+
+#[test]
+fn region_intersection_over_budget_keeps_the_previous_area() {
+    let gon = |cx: f64| -> Vec<(f64, f64)> {
+        (0..1000).map(|i| (i as f64 / 1000.0 * std::f64::consts::TAU).sin_cos()).map(|(s, c)| (cx + 100.0 * c, 100.0 * s)).collect()
+    };
+    assert!(crate::cliprect::clip_polygon_within(&gon(0.0), &gon(30.0), &mut 10).is_none());
+    assert!(crate::cliprect::clip_polygon_within(&gon(0.0), &gon(30.0), &mut crate::cliprect::MAX_AREA_CLIP_WORK.clone()).is_some());
+}
+
+/// A poly-polygon's group counts are file data: a long list of empty groups adds no ops, so it
+/// mustn't reserve room for them either (the canvas charges what a path holds, capacity included).
+#[test]
+fn empty_poly_groups_reserve_nothing() {
+    let pts = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)];
+    let mut counts = vec![0usize; 100_000];
+    counts.push(3);
+    let ops = crate::geom::subpaths(&pts, &counts, true);
+    assert_eq!(ops.len(), 4, "M L L Z");
+    assert!(ops.capacity() <= 8, "capacity {}", ops.capacity());
+    // Counts past the points are cut short, and the size still matches.
+    let ops = crate::geom::subpaths(&pts, &[2, 5, 4], false);
+    assert_eq!((ops.len(), ops.capacity()), (3, 3));
+}
+
+#[test]
+fn full_canvas_does_not_sample_gradient_tiles() {
+    let mut cv = Canvas::new();
+    let big = || Rgba { w: 1, h: 1, px: vec![0u8; MAX_BYTES / 2] };
+    for _ in 0..3 {
+        cv.bitmap([0.0, 0.0, 1.0, 1.0], big());
+    }
+    assert!(cv.full());
+    cv.shade_shape(&crate::geom::rect(0.0, 0.0, 10.0, 10.0), &|_| panic!("sampled a full canvas"));
+    assert_eq!(cv.items.len(), 2);
+}
+
+#[test]
+fn canvas_budget_counts_bytes_held_elsewhere() {
+    let mut cv = Canvas::new();
+    cv.hold(MAX_BYTES - 100);
+    cv.bitmap([0.0, 0.0, 1.0, 1.0], Rgba { w: 1, h: 1, px: vec![0u8; 200] });
+    assert!(cv.full());
+    assert!(cv.items.is_empty());
 }
