@@ -1,0 +1,9 @@
+{
+  "removed": [
+    "/jobs/work/speedcraft-labs/tmp/313b-binaries",
+    "/jobs/work/speedcraft-labs/tmp/313b-plot-env",
+    "/jobs/work/speedcraft-labs/targets/313b"
+  ],
+  "source_and_build_metadata_preserved": true,
+  "only_owned_paths": true
+}

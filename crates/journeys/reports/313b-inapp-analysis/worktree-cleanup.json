@@ -1,0 +1,33 @@
+{
+  "removed_regenerable_build_and_failed_checkouts": [
+    "/jobs/work/speedcraft-labs/wt/313b-aa-a",
+    "/jobs/work/speedcraft-labs/wt/313b-aa-a-final",
+    "/jobs/work/speedcraft-labs/wt/313b-aa-a-validated",
+    "/jobs/work/speedcraft-labs/wt/313b-aa-b-final",
+    "/jobs/work/speedcraft-labs/wt/313b-clean-main",
+    "/jobs/work/speedcraft-labs/wt/313b-failed-startup",
+    "/jobs/work/speedcraft-labs/wt/313b-failed-ui-read-app",
+    "/jobs/work/speedcraft-labs/wt/313b-point",
+    "/jobs/work/speedcraft-labs/wt/313b-point-final",
+    "/jobs/work/speedcraft-labs/wt/313b-r2-aa-a",
+    "/jobs/work/speedcraft-labs/wt/313b-r2-aa-b",
+    "/jobs/work/speedcraft-labs/wt/313b-r2-point",
+    "/jobs/work/speedcraft-labs/wt/313b-r2-upstream",
+    "/jobs/work/speedcraft-labs/wt/313b-r3-aa-a",
+    "/jobs/work/speedcraft-labs/wt/313b-r3-aa-b",
+    "/jobs/work/speedcraft-labs/wt/313b-r3-point",
+    "/jobs/work/speedcraft-labs/wt/313b-r3-upstream",
+    "/jobs/work/speedcraft-labs/wt/313b-upstream",
+    "/jobs/work/speedcraft-labs/wt/313b-upstream-final",
+    "/jobs/work/speedcraft-labs/wt/313b-failed-build",
+    "/jobs/work/speedcraft-labs/wt/313b-failed-lease12",
+    "/jobs/work/speedcraft-labs/wt/313b-failed-ui-read-libs"
+  ],
+  "retained_clean_source_checkouts": [
+    "313b-analysis",
+    "313b-direct-import",
+    "313b-libs",
+    "313b-lightcraft"
+  ],
+  "source_history": "build-source-history-index.json; all variants match pushed commit history"
+}

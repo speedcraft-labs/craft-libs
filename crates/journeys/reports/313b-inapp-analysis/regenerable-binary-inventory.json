@@ -1,0 +1,41 @@
+{
+  "metadata_copied": [
+    "lightcraft-r3-aa-a.provenance.json",
+    "lightcraft-r3-aa-b.provenance.json",
+    "lightcraft-r3-point.provenance.json",
+    "lightcraft-r3-upstream.provenance.json"
+  ],
+  "binaries": [
+    {
+      "name": "craft-journeys",
+      "bytes": 15411480,
+      "sha256": "054ea4f977a63eccd0c4f9d2d492f666503878f654936adb0b0e72c21644b92e"
+    },
+    {
+      "name": "craft-journeys-direct-import",
+      "bytes": 1290040,
+      "sha256": "c179b7bc951239eefedfdc053fd43f7eef131afd5f05d222e7a56e6e547ba4fd"
+    },
+    {
+      "name": "lightcraft-r3-aa-a",
+      "bytes": 501248848,
+      "sha256": "64729930f3c9d6059fc5de182c37b308aa01d39e0756af6e7ad1b2a49d735ba5"
+    },
+    {
+      "name": "lightcraft-r3-aa-b",
+      "bytes": 501248416,
+      "sha256": "ae86f8f72a885bdeb4055a31ae77b263997c45ac026471d2f2fcc97d31fb65df"
+    },
+    {
+      "name": "lightcraft-r3-point",
+      "bytes": 490851504,
+      "sha256": "11ea16a43ef64bda8e11e7978d5e8a1653fb1a760df9cd1a93029fe41de48201"
+    },
+    {
+      "name": "lightcraft-r3-upstream",
+      "bytes": 500676080,
+      "sha256": "043d5aef18c3b5755b396ceee6ec461cc1ba37a14571e3c4cbcf19dbdb00d184"
+    }
+  ],
+  "note": "Binaries are regenerable and never enter NAS. Commands, source refs and hashes retained. Removed after all collection/verification."
+}

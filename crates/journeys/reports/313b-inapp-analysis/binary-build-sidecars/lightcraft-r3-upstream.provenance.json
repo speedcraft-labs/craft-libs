@@ -1,0 +1,17 @@
+{
+  "revision": "c2e9c456c9bfdcd4d56d8b88b8a5b546b69a3223",
+  "app_base_patch": "/jobs/work/speedcraft-labs/wt/313b-libs/crates/journeys/patches/lightcraft-session-latency.patch",
+  "patch_sha256": "44fe9373aab994e3db26f2e3f95683bcc827fe84e3717709036426430bfbc8c9",
+  "binary_sha256": "043d5aef18c3b5755b396ceee6ec461cc1ba37a14571e3c4cbcf19dbdb00d184",
+  "workspace_clean": true,
+  "patch_status": "applied",
+  "checkout": "/jobs/work/speedcraft-labs/wt/313b-r3-upstream",
+  "command": [
+    "cargo",
+    "build",
+    "--release",
+    "--locked",
+    "-p",
+    "lightcraft"
+  ]
+}
