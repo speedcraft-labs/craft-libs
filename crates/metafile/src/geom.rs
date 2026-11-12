@@ -1,4 +1,3 @@
-//! First-party provenance: DeckCraft `crates/metafile/src/geom.rs` (reader, originally from WordCraft).
 //! Path operations in `f64` and the shape builders that turn WMF/EMF rectangles, ellipses and arcs
 //! into cubic Béziers (the classic 4/3·tan(Δ/4) approximation, at most 90° per piece).
 
@@ -55,18 +54,14 @@ pub(crate) enum ArcKind {
 
 /// ARC, CHORD and PIE: the arc runs counter-clockwise on screen from the start point to the end point.
 pub(crate) fn arc_shape(l: f64, t: f64, r: f64, b: f64, s: P, e: P, kind: ArcKind) -> Vec<Op> {
-    directed_arc([l, t, r, b], s, e, kind, false)
-}
-
-pub(crate) fn directed_arc([l, t, r, b]: [f64; 4], s: P, e: P, kind: ArcKind, clockwise: bool) -> Vec<Op> {
     let (cx, cy, rx, ry) = center(l, t, r, b);
     let ang = |p: P| ((p.1 - cy) / ry.max(f64::MIN_POSITIVE)).atan2((p.0 - cx) / rx.max(f64::MIN_POSITIVE));
     let (a0, a1) = (ang(s), ang(e));
-    let mut d = if clockwise { a1 - a0 } else { a0 - a1 }.rem_euclid(TAU);
+    let mut d = (a0 - a1).rem_euclid(TAU);
     if d < 1e-12 {
         d = TAU;
     }
-    let sweep = if clockwise { d } else { -d };
+    let sweep = -d;
     let start = (cx + rx * a0.cos(), cy + ry * a0.sin());
     let mut ops = if kind == ArcKind::Pie { vec![Op::M((cx, cy)), Op::L(start)] } else { vec![Op::M(start)] };
     ops.extend(arc(cx, cy, rx, ry, a0, sweep));
@@ -104,19 +99,21 @@ fn arc(cx: f64, cy: f64, rx: f64, ry: f64, a0: f64, sweep: f64) -> Vec<Op> {
 /// Consecutive subpaths: `counts[i]` points each, taken in order from `pts`. Counts that run past the
 /// point list are cut short rather than failing the whole record.
 pub(crate) fn subpaths(pts: &[P], counts: &[usize], close: bool) -> Vec<Op> {
-    let (mut count, mut offset) = (0usize, 0usize);
-    for &length in counts {
-        let end = offset.saturating_add(length).min(pts.len());
-        if end > offset {
-            count = count.saturating_add(end - offset + usize::from(close));
+    // The exact size first: empty groups add no ops, so a long count list of zeros (file data)
+    // mustn't reserve room the canvas budget never sees.
+    let (mut n, mut at) = (0usize, 0usize);
+    for &c in counts {
+        let end = at.saturating_add(c).min(pts.len());
+        if end > at {
+            n = n.saturating_add(end - at + usize::from(close));
         }
-        offset = end;
+        at = end;
     }
-    let mut ops = Vec::with_capacity(count);
+    let mut ops = Vec::with_capacity(n);
     let mut at = 0usize;
     for &c in counts {
         let end = at.saturating_add(c).min(pts.len());
-        let Some((first, rest)) = pts.get(at..end).and_then(|s| s.split_first()) else {
+        let Some((first, rest)) = pts.get(at..end).and_then(<[_]>::split_first) else {
             at = end;
             continue;
         };

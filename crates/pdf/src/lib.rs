@@ -5,10 +5,14 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
-#[cfg(feature = "interpret")]
-pub use hayro_interpret as interpret;
+#[cfg(feature = "cos")]
+pub mod cos;
+#[cfg(feature = "crypt")]
+pub mod crypt;
 #[cfg(feature = "filters")]
 pub mod filters;
+#[cfg(feature = "interpret")]
+pub use hayro_interpret as interpret;
 mod link;
 #[cfg(feature = "read")]
 pub use hayro_syntax as syntax;

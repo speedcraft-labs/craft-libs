@@ -1,6 +1,6 @@
 [package]
 name = "craft-cfb"
-description = "Bounded read-only Compound File Binary (OLE2) container reader"
+description = "Clean-room Compound File Binary ([MS-CFB], OLE structured storage) reader and writer: the container of legacy Office files, Outlook messages and AAF."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,5 +10,7 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[dependencies]
+
 [dev-dependencies]
-proptest = { workspace = true }
+craft-media-testkit = { workspace = true }

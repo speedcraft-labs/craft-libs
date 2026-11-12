@@ -1,9 +1,9 @@
-//! First-party provenance: DeckCraft `crates/metafile/src/emfplus.rs` (DeckCraft reader additions).
 //! EMF+ (MS-EMFPLUS): GDI+ drawing records carried in EMF comment records.
 //!
-//! Most EMF+ files are *dual*: the same picture is also drawn with plain EMF records, which
-//! [`crate::emf`] already plays, so this reader ignores their EMF+ part. An *EMF+ only* file has
-//! nothing else to draw; for those this reader plays the records:
+//! Most EMF+ files are *dual*: the same picture is also drawn with plain EMF records as a
+//! fallback for GDI. Office draws metafiles with GDI+, which plays the EMF+ records and skips
+//! the plain ones (except after EmfPlusGetDC), and a fallback can be incomplete (a nested
+//! metafile it lacks), so this reader does the same. It plays the records:
 //! - brushes (solid, hatch, texture, linear and path gradients), pens, paths, images, fonts,
 //!   string formats and regions, including objects split across several records;
 //! - rectangles, polygons, lines, ellipses, paths and Béziers;
@@ -27,32 +27,32 @@
 use std::sync::Arc;
 
 use crate::bytes::Bytes;
-use crate::canvas::Raw;
 use crate::canvas::{BS_NULL, BS_SOLID, Brush, Canvas, LogFont, PS_NULL, Pen, RawTile, Xform, hatch_tile, mul};
-use crate::cliprect::{clip_polygon, convex, flatten, ops_bbox, pts_bbox, rect_poly};
+use crate::canvas::{Raw, RawClip};
+use crate::cliprect::{MAX_AREA_CLIP_WORK, clip_polygon_within, convex, flatten, ops_bbox, pts_bbox, rect_poly};
 use crate::dib::Rgba;
 use crate::geom::{Op, P};
 use crate::text::{ETO_CLIPPED, Font};
-use crate::{Item, Picture, Seg};
+use crate::{Item, LineStyle, Picture, Seg};
 
 /// "EMF+" as the comment identifier of an EMR_COMMENT holding EMF+ records.
 pub(crate) const EMF_PLUS: u32 = 0x2B46_4D45;
 const IDENTITY: Xform = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
 /// GDI+ allows 64 objects; ids are a byte.
-const MAX_OBJECTS: usize = 64;
-const MAX_STACK: usize = 64;
+pub(crate) const MAX_OBJECTS: usize = 64;
+pub(crate) const MAX_STACK: usize = 64;
 /// Points per path or point list read, as the plain EMF reader caps paths.
-const MAX_POINTS: usize = 100_000;
+pub(crate) const MAX_POINTS: usize = 100_000;
 /// Gradient stops read from a brush.
-const MAX_STOPS: usize = 256;
+pub(crate) const MAX_STOPS: usize = 256;
 /// Characters per string.
-const MAX_CHARS: usize = 32_768;
+pub(crate) const MAX_CHARS: usize = 32_768;
 /// Bytes gathered for one object split across records.
-const MAX_OBJECT_BYTES: usize = 64 * 1024 * 1024;
+pub(crate) const MAX_OBJECT_BYTES: usize = 64 * 1024 * 1024;
 /// Nesting depth of region nodes.
-const MAX_REGION_DEPTH: usize = 32;
+pub(crate) const MAX_REGION_DEPTH: usize = 32;
 /// Region nodes and path points parsed together, including nodes in sibling branches.
-const MAX_REGION_WORK: usize = MAX_POINTS;
+pub(crate) const MAX_REGION_WORK: usize = MAX_POINTS;
 
 const TA_RIGHT: u32 = 2;
 const TA_CENTER: u32 = 6;
@@ -178,6 +178,14 @@ enum ImageData {
     Meta(Picture),
 }
 
+thread_local! {
+    /// Nesting depth of metafile images being parsed, so a file of nested metafiles cannot run
+    /// the stack out.
+    static NESTING: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+/// Metafile images inside metafile images, at most.
+pub(crate) const MAX_NESTING: usize = 3;
+
 #[derive(Clone)]
 enum Obj {
     Brush(Fill),
@@ -209,9 +217,10 @@ struct Saved {
 }
 
 pub(crate) struct Plus {
-    budget: crate::limits::Budget,
-    /// An EMF+ header said the file is EMF+ only, so these records are the picture.
-    active: bool,
+    /// An EMF+ header said the file is dual: its plain EMF records are only a GDI fallback.
+    dual: bool,
+    /// An EmfPlusGetDC record opened a window of plain EMF records, until the next EMF+ record.
+    gdi: bool,
     dpi: f64,
     world: Xform,
     page: f64,
@@ -226,10 +235,10 @@ pub(crate) struct Plus {
 }
 
 impl Plus {
-    pub fn with_budget(budget: crate::limits::Budget) -> Self {
+    pub fn new() -> Self {
         Plus {
-            budget,
-            active: false,
+            dual: false,
+            gdi: false,
             dpi: 96.0,
             world: IDENTITY,
             page: 1.0,
@@ -242,8 +251,15 @@ impl Plus {
         }
     }
 
+    /// Whether the plain EMF record that follows is drawn: always, except in a dual file outside
+    /// an EmfPlusGetDC window.
+    pub fn plays_gdi(&self) -> bool {
+        !self.dual || self.gdi
+    }
+
     /// Plays the EMF+ records of one EMR_COMMENT payload (after the identifier).
     pub fn comment(&mut self, cv: &mut Canvas, data: Bytes) {
+        self.gdi = false;
         let mut pos = 0usize;
         while !cv.full() {
             let Some(tail) = data.0.get(pos..) else { break };
@@ -255,11 +271,9 @@ impl Plus {
             if size < 12 || dsize > size - 12 {
                 break;
             }
-            let Some(_) = tail.slice(0, size) else { break };
-            if !self.budget.record(size) {
-                break;
-            }
             let Some(rec) = tail.slice(12, dsize) else { break };
+            // Any EMF+ record ends a GetDC window; EmfPlusGetDC opens it again for its own.
+            self.gdi = false;
             let _ = self.record(cv, typ, flags, Bytes(rec));
             let Some(next) = pos.checked_add(size) else { break };
             pos = next;
@@ -277,23 +291,33 @@ impl Plus {
 
     fn record(&mut self, cv: &mut Canvas, typ: u16, flags: u16, r: Bytes) -> Option<()> {
         if typ == 0x4001 {
-            // Header: dual files also draw with EMF records, which win.
-            self.active = flags & 1 == 0;
+            self.dual = flags & 1 != 0;
             if let Some(d) = r.u32(8).map(f64::from).filter(|d| *d > 0.0 && *d < 100_000.0) {
                 self.dpi = d;
             }
             return Some(());
         }
-        if !self.active {
-            return None;
+        if typ == 0x4004 {
+            self.gdi = true;
+            return Some(());
         }
-        match typ {
-            0x4008 => self.object(flags, r),
+        let done = match typ {
+            0x4008 => self.object(flags, r, cv.used().saturating_add(self.clip_bytes())),
             0x4009 | 0x4013 | 0x401A..=0x401C | 0x4036 => self.record_image_text_region(cv, typ, flags, r),
             0x4025..=0x4035 => self.record_state(cv, typ, flags, r),
             0x4010..=0x4012 | 0x4016..=0x4019 => self.record_curve(cv, typ, flags, r),
             _ => self.record_shape(cv, typ, flags, r),
-        }
+        };
+        // What this player retains (objects, a continued object's pieces, the current and saved
+        // clips) shares the canvas's byte budget.
+        cv.hold(self.object_bytes.saturating_add(self.partial.as_ref().map_or(0, |p| p.data.len())).saturating_add(self.clip_bytes()));
+        done
+    }
+
+    /// Bytes of the current clip and of every saved one.
+    fn clip_bytes(&self) -> usize {
+        let area = |a: &Area| a.as_ref().map_or(0, |v| v.len().saturating_mul(std::mem::size_of::<P>()));
+        self.stack.iter().map(|s| area(&s.clip)).fold(area(&self.clip), usize::saturating_add)
     }
 
     /// Rectangle, polygon, ellipse and path records.
@@ -532,9 +556,6 @@ impl Plus {
     }
 
     fn push(&mut self, id: u32) {
-        if !self.budget.bytes(std::mem::size_of::<Saved>() + self.clip.as_ref().map_or(0, |points| points.len() * 16)) {
-            return;
-        }
         if self.stack.len() < MAX_STACK {
             self.stack.push(Saved { id, world: self.world, page: self.page, clip: self.clip.clone() });
         }
@@ -561,7 +582,7 @@ impl Plus {
         Some(())
     }
 
-    fn object(&mut self, flags: u16, r: Bytes) -> Option<()> {
+    fn object(&mut self, flags: u16, r: Bytes, canvas_used: usize) -> Option<()> {
         let id = usize::from(flags & 0xFF);
         let kind = (flags >> 8) & 0x7F;
         if flags & 0x8000 != 0 {
@@ -574,13 +595,10 @@ impl Plus {
             };
             let mut p = p;
             let room = p.total.saturating_sub(p.data.len());
-            if !self.budget.bytes(chunk.len().min(room)) {
-                return None;
-            }
             p.data.extend_from_slice(&chunk[..chunk.len().min(room)]);
             if p.data.len() >= p.total {
-                let obj = parse_object(p.kind, Bytes(&p.data), &self.budget);
-                self.store(p.id, obj);
+                let obj = parse_object(p.kind, Bytes(&p.data));
+                self.store(p.id, obj, canvas_used);
             } else {
                 self.partial = Some(p);
             }
@@ -592,27 +610,25 @@ impl Plus {
             && p.kind == kind
         {
             let room = p.total.saturating_sub(p.data.len());
-            if !self.budget.bytes(r.0.len().min(room)) {
-                return None;
-            }
             p.data.extend_from_slice(&r.0[..r.0.len().min(room)]);
-            let obj = parse_object(kind, Bytes(&p.data), &self.budget);
-            self.store(id, obj);
+            let obj = parse_object(kind, Bytes(&p.data));
+            self.store(id, obj, canvas_used);
             return Some(());
         }
-        let obj = parse_object(kind, r, &self.budget);
-        self.store(id, obj);
+        let obj = parse_object(kind, r);
+        self.store(id, obj, canvas_used);
         Some(())
     }
 
-    fn store(&mut self, id: usize, obj: Option<Obj>) {
+    /// `canvas_used` is what the canvas and the clips already retain: objects and items share one budget.
+    fn store(&mut self, id: usize, obj: Option<Obj>, canvas_used: usize) {
         let Some(slot) = self.objects.get_mut(id) else { return };
         if let Some(old) = slot.take() {
             self.object_bytes = self.object_bytes.saturating_sub(Self::obj_cost(&old));
         }
         if let Some(new_obj) = obj {
             let cost = Self::obj_cost(&new_obj);
-            if self.budget.bytes(cost) {
+            if self.object_bytes.saturating_add(cost).saturating_add(canvas_used) <= crate::MAX_BYTES {
                 self.object_bytes += cost;
                 *slot = Some(new_obj);
             }
@@ -623,7 +639,7 @@ impl Plus {
         match obj {
             Obj::Image(img) => match img.as_ref() {
                 ImageData::Bitmap(rgba) => rgba.px.len(),
-                ImageData::Meta(pic) => pic.items.len().saturating_mul(128),
+                ImageData::Meta(pic) => picture_cost(&pic.items),
             },
             Obj::Brush(Fill::Texture { img, .. }) => img.px.len(),
             Obj::Path(ops) => ops.len().saturating_mul(std::mem::size_of::<Op>()),
@@ -818,26 +834,23 @@ impl Painter {
     }
 
     fn no_pen(cv: &mut Canvas) {
-        cv.set_pen(Pen { style: PS_NULL, width: 0.0, color: [0, 0, 0, 0] });
+        cv.set_pen(Pen::new(PS_NULL, 0.0, [0, 0, 0, 0]));
     }
 
     fn fill(&self, cv: &mut Canvas, ops: &[Op], fill: &Fill) {
-        if matches!(fill, Fill::Hatch { style: 0..=5, .. }) && !cv.budget.bitmap(8, 8) {
-            return;
-        }
         self.begin(cv, IDENTITY);
         Self::no_pen(cv);
         match fill {
             Fill::Solid(c) => {
                 cv.set_brush(Brush::new(BS_SOLID, *c));
-                cv.shape(ops, true, false);
+                cv.shape(ops.to_vec(), true, false);
             }
             Fill::Hatch { style, fg, bg } => match hatch_tile(*style, *fg, Some(*bg)) {
                 Some(px) => cv.tile_shape(ops, Arc::new(RawTile { w: 8, h: 8, px, cell: cv.pattern_px })),
                 // GDI+ has many more hatch styles than GDI: those fill with the blend of both colours.
                 None => {
                     cv.set_brush(Brush::new(BS_SOLID, lerp(*fg, *bg, 0.5)));
-                    cv.shape(ops, true, false);
+                    cv.shape(ops.to_vec(), true, false);
                 }
             },
             _ => {
@@ -852,9 +865,9 @@ impl Painter {
 
     fn stroke(&self, cv: &mut Canvas, ops: &[Op], (color, width): ([u8; 4], f64)) {
         self.begin(cv, IDENTITY);
-        cv.set_pen(Pen { style: 0, width, color });
+        cv.set_pen(Pen::new(0, width, color));
         cv.set_brush(Brush::new(BS_NULL, [0, 0, 0, 0]));
-        cv.shape(ops, false, true);
+        cv.shape(ops.to_vec(), false, true);
         self.end(cv);
     }
 
@@ -888,12 +901,13 @@ impl Painter {
                 break;
             }
             let raw = match item {
-                Item::Path { segs, fill, stroke, even_odd, .. } => Raw::Path {
+                Item::Path { segs, fill, stroke, line, even_odd, .. } => Raw::Path {
                     ops: ops(segs),
                     fill: *fill,
                     stroke: stroke.map(|(c, w)| (c, f64::from(w) * scale)),
+                    line: LineStyle { dash: line.dash.iter().map(|d| (f64::from(*d) * scale) as f32).collect(), ..line.clone() },
                     even_odd: *even_odd,
-                    region: None,
+                    region: RawClip::default(),
                 },
                 Item::Pattern { segs, even_odd, tile, .. } => Raw::Pattern {
                     ops: ops(segs),
@@ -904,13 +918,20 @@ impl Painter {
                         px: tile.rgba.clone(),
                         cell: f64::from(tile.cell[0]) * scale,
                     }),
-                    region: None,
+                    region: RawClip::default(),
                 },
-                Item::Bitmap { rect, width, height, rgba, .. } => {
+                Item::Bitmap { rect, transform, width, height, rgba, .. } => {
                     let (a, b) = (pt(rect[0], rect[1]), pt(rect[0] + rect[2], rect[1] + rect[3]));
-                    let mut img = Rgba { w: *width as usize, h: *height as usize, bottom_up: false, px: rgba.clone() };
-                    crate::dib::flip(&mut img, a.0 > b.0, a.1 > b.1);
-                    Raw::Bitmap { rect: [a.0.min(b.0), a.1.min(b.1), (b.0 - a.0).abs(), (b.1 - a.1).abs()], img, region: None }
+                    let mut img = Rgba { w: *width as usize, h: *height as usize, px: rgba.clone() };
+                    let rect = [a.0.min(b.0), a.1.min(b.1), (b.0 - a.0).abs(), (b.1 - a.1).abs()];
+                    let turned = mul(*transform, m);
+                    let xf = if turned[1] == 0.0 && turned[2] == 0.0 {
+                        crate::dib::flip(&mut img, a.0 > b.0, a.1 > b.1);
+                        [rect[2], 0.0, 0.0, rect[3], rect[0], rect[1]]
+                    } else {
+                        turned
+                    };
+                    Raw::Bitmap { rect, xf, img, region: RawClip::default() }
                 }
                 Item::Text(t) => {
                     let mut t = t.clone();
@@ -919,7 +940,7 @@ impl Painter {
                         let (p, q) = (pt(x0, y0), pt(x1, y1));
                         t.clip = Some([p.0.min(q.0) as f32, p.1.min(q.1) as f32, p.0.max(q.0) as f32, p.1.max(q.1) as f32]);
                     }
-                    Raw::Text { text: t, region: None }
+                    Raw::Text { text: t, region: RawClip::default() }
                 }
             };
             cv.push_device(raw);
@@ -969,13 +990,13 @@ fn matrix(r: Bytes, off: usize) -> Option<Xform> {
     floats::<6>(r, off)
 }
 
-fn parse_object(kind: u16, r: Bytes, budget: &crate::limits::Budget) -> Option<Obj> {
+fn parse_object(kind: u16, r: Bytes) -> Option<Obj> {
     match kind {
-        1 => brush(r, 0, budget).map(Obj::Brush),
-        2 => pen(r, budget),
+        1 => brush(r, 0).map(Obj::Brush),
+        2 => pen(r),
         3 => path(r).map(Obj::Path),
         4 => region(r),
-        5 => image(r, budget).map(|i| Obj::Image(Arc::new(i))),
+        5 => image(r).map(|i| Obj::Image(Arc::new(i))),
         6 => font(r),
         7 => Some(Obj::Format(Format { flags: r.u32(4)?, align: r.u32(12)?, line_align: r.u32(16)? })),
         _ => None,
@@ -983,7 +1004,7 @@ fn parse_object(kind: u16, r: Bytes, budget: &crate::limits::Budget) -> Option<O
 }
 
 /// A brush object at `off`: version, type, then the type's data.
-fn brush(r: Bytes, off: usize, budget: &crate::limits::Budget) -> Option<Fill> {
+fn brush(r: Bytes, off: usize) -> Option<Fill> {
     let d = r.tail(off + 8)?;
     match r.u32(off + 4)? {
         0 => Some(Fill::Solid(argb(d.u32(0)?))),
@@ -992,7 +1013,7 @@ fn brush(r: Bytes, off: usize, budget: &crate::limits::Budget) -> Option<Fill> {
             let bflags = d.u32(0)?;
             let wrap = d.u32(4)?;
             let (xf, off) = if bflags & 0x2 != 0 { (matrix(d, 8)?, 32) } else { (IDENTITY, 8) };
-            let ImageData::Bitmap(img) = image(d.tail(off)?, budget)? else { return None };
+            let ImageData::Bitmap(img) = image(d.tail(off)?)? else { return None };
             Some(Fill::Texture { img: Arc::new(img), wrap, xf })
         }
         3 => path_gradient(d),
@@ -1057,7 +1078,7 @@ fn path_gradient(d: Bytes) -> Option<Fill> {
 }
 
 /// A pen object: version, type, then pen data (flags, unit, width, optional fields), then a brush.
-fn pen(r: Bytes, budget: &crate::limits::Budget) -> Option<Obj> {
+fn pen(r: Bytes) -> Option<Obj> {
     let pflags = r.u32(8)?;
     let width = f64::from(r.f32(16)?);
     let mut off = 20usize;
@@ -1076,7 +1097,7 @@ fn pen(r: Bytes, budget: &crate::limits::Budget) -> Option<Obj> {
             off += 4 + (r.u32(off)? as usize).min(1 << 20);
         }
     }
-    let color = brush(r, off, budget)?.color();
+    let color = brush(r, off)?.color();
     Some(Obj::Pen { color, width: if width.is_finite() { width.clamp(0.0, 1.0e5) } else { 0.0 } })
 }
 
@@ -1181,7 +1202,13 @@ fn area_of_ops(ops: &[Op]) -> Vec<P> {
 fn area_intersect(a: Area, b: Area) -> Area {
     match (a, b) {
         (None, x) | (x, None) => x,
-        (Some(a), Some(b)) if a.len() >= 3 && b.len() >= 3 => Some(convex(&clip_polygon(&a, &b)).unwrap_or_default()),
+        (Some(a), Some(b)) if a.len() >= 3 && b.len() >= 3 => {
+            // Out of work: keep the area so far rather than call the region empty.
+            match clip_polygon_within(&a, &b, &mut { MAX_AREA_CLIP_WORK }) {
+                Some(p) => Some(convex(&p).unwrap_or_default()),
+                None => Some(a),
+            }
+        }
         _ => Some(Vec::new()),
     }
 }
@@ -1265,28 +1292,61 @@ fn font(r: Bytes) -> Option<Obj> {
 
 /// An image object: a bitmap of raw pixels or a compressed (PNG, JPEG, GIF…) file, or a nested
 /// metafile.
-fn image(r: Bytes, budget: &crate::limits::Budget) -> Option<ImageData> {
+fn image(r: Bytes) -> Option<ImageData> {
     match r.u32(4)? {
-        1 => bitmap(r, budget).map(ImageData::Bitmap),
-        2 => metafile(r, budget).map(ImageData::Meta),
+        1 => bitmap(r).map(ImageData::Bitmap),
+        2 => metafile(r).map(ImageData::Meta),
         _ => None,
     }
 }
 
 /// A metafile image: type, size, then a WMF (placeable or not) or EMF file, parsed as a picture.
-fn metafile(r: Bytes, budget: &crate::limits::Budget) -> Option<Picture> {
+fn metafile(r: Bytes) -> Option<Picture> {
     let size = r.u32(12)? as usize;
     let data = r.slice(16, size).or_else(|| r.tail(16).map(|t| t.0))?;
-    let pic = crate::parse_budget(data, budget.nested()?).ok();
+    let depth = NESTING.with(std::cell::Cell::get);
+    if depth >= MAX_NESTING {
+        return None;
+    }
+    NESTING.with(|n| n.set(depth + 1));
+    let pic = crate::parse_nested(data).ok();
+    NESTING.with(|n| n.set(depth));
     pic.filter(|p| p.width > 0.0 && p.height > 0.0)
 }
 
-fn bitmap(r: Bytes, budget: &crate::limits::Budget) -> Option<Rgba> {
+/// Bytes the items of a nested picture own: path segments, dashes, clip rectangles, pixels and
+/// text, with each shared pattern tile and clip path counted once.
+fn picture_cost(items: &[Item]) -> usize {
+    let segs = |s: &Vec<Seg>| s.len().saturating_mul(std::mem::size_of::<Seg>());
+    let region = |r: &Option<Vec<[f32; 4]>>| r.as_ref().map_or(0, |v| v.len().saturating_mul(16));
+    let mut tiles = std::collections::HashSet::new();
+    let mut clip_paths = std::collections::HashSet::new();
+    let mut total = 0usize;
+    for item in items {
+        let (own, r, clips) = match item {
+            Item::Path { segs: s, line, region: r, clips, .. } => (segs(s).saturating_add(line.dash.len().saturating_mul(4)), r, clips),
+            Item::Bitmap { rgba, region: r, clips, .. } => (rgba.len(), r, clips),
+            Item::Pattern { segs: s, tile, region: r, clips, .. } => {
+                let tile_bytes = if tiles.insert(Arc::as_ptr(tile)) { tile.rgba.len() } else { 0 };
+                (segs(s).saturating_add(tile_bytes), r, clips)
+            }
+            Item::Text(t) => {
+                let own = t.text.len().saturating_add(t.dx.len().saturating_mul(std::mem::size_of::<f32>())).saturating_add(t.font.family.len());
+                (own, &t.region, &t.clips)
+            }
+        };
+        let clip_bytes = clips.iter().filter(|c| clip_paths.insert(Arc::as_ptr(c))).map(|c| segs(&c.segs)).fold(0usize, usize::saturating_add);
+        total = total.saturating_add(128).saturating_add(own).saturating_add(region(r)).saturating_add(clip_bytes);
+    }
+    total
+}
+
+fn bitmap(r: Bytes) -> Option<Rgba> {
     let (w, h, stride) = (r.u32(8)? as i32, r.u32(12)? as i32, r.u32(16)? as i32);
     let format = r.u32(20)?;
     let data = r.tail(28)?;
     if r.u32(24)? == 1 {
-        return decode_compressed(data.0, budget);
+        return crate::dib::decode_compressed(data.0);
     }
     let (w, h) = (usize::try_from(w).ok()?, usize::try_from(h).ok()?);
     if w == 0 || h == 0 || w.checked_mul(h)? > crate::MAX_PIXELS {
@@ -1303,10 +1363,7 @@ fn bitmap(r: Bytes, budget: &crate::limits::Budget) -> Option<Rgba> {
     };
     let row = (w.checked_mul(bpp)?).div_ceil(8);
     let stride_abs = (stride.unsigned_abs() as usize).max(row);
-    if !budget.bitmap(w, h) {
-        return None;
-    }
-    let mut px = Vec::with_capacity(w.checked_mul(h)?.checked_mul(4)?);
+    let mut px = Vec::with_capacity(w * h * 4);
     for y in 0..h {
         let line = pixels.slice(y.checked_mul(stride_abs)?, row)?;
         for x in 0..w {
@@ -1351,63 +1408,16 @@ fn bitmap(r: Bytes, budget: &crate::limits::Budget) -> Option<Rgba> {
         }
     }
     // A negative stride stores the rows bottom-up.
-    Some(top_down(Rgba { w, h, bottom_up: stride < 0, px }))
-}
-
-fn top_down(mut img: Rgba) -> Rgba {
-    if img.bottom_up {
+    let mut img = Rgba { w, h, px };
+    if stride < 0 {
         crate::dib::flip(&mut img, false, true);
-        img.bottom_up = false;
     }
-    img
-}
-
-fn decode_compressed(bytes: &[u8], budget: &crate::limits::Budget) -> Option<Rgba> {
-    let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().ok()?;
-    let mut limits = image::Limits::default();
-    limits.max_image_width = Some(1 << 15);
-    limits.max_image_height = Some(1 << 15);
-    limits.max_alloc = Some(budget.remaining_bytes() as u64);
-    reader.limits(limits);
-    let (w, h) = reader
-        .into_dimensions()
-        .map_err(|error| {
-            if matches!(error, image::ImageError::Limits(_)) {
-                budget.fail();
-            }
-            error
-        })
-        .ok()?;
-    let (w, h) = (w as usize, h as usize);
-    if w == 0 || h == 0 || w.checked_mul(h)? > crate::MAX_PIXELS {
-        return None;
-    }
-    let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().ok()?;
-    let mut limits = image::Limits::default();
-    limits.max_image_width = Some(1 << 15);
-    limits.max_image_height = Some(1 << 15);
-    limits.max_alloc = Some(budget.remaining_bytes() as u64);
-    reader.limits(limits);
-    if !budget.bitmap(w, h) {
-        return None;
-    }
-    let img = reader
-        .decode()
-        .map_err(|error| {
-            if matches!(error, image::ImageError::Limits(_)) {
-                budget.fail();
-            }
-            error
-        })
-        .ok()?
-        .to_rgba8();
-    Some(Rgba { w, h, bottom_up: false, px: img.into_raw() })
+    Some(img)
 }
 
 /// `n` points at `off`: 16-bit integers when compressed, else 32-bit floats.
 fn points(r: Bytes, off: usize, n: usize, compressed: bool) -> Option<Vec<P>> {
     let n = n.min(MAX_POINTS);
-    r.slice(off, n.checked_mul(if compressed { 4 } else { 8 })?)?;
     let mut v = Vec::with_capacity(n);
     for i in 0..n {
         v.push(if compressed {
@@ -1581,4 +1591,77 @@ fn wrap_line(line: &[u16], width: f64, em: f64) -> Vec<Vec<u16>> {
     cur.truncate(n);
     out.push(cur);
     out
+}
+
+#[cfg(test)]
+mod cost_tests {
+    use super::*;
+    use crate::{ClipPath, Tile};
+
+    #[test]
+    fn a_shared_pattern_tile_and_clip_path_are_charged_once() {
+        let tile = Arc::new(Tile { width: 512, height: 512, rgba: vec![0; 1 << 20], cell: [1.0, 1.0], origin: [0.0, 0.0] });
+        let clip = Arc::new(ClipPath { segs: vec![Seg::Close; 1 << 16], even_odd: false });
+        let item = || Item::Pattern {
+            segs: vec![Seg::Move(0.0, 0.0), Seg::Line(1.0, 1.0)],
+            even_odd: false,
+            tile: tile.clone(),
+            region: None,
+            clips: vec![clip.clone()],
+        };
+        let items: Vec<Item> = (0..257).map(|_| item()).collect();
+        let shared = (1 << 20) + (1 << 16) * std::mem::size_of::<Seg>();
+        let cost = picture_cost(&items);
+        assert!(cost >= shared && cost < shared + (1 << 20), "{cost}");
+    }
+
+    #[test]
+    fn a_nested_picture_is_charged_for_its_pixels() {
+        let bitmap = Item::Bitmap {
+            rect: [0.0; 4],
+            transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            width: 1024,
+            height: 1024,
+            rgba: vec![0; 4 << 20],
+            region: None,
+            clips: Vec::new(),
+        };
+        assert!(picture_cost(&[bitmap]) >= 4 << 20);
+    }
+
+    #[test]
+    fn an_object_is_not_stored_past_what_the_canvas_already_holds() {
+        let mut plus = Plus::new();
+        let path = || Some(Obj::Path(vec![Op::Z; 1000]));
+        plus.store(0, path(), crate::MAX_BYTES - 100);
+        assert!(plus.objects[0].is_none() && plus.object_bytes == 0);
+        plus.store(0, path(), 0);
+        assert!(plus.objects[0].is_some());
+    }
+
+    #[test]
+    fn pieces_of_a_continued_object_count_against_the_shared_budget() {
+        let (mut plus, mut cv) = (Plus::new(), Canvas::new());
+        // Image object (kind 5), id 0, continued: 1000 bytes announced, 100 delivered.
+        let mut rec = 1000u32.to_le_bytes().to_vec();
+        rec.extend([0u8; 100]);
+        plus.record(&mut cv, 0x4008, 0x8000 | (5 << 8), Bytes(&rec));
+        assert_eq!(cv.held(), 100);
+    }
+
+    #[test]
+    fn current_and_saved_clips_count_against_the_shared_budget() {
+        let (mut plus, mut cv) = (Plus::new(), Canvas::new());
+        let pts = vec![(0.0, 0.0); 1000];
+        plus.clip = Some(pts.clone());
+        plus.stack.push(Saved { id: 1, world: IDENTITY, page: 1.0, clip: Some(pts) });
+        // Any record refreshes the held count (an unknown record draws nothing).
+        plus.record(&mut cv, 0x40FF, 0, Bytes(&[]));
+        assert_eq!(cv.held(), 2 * 1000 * std::mem::size_of::<P>());
+        // Restoring the saved state releases the charge of what it dropped.
+        plus.stack.clear();
+        plus.clip = None;
+        plus.record(&mut cv, 0x40FF, 0, Bytes(&[]));
+        assert_eq!(cv.held(), 0);
+    }
 }
