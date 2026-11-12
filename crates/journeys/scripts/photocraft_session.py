@@ -699,7 +699,7 @@ def run(config_path: Path, out: Path) -> int:
             result["sessions"].append(spawn_side(side, {}, config, out))
         result["gpu_process_checks_passed"] = all(session["gpu_process_checks_passed"] for session in result["sessions"])
         result["gpu_state_passed"] = all(session["gpu_state_passed"] for session in result["sessions"])
-        expected_samples = 1 if config.get("smoke") else (12 if config.get("brush_only") else 56)
+        expected_samples = 1 if config.get("smoke") else (16 if config.get("brush_only") else 56)
         result["session_complete"] = all(session["process_exit_code"] == 0 and len(session["samples"]) == expected_samples for session in result["sessions"])
         result["comparison_complete"] = result["session_complete"] and len(result["sessions"]) == 2
         result["prior_acquisitions_passed"] = True
