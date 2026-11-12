@@ -60,7 +60,10 @@ def main():
             out=reports/f'pair-{pair:02d}-try-{attempt:02d}'
             if out.exists():
                 continue
-            command=['flock','-x',BENCH,'flock','-x',GPU,'env',f'CRAFT_JOURNEYS_HARNESS_BIN={HARNESS}','python3',str(LEASE),str(config),str(out)]
+            # Each invocation is one lock acquisition. Never queue for either global lock:
+            # on contention retain the failed attempt and retry only after checking the
+            # separate bench.lock.guard.flock is free, without holding the GPU lock.
+            command=['flock','-n','-x',BENCH,'flock','-n','-x',GPU,'env',f'CRAFT_JOURNEYS_HARNESS_BIN={HARNESS}','python3',str(LEASE),str(config),str(out)]
             print(f'{acquisition} pair {pair:02d} try {attempt}: one locked acquisition',flush=True)
             result=subprocess.run(command,text=True,capture_output=True)
             (reports/f'pair-{pair:02d}-try-{attempt:02d}.operator.log').write_text(f'exit_code={result.returncode}\nCOMMAND={" ".join(command)}\n\nSTDOUT\n{result.stdout}\nSTDERR\n{result.stderr}')
