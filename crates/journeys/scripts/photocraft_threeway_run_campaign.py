@@ -25,6 +25,27 @@ def main():
     pairs={'proof':1,'aa':20,'threeway':10}[args.campaign]
     good=json.loads((reports/'successful-pairs.json').read_text()) if (reports/'successful-pairs.json').exists() else []
     failed=json.loads((reports/'failed-pairs.json').read_text()) if (reports/'failed-pairs.json').exists() else []
+    def is_current_success(item):
+        name=Path(item).name
+        prefix=name.split('-try-',1)[0]
+        if not prefix.startswith('pair-'):
+            return False
+        try: pair=int(prefix[5:])
+        except ValueError: return False
+        config_path=configs/f'pair-{pair:02d}.json'
+        report_path=Path(item)/'report.json'
+        if not config_path.exists() or not report_path.exists():
+            return False
+        config_value=json.loads(config_path.read_text())
+        value=json.loads(report_path.read_text())
+        recorded=value.get('config',{})
+        expected={(side.get('role'),side.get('revision'),side.get('binary_sha256')) for side in config_value.get('sides',[])}
+        actual={(side.get('role'),side.get('revision'),side.get('binary_sha256')) for side in recorded.get('sides',[])}
+        return actual==expected and recorded.get('expected_driver_sha256')==config_value.get('expected_driver_sha256') and all(value.get(k) is True for k in ('session_complete','publishable','gpu_process_checks_passed','gpu_state_passed','output_checked'))
+    good=[item for item in good if is_current_success(item)]
+    current_pairs={int(Path(item).name[5:7]) for item in good}
+    failed=sorted(set(failed) | (set(range(pairs))-current_pairs))
+    failed=[pair for pair in failed if pair not in current_pairs]
     selected_pairs=list(range(pairs)) if args.only_pairs is None else args.only_pairs
     if len(set(selected_pairs)) != len(selected_pairs) or any(pair < 0 or pair >= pairs for pair in selected_pairs):
         parser.error(f'--only-pairs values must be unique integers in [0, {pairs - 1}]')
