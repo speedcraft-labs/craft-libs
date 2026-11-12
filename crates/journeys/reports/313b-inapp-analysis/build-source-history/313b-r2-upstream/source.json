@@ -1,0 +1,27 @@
+{
+  "repo": "lightcraft",
+  "path": "/jobs/work/speedcraft-labs/wt/313b-r2-upstream",
+  "head": "c2e9c456c9bfdcd4d56d8b88b8a5b546b69a3223",
+  "branch": null,
+  "changes": [
+    " M apps/lightcraft/src/control_server.rs",
+    " M apps/lightcraft/src/main.rs",
+    " M crates/ui-egui/src/app.rs",
+    " M crates/ui-egui/src/app/control.rs",
+    " M crates/ui-egui/src/lib.rs",
+    "?? apps/lightcraft/src/latency.rs",
+    "?? crates/ui-egui/src/latency.rs"
+  ],
+  "tracked_patch_sha256": "6c6a23ebc4f08f67f1a7ba107cf74c67c8bde84033dcf0bef08902d09af9c1b1",
+  "untracked_files": [
+    {
+      "path": "apps/lightcraft/src/latency.rs",
+      "sha256": "a4c172a8b7923f3bb83abaea645a86bfedfbbe6cbe93d99f9d0b697c29768043"
+    },
+    {
+      "path": "crates/ui-egui/src/latency.rs",
+      "sha256": "f5c74461042e495f684da6767ec1dba000800d8e54a9e127bb14339b8ce08cac"
+    }
+  ],
+  "note": "Regenerable build worktree source only; all recorder variants match pushed commit history. No binaries or generated images retained here. Apply tracked.patch to base HEAD then restore untracked files to reconstruct this build source."
+}

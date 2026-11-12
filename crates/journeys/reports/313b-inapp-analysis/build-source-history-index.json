@@ -1,0 +1,89 @@
+{
+  "variants": [
+    {
+      "hashes": {
+        "apps/lightcraft/src/latency.rs": "a4c172a8b7923f3bb83abaea645a86bfedfbbe6cbe93d99f9d0b697c29768043",
+        "crates/ui-egui/src/latency.rs": "29163e85794468b5e75d18dfadbac299a35e812c72cf917c20dbf625c6c3e26d"
+      },
+      "worktrees": [
+        "313b-aa-a"
+      ],
+      "matching_refs": [],
+      "matching_commits": [
+        "cced432e5e5f95c5c8c2be3f68c173036fa50c4d"
+      ]
+    },
+    {
+      "hashes": {
+        "apps/lightcraft/src/latency.rs": "a4c172a8b7923f3bb83abaea645a86bfedfbbe6cbe93d99f9d0b697c29768043",
+        "crates/ui-egui/src/latency.rs": "dc3bf9abad1fdaf023d82ec56e1af846e813aba9ce9d45c9a6fc68bf61f820ac"
+      },
+      "worktrees": [
+        "313b-aa-a-final",
+        "313b-aa-a-validated",
+        "313b-aa-b-final",
+        "313b-point-final",
+        "313b-upstream-final"
+      ],
+      "matching_refs": [
+        "failed/313b-startup-filmstrip"
+      ],
+      "matching_commits": [
+        "19d81761e547c49972e3dd25c293ff4561510670"
+      ]
+    },
+    {
+      "hashes": {
+        "apps/lightcraft/src/latency.rs": "a4c172a8b7923f3bb83abaea645a86bfedfbbe6cbe93d99f9d0b697c29768043",
+        "crates/ui-egui/src/latency.rs": "f5c74461042e495f684da6767ec1dba000800d8e54a9e127bb14339b8ce08cac"
+      },
+      "worktrees": [
+        "313b-r2-aa-a",
+        "313b-r2-aa-b",
+        "313b-r2-point",
+        "313b-r2-upstream"
+      ],
+      "matching_refs": [
+        "failed/313b-ui-record-wake"
+      ],
+      "matching_commits": [
+        "792a54446a65855235764fc708be83cf4f38feb9"
+      ]
+    },
+    {
+      "hashes": {
+        "apps/lightcraft/src/latency.rs": "2187eab38e2c8b427138388b32383712574a275495b99edfb6633e93d976507c",
+        "crates/ui-egui/src/latency.rs": "a83f311b1dbaf1e8b365287ed2b7796fa913023bf33ee04d391d8429dd5ebeb7"
+      },
+      "worktrees": [
+        "313b-r3-aa-a",
+        "313b-r3-aa-b",
+        "313b-r3-point",
+        "313b-r3-upstream"
+      ],
+      "matching_refs": [
+        "algo/313b-inapp-timing"
+      ],
+      "matching_commits": [
+        "62b1627cef9f8a9d9ac51de6595e29185bb2361e"
+      ]
+    }
+  ],
+  "bundles": [
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-aa-a",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-aa-a-final",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-aa-a-validated",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-aa-b-final",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-point-final",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-r2-aa-a",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-r2-aa-b",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-r2-point",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-r2-upstream",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-r3-aa-a",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-r3-aa-b",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-r3-point",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-r3-upstream",
+    "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/build-source-history/313b-upstream-final"
+  ],
+  "note": "All dirtied build sources preserved before final cleanup; production source untouched; final cohorts use only r3."
+}

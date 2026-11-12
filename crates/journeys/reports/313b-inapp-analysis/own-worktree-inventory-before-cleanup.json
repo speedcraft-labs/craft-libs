@@ -1,0 +1,296 @@
+[
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-aa-a",
+    "head": "d97557e02188f6466c448773d98127222e702daf",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-aa-a-final",
+    "head": "d97557e02188f6466c448773d98127222e702daf",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-aa-a-validated",
+    "head": "d97557e02188f6466c448773d98127222e702daf",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-aa-b-final",
+    "head": "d97557e02188f6466c448773d98127222e702daf",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-clean-main",
+    "head": "d97557e02188f6466c448773d98127222e702daf",
+    "branch": null,
+    "changes": []
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-failed-startup",
+    "head": "53bf7a74bb0864ab7dad5fbfb18af90db0231f5d",
+    "branch": "refs/heads/failed/313b-startup-filmstrip",
+    "changes": []
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-failed-ui-read-app",
+    "head": "f97c5740d38161906c0990d0a8f804bc995cf02f",
+    "branch": "refs/heads/failed/313b-ui-record-wake",
+    "changes": []
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-lightcraft",
+    "head": "be68fb49482096d0a4b3def38e5938b3d731480d",
+    "branch": "refs/heads/algo/313b-inapp-timing",
+    "changes": []
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-point",
+    "head": "fc97c728644d399843d8201f83d25ccf81b89669",
+    "branch": null,
+    "changes": []
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-point-final",
+    "head": "fc97c728644d399843d8201f83d25ccf81b89669",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-r2-aa-a",
+    "head": "d97557e02188f6466c448773d98127222e702daf",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-r2-aa-b",
+    "head": "d97557e02188f6466c448773d98127222e702daf",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-r2-point",
+    "head": "fc97c728644d399843d8201f83d25ccf81b89669",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-r2-upstream",
+    "head": "c2e9c456c9bfdcd4d56d8b88b8a5b546b69a3223",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-r3-aa-a",
+    "head": "d97557e02188f6466c448773d98127222e702daf",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-r3-aa-b",
+    "head": "d97557e02188f6466c448773d98127222e702daf",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-r3-point",
+    "head": "fc97c728644d399843d8201f83d25ccf81b89669",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-r3-upstream",
+    "head": "c2e9c456c9bfdcd4d56d8b88b8a5b546b69a3223",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-upstream",
+    "head": "c2e9c456c9bfdcd4d56d8b88b8a5b546b69a3223",
+    "branch": null,
+    "changes": []
+  },
+  {
+    "repo": "lightcraft",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-upstream-final",
+    "head": "c2e9c456c9bfdcd4d56d8b88b8a5b546b69a3223",
+    "branch": null,
+    "changes": [
+      " M apps/lightcraft/src/control_server.rs",
+      " M apps/lightcraft/src/main.rs",
+      " M crates/ui-egui/src/app.rs",
+      " M crates/ui-egui/src/app/control.rs",
+      " M crates/ui-egui/src/lib.rs",
+      "?? apps/lightcraft/src/latency.rs",
+      "?? crates/ui-egui/src/latency.rs"
+    ]
+  },
+  {
+    "repo": "craft-libs",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-analysis",
+    "head": "a46ef4e8aac8a9a65968d000f1cdc037308b5820",
+    "branch": "refs/heads/wip/313b-inapp-analysis",
+    "changes": []
+  },
+  {
+    "repo": "craft-libs",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-direct-import",
+    "head": "ad0f520c5bf295cfd20091d36c9baf4f7a701b1c",
+    "branch": "refs/heads/wip/313b-direct-import",
+    "changes": []
+  },
+  {
+    "repo": "craft-libs",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-failed-build",
+    "head": "740361dd7fff04600b18e87a7e5de5cbd3861484",
+    "branch": "refs/heads/failed/313b-workspace-artifacts",
+    "changes": []
+  },
+  {
+    "repo": "craft-libs",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-failed-lease12",
+    "head": "f54d0a1788b46e5811e54e475d80cd9a8533f7b1",
+    "branch": "refs/heads/failed/313b-lease12",
+    "changes": []
+  },
+  {
+    "repo": "craft-libs",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-failed-ui-read-libs",
+    "head": "f78de9268ca99e2d79292cc0f9542ccce563be8a",
+    "branch": "refs/heads/failed/313b-ui-record-wake",
+    "changes": []
+  },
+  {
+    "repo": "craft-libs",
+    "path": "/jobs/work/speedcraft-labs/wt/313b-libs",
+    "head": "ad0f520c5bf295cfd20091d36c9baf4f7a701b1c",
+    "branch": "refs/heads/algo/313b-inapp-timing",
+    "changes": []
+  }
+]

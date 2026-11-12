@@ -1,0 +1,133 @@
+diff --git a/apps/lightcraft/src/control_server.rs b/apps/lightcraft/src/control_server.rs
+index f6066964..adac6a6c 100644
+--- a/apps/lightcraft/src/control_server.rs
++++ b/apps/lightcraft/src/control_server.rs
+@@ -88,11 +88,12 @@ fn serve(stream: TcpStream, tx: &Sender<ControlRequest>, ctx: &egui::Context, id
+         return;
+     }
+     serve_stream(stream, |method, params| {
++        let timeout = if method == "ui.latency.wait" { Duration::from_secs(600) } else { REPLY_TIMEOUT };
+         let (req, rrx) = ControlRequest::new(method, params);
+         let state = Arc::clone(&req.state);
+         tx.send(req).ok()?;
+         ctx.request_repaint();
+-        Some(await_reply(&rrx, &state, || ctx.cumulative_pass_nr(), || ctx.request_repaint(), NO_FRAMES_AFTER, REPLY_TIMEOUT))
++        Some(await_reply(&rrx, &state, || ctx.cumulative_pass_nr(), || ctx.request_repaint(), NO_FRAMES_AFTER, timeout))
+     });
+ }
+ 
+diff --git a/apps/lightcraft/src/main.rs b/apps/lightcraft/src/main.rs
+index 97479ad6..4211c567 100644
+--- a/apps/lightcraft/src/main.rs
++++ b/apps/lightcraft/src/main.rs
+@@ -32,6 +32,7 @@ mod control_server;
+ mod dialog_filter;
+ mod editors;
+ mod hdr_display;
++mod latency;
+ mod logging;
+ #[cfg(target_os = "macos")]
+ mod native_menu;
+@@ -181,6 +182,10 @@ impl eframe::App for App {
+             self.0.renderer.set_screen_textures(Box::new(t));
+         }
+         self.0.ui(ui);
++        // The disabled path does not inspect state, read a clock, poll a device or add a shape.
++        if self.0.latency.is_some() {
++            latency::frame(&mut self.0, ui, frame);
++        }
+     }
+     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+         // (a size the window was just given is remembered too)
+@@ -223,6 +228,7 @@ impl eframe::App for App {
+ const EXIT_WAIT: std::time::Duration = std::time::Duration::from_secs(2);
+ 
+ fn main() -> eframe::Result {
++    let latency_entry = (std::env::var("LIGHTCRAFT_LATENCY").as_deref() == Ok("1")).then(std::time::Instant::now);
+     // Windows: the update helper is a copy of this program started with `--finish-update`.
+     #[cfg(windows)]
+     if let Some(result) = craft_update::self_update::finish(&lightcraft_ui_egui::UPDATE_APP, &std::env::args_os().skip(1).collect::<Vec<_>>()) {
+@@ -364,6 +370,9 @@ fn main() -> eframe::Result {
+                 // HDR display: SDR unless the surface, platform and display all allow HDR
+                 hdr_display::report(cc.wgpu_render_state.as_ref().map(|r| r.target_format));
+                 let mut app = LightcraftApp::new(session, services(cc, app_log_file.as_deref()));
++                if let (Some(r), Some(entry)) = (app.latency.as_mut(), latency_entry) {
++                    r.startup(entry);
++                }
+                 app.set_startup_update_check(true);
+                 if let Some(ui) = prefs {
+                     app.ui = ui;
+diff --git a/crates/ui-egui/src/app.rs b/crates/ui-egui/src/app.rs
+index 6d9faaaf..ec6af927 100644
+--- a/crates/ui-egui/src/app.rs
++++ b/crates/ui-egui/src/app.rs
+@@ -46,6 +46,7 @@ impl LightcraftApp {
+             notice_input: Default::default(),
+             quit_confirmed: false,
+             control_rx: None,
++            latency: crate::latency::Recorder::from_env(),
+             pending_screenshots: vec![],
+             pending_gestures: vec![],
+             layout_epoch: 0,
+diff --git a/crates/ui-egui/src/app/control.rs b/crates/ui-egui/src/app/control.rs
+index 76352410..757622a6 100644
+--- a/crates/ui-egui/src/app/control.rs
++++ b/crates/ui-egui/src/app/control.rs
+@@ -14,7 +14,35 @@ impl LightcraftApp {
+                 continue;
+             }
+             let reply = req.reply.clone();
+-            match control::handle(self, ctx, &req) {
++            if req.method == "ui.latency.wait" {
++                let result = self.latency.as_mut().ok_or("latency recorder disabled").and_then(|r| r.wait(&req.params, reply.clone()));
++                if let Err(e) = result {
++                    let _ = reply.send(control::failure(e));
++                }
++                continue;
++            }
++            if req.method == "ui.latency.idle" {
++                let _ =
++                    reply.send(control::success(serde_json::json!({"idle": self.latency_pending().is_empty(), "pending": self.latency_pending()})));
++                continue;
++            }
++            if let Some(meta) = req.params.get("_latency") {
++                let key = self.renderer.textures.get(&crate::render::Slot::Main).map(|t| t.key);
++                let result = self.latency.as_mut().ok_or("latency recorder disabled").and_then(|r| r.begin(meta, key));
++                if let Err(e) = result {
++                    let _ = reply.send(control::failure(e));
++                    continue;
++                }
++            }
++            let outcome = control::handle(self, ctx, &req);
++            if req.params.get("_latency").is_some_and(|m| m["action"] == "preview")
++                && req.params["command"] == "view.detail"
++                && let Err(e) = self.run("view.zoom100", serde_json::json!({}))
++            {
++                let _ = reply.send(control::failure(e));
++                continue;
++            }
++            match outcome {
+                 control::Outcome::Done(v) => {
+                     let _ = reply.send(v);
+                 }
+diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
+index c40d16b8..87fac20b 100644
+--- a/crates/ui-egui/src/lib.rs
++++ b/crates/ui-egui/src/lib.rs
+@@ -30,6 +30,7 @@ mod frame_rate;
+ pub mod headless;
+ pub mod i18n;
+ pub mod icons;
++pub mod latency;
+ pub mod lens_db;
+ pub mod lightroom_import;
+ pub mod links;
+@@ -155,6 +156,8 @@ pub struct LightcraftApp {
+     pub services: Services,
+     pub renderer: render::Renderer,
+     pub perf: Perf,
++    /// Off by default; the desktop host supplies GPU completion for recorded frames.
++    pub latency: Option<latency::Recorder>,
+     /// macOS: the host draws the traffic lights over our top bar.
+     pub integrated_titlebar: bool,
+     /// The `movable` flag last given to the window (macOS, `craft_window::title_bar::sync_movable`).
