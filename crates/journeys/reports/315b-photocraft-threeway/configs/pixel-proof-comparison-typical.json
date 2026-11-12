@@ -1,0 +1,89 @@
+{
+  "app": "photocraft",
+  "acquisition": "pixel-proof-comparison-typical",
+  "pair": 0,
+  "tier": "typical",
+  "planned_pairs": 1,
+  "expected_driver_sha256": "2e4ddbc66c4e1cf921ddd8b05929d44203e598f22dad9e990c9f39bbda3625fb",
+  "gpu_state": {
+    "graphics_mhz": 1350,
+    "memory_mhz": 7000
+  },
+  "payload": {
+    "path": "/jobs/work/speedcraft-labs/keep/315-photocraft-latency/payloads/photocraft-typical-layered.psd",
+    "sha256": "ad14251fe3b44e3a1c95d28b6cdd1e5b577ead48912aa4e93cbaf1e8780f9b1d",
+    "dimensions": [
+      4000,
+      3000
+    ]
+  },
+  "ui": {
+    "window": {
+      "width": 1600,
+      "height": 1000
+    },
+    "canvas": [
+      92,
+      113,
+      1128,
+      843
+    ],
+    "visibility_eye": [
+      1332,
+      610
+    ],
+    "blend_dropdown": [
+      1368,
+      551
+    ],
+    "blend_options": {
+      "normal": [
+        1388,
+        583
+      ],
+      "multiply": [
+        1388,
+        674
+      ]
+    },
+    "move_auto_select": [
+      136,
+      49
+    ]
+  },
+  "sides": [
+    {
+      "name": "fork",
+      "role": "fork",
+      "revision": "2b7fa81578a0457eb850e457ab6643cc0ce2e36c",
+      "binary": "/jobs/work/speedcraft-labs/keep/315-photocraft-latency/binaries/photocraft-fork-aa-a",
+      "binary_sha256": "07dcc024b91af890ac75e98cbe96902229dcda408cf55fc930be2c1c87bb65d7"
+    },
+    {
+      "name": "upstream",
+      "role": "upstream",
+      "revision": "eee667f1d92e34db6c438ddd20f3e4f5339cf8a7",
+      "binary": "/jobs/work/speedcraft-labs/keep/315-photocraft-latency/binaries/photocraft-upstream-patched",
+      "binary_sha256": "6ebbb58b20c586a6bf9667ca4d8738c4c9d01bb29f285196fa0716693c04ca20",
+      "ui": {
+        "blend_options": {
+          "normal": [
+            1388,
+            24
+          ],
+          "multiply": [
+            1388,
+            120
+          ]
+        }
+      }
+    }
+  ],
+  "source_pins": {
+    "fork_tip": "f07b6b895331287cde377dbffe61abfbdc2a6d5d",
+    "fork_with_recorder": "2b7fa81578a0457eb850e457ab6643cc0ce2e36c",
+    "upstream_tip": "eee667f1d92e34db6c438ddd20f3e4f5339cf8a7",
+    "upstream_app_base_patch_sha256": "7f9c44884d81e4ba4576ea69af2ae8554346d6fbf0d27428b3b30a0b21431b4c"
+  },
+  "pixel_proof": true
+}

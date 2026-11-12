@@ -1,0 +1,96 @@
+{
+  "app": "photocraft",
+  "acquisition": "aa-heavy",
+  "pair": 9,
+  "tier": "heavy",
+  "planned_pairs": 20,
+  "expected_driver_sha256": "ff8429f223ff214f2217986bd5ff9c94872f60dccd8cd4ca228800e55358f47c",
+  "gpu_state": {
+    "graphics_mhz": 1350,
+    "memory_mhz": 7000
+  },
+  "payload": {
+    "path": "/jobs/work/speedcraft-labs/keep/315-photocraft-latency/payloads/photocraft-heavy-layered.psd",
+    "sha256": "64bcfcd57979b88b91c796bfc32389814cb50dfa4a1209c064a218477edf54fa",
+    "dimensions": [
+      5000,
+      4800
+    ]
+  },
+  "ui": {
+    "window": {
+      "width": 1600,
+      "height": 1000
+    },
+    "update_later": [
+      870,
+      551
+    ],
+    "canvas": [
+      92,
+      113,
+      1128,
+      843
+    ],
+    "visibility_eye": [
+      1332,
+      610
+    ],
+    "blend_dropdown": [
+      1368,
+      551
+    ],
+    "blend_options": {
+      "normal": [
+        1388,
+        583
+      ],
+      "multiply": [
+        1388,
+        674
+      ]
+    },
+    "move_auto_select": [
+      136,
+      49
+    ]
+  },
+  "sides": [
+    {
+      "name": "a",
+      "role": "a",
+      "revision": "f07b6b895331287cde377dbffe61abfbdc2a6d5d",
+      "binary": "/jobs/work/speedcraft-labs/targets/315b/pinned/photocraft-b-fork-tip",
+      "binary_sha256": "19aab350144684e655c529f4472917f788694895b7349d9a648d29c13bec28f1"
+    },
+    {
+      "name": "b",
+      "role": "b",
+      "revision": "f07b6b895331287cde377dbffe61abfbdc2a6d5d",
+      "binary": "/jobs/work/speedcraft-labs/targets/315b/pinned/photocraft-b-fork-tip",
+      "binary_sha256": "19aab350144684e655c529f4472917f788694895b7349d9a648d29c13bec28f1"
+    }
+  ],
+  "brush_only": true,
+  "pixel_proof": false,
+  "capture_update_notice": false,
+  "source_pins": {
+    "merge_base": "316e00a97eab730e60584df578c295b5c2539d95",
+    "fork_tip": "f07b6b895331287cde377dbffe61abfbdc2a6d5d",
+    "upstream_tip": "eee667f1d92e34db6c438ddd20f3e4f5339cf8a7",
+    "recorder_branch": "wip/315b-photocraft-threeway",
+    "recorder_commit": "a521eca82",
+    "fork_tip_recorder_branch": "wip/315b-photocraft-tip",
+    "fork_tip_recorder_commit": "a34006331",
+    "craft_libs_driver_commit": "19acfde5b7a5",
+    "upstream_recorder_patches": [
+      "photocraft-session-latency.patch",
+      "photocraft-session-frame-capture-and-dabs.patch",
+      "photocraft-session-point-frame-capture.patch",
+      "photocraft-session-frame-rgb-capture.patch",
+      "photocraft-session-upstream-dab-count.patch"
+    ],
+    "upstream_recorder_branch": "wip/315b-photocraft-upstream-recorder",
+    "upstream_recorder_commit": "604a2c766"
+  }
+}
