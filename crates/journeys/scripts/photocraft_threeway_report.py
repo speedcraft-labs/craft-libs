@@ -16,11 +16,12 @@ def percentile(values: list[float], p: float) -> float:
     return xs[lo]+(xs[math.ceil(at)]-xs[lo])*(at-lo)
 
 def samples(session: dict[str,Any], label: str, phase: str, metric: str) -> list[int]:
+    out=[]
     for sample in session.get('samples',[]):
         if sample.get('action')=='brush' and sample.get('label')==label and sample.get('phase')==phase:
-            if metric=='point': return [int(v) for v in sample.get('point_latencies_ns',[])]
-            return [int(sample['duration_ns'])]
-    return []
+            if metric=='point': out.extend(int(v) for v in sample.get('point_latencies_ns',[]))
+            else: out.append(int(sample['duration_ns']))
+    return out
 
 def load(paths: list[Path]) -> list[dict[str,Any]]:
     reports=[]
@@ -87,10 +88,10 @@ def main() -> int:
                     build={role:{'median_ms':statistics.median(pooled(comp,tier,role,label,phase,metric))/1e6,'p95_ms':percentile([float(v) for r in comp for s in r.get('sessions',[]) if s.get('tier')==tier and s.get('side_role',s['side'])==role for v in samples(s,label,phase,metric)],.95)/1e6} for role in ('a','b','c')}
                     rows[-1]['builds']=build
                     rows[-2]['builds']=build
-    lines=['Ratio a/b compares merge-base with fork tip; a/c compares merge-base with upstream tip. Ratios use paired session medians and 10,000 bootstrap resamples. Point values use the 200 accepted down/move frame samples; stroke total is first accepted input through the release-frame GPU fence.','', '| Tier | Brush action | State | A median/p95 ms | B median/p95 ms | C median/p95 ms | a/b (95% CI) | a/c (95% CI) | A/A gate |','|---|---|---|---:|---:|---:|---:|---:|---|']
-    point_rows=[r for r in rows if r['metric']=='point']
-    for r in point_rows:
-        build=r['builds']; same=next(x for x in rows if x['tier']==r['tier'] and x['label']==r['label'] and x['phase']==r['phase'] and x['metric']=='point' and x['left_role']=='a' and x['right_role']=='c')
+    lines=['Ratio a/b compares merge-base with fork tip; a/c compares merge-base with upstream tip. Ratios use per-pair session medians and 10,000 bootstrap resamples. Stroke total runs from first accepted input through the release-frame GPU fence. Point-frame values are excluded from this stroke table because RGB proof showed upstream can present the cursor before the stroke pixels.','', '| Tier | Brush action | State | A median/p95 ms | B median/p95 ms | C median/p95 ms | a/b (95% CI) | a/c (95% CI) | A/A gate |','|---|---|---|---:|---:|---:|---:|---:|---|']
+    stroke_rows=[r for r in rows if r['metric']=='stroke total' and r['left_role']=='a' and r['right_role']=='b']
+    for r in stroke_rows:
+        build=r['builds']; same=next(x for x in rows if x['tier']==r['tier'] and x['label']==r['label'] and x['phase']==r['phase'] and x['metric']=='stroke total' and x['left_role']=='a' and x['right_role']=='c')
         val=lambda role:f"{build[role]['median_ms']:.2f}/{build[role]['p95_ms']:.2f}"
         lines.append(f"| {r['tier']} | {r['label']} | {r['phase']} | {val('a')} | {val('b')} | {val('c')} | {r['ratio']:.3f} ({r['ci95'][0]:.3f}–{r['ci95'][1]:.3f}) | {same['ratio']:.3f} ({same['ci95'][0]:.3f}–{same['ci95'][1]:.3f}) | {r['aa_gate']} |")
     lines.extend(['','A/A gate uses 20 identical fork-tip pairs per tier. PASS requires the 95% interval to include 1.00 and relative half-width at most 5%. Contrasts failing that row gate remain descriptive.'])
