@@ -27,6 +27,53 @@ def digest(path: Path) -> str:
     return h.hexdigest()
 
 
+def capture_canvas(path: Path, ui: dict[str, Any]) -> dict[str, Any]:
+    """Capture the displayed canvas immediately, without asking PhotoCraft to repaint."""
+    display = os.environ.get("DISPLAY")
+    if not display:
+        raise RuntimeError("pixel proof requires DISPLAY")
+    width, height = (int(x) for x in ui["window"].values())
+    capture = subprocess.run(
+        ["ffmpeg", "-loglevel", "error", "-f", "x11grab", "-video_size", f"{width}x{height}", "-i", display,
+         "-frames:v", "1", "-y", str(path)],
+        capture_output=True, text=True, check=False,
+    )
+    if capture.returncode:
+        raise RuntimeError(f"display pixel capture failed: {capture.stderr.strip()}")
+    from PIL import Image
+    image = Image.open(path).convert("RGB")
+    x, y, w, h = (int(v) for v in ui["canvas"])
+    # The stroke path crosses the centre. Keep this crop away from the brush cursor at its end.
+    cx, cy = x + w // 2, y + h // 2
+    radius = min(180, w // 2, h // 2)
+    crop = image.crop((cx - radius, cy - radius, cx + radius, cy + radius))
+    return {"image": image, "crop": crop, "crop_box": [cx - radius, cy - radius, cx + radius, cy + radius],
+            "crop_sha256": hashlib.sha256(crop.tobytes()).hexdigest(), "path": str(path)}
+
+
+def pixel_proof(before: dict[str, Any], immediate: dict[str, Any], settled: dict[str, Any]) -> dict[str, Any]:
+    from PIL import ImageChops
+    base = before["crop"].getdata()
+    now = immediate["crop"].getdata()
+    later = settled["crop"].getdata()
+    changed_now = sum(any(abs(a - b) > 2 for a, b in zip(p, q)) for p, q in zip(base, now))
+    changed_later = sum(any(abs(a - b) > 2 for a, b in zip(p, q)) for p, q in zip(base, later))
+    settled_diff = ImageChops.difference(immediate["crop"], settled["crop"])
+    stable_pixels = sum(max(p) <= 2 for p in settled_diff.getdata())
+    total = immediate["crop"].width * immediate["crop"].height
+    return {
+        "roi": immediate["crop_box"],
+        "before_sha256": before["crop_sha256"],
+        "immediate_sha256": immediate["crop_sha256"],
+        "settled_sha256": settled["crop_sha256"],
+        "changed_pixels_immediate": changed_now,
+        "changed_pixels_settled": changed_later,
+        "immediate_settled_mae": sum(sum(p) for p in settled_diff.getdata()) / (total * 3),
+        "immediate_settled_stable_pct": 100 * stable_pixels / total,
+        "pixel_capture_boundary": "first display capture after ui.latency.wait returned; settled capture 1000ms later",
+    }
+
+
 def free_port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -401,16 +448,27 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
                 before_state = control.rpc("ui.inspect", {})
                 before_document, _ = selected_target(before_state)
                 before_history_count = len(before_document.get("history", []))
+                pixels_before = None
+                if config.get("pixel_proof") and repetition == 0:
+                    pixels_before = capture_canvas(out / f"{label}-before.png", ui)
                 ident = arm("brush", label, phase)
                 send([{"kind": "down", "x": path[0][0], "y": path[0][1]}])
                 send([{"kind": "move", "x": x, "y": y} for x, y in path[1:]])
                 send([{"kind": "up", "x": path[-1][0], "y": path[-1][1]}])
                 raw = control.result(ident)
+                proof = None
+                if pixels_before is not None:
+                    pixels_now = capture_canvas(out / f"{label}-immediate.png", ui)
+                    time.sleep(1.0)
+                    pixels_settled = capture_canvas(out / f"{label}-settled.png", ui)
+                    proof = pixel_proof(pixels_before, pixels_now, pixels_settled)
+                    proof["files"] = [pixels_before["path"], pixels_now["path"], pixels_settled["path"]]
                 point_latencies = [sample["duration_ns"] for sample in raw["input_samples"] if sample["kind"] in {"down", "move"}]
                 if len(point_latencies) != npoints:
                     raise RuntimeError(f"{label} recorded {len(point_latencies)} accepted points, expected {npoints}")
                 records.append({"action": "brush", "label": label, "phase": phase, "id": ident, **raw,
-                                "point_count": npoints, "brush_size_px": size, "point_latencies_ns": point_latencies})
+                                "point_count": npoints, "brush_size_px": size, "point_latencies_ns": point_latencies,
+                                "pixel_proof": proof})
                 after_document, _ = selected_target(control.rpc("ui.inspect", {}))
                 if len(after_document.get("history", [])) <= before_history_count:
                     raise RuntimeError(f"{label} input was timed but did not commit a brush stroke")
