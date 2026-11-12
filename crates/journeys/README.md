@@ -540,13 +540,16 @@ same `RawInput` path used by window events, then calls the same widgets, canvas,
 tool, and brush engine. Its reply waits until PhotoCraft has handled the event.
 `ui.latency.wait` reads the recorded result on the control socket thread and
 does not dispatch work to the UI or request a repaint. Open/save start at their
-accepted UI-thread command and finish after import/write completion. Each record
-ends at the GPU completion callback attached to the first rendered frame that
-consumed the completed action; this is not monitor scanout.
+accepted UI-thread command and finish after import/write completion. Open waits
+for the first completed full-document composite; visibility and blend wait for
+their full-document refresh after release. Each record ends at the GPU
+completion callback attached to the completed action; this is not monitor
+scanout.
 
 For blend mode, the first click opens the mode dropdown and is marked
 non-terminal; the second click selects the mode. The recorder completes after
-that selection release, so the full user's operation is timed. Brush input uses
+that selection reaches a completed full-document composite, so the full user's
+operation is timed. Brush input uses
 three ordered `ui.latency.input` phases: press, one batch containing all 199
 moves, and release. PhotoCraft drains each phase into an ordinary `RawInput`
 pass; the recorder stamps every accepted pointer event on the UI thread and each
