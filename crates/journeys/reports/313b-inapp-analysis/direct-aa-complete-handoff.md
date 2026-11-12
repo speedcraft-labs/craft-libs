@@ -1,6 +1,7 @@
 HANDOFF 313b — on Agentbox, 5% sensitivity is established only for typical exposure/export in these fixed cohorts. The fresh direct-folder 1,259-RAW A/A is COMPLETE: 20 pairs, every completed pair retained, zero incomplete acquisitions. It passes the specified import half-width gate, while its approximate 80%-power MDE remains above5%. The current app/tier A/A gates now pass5/7 (typical4/6 plus direct import1/1); preview/switch failures remain unchanged.
 
 HANDOFF 313b — fixed 20-pair A/A complete. Ratios are A/B; unity must be inside the 95% CI, with unrounded half-width≤5% (import/startup≤10%). Thresholds are unchanged; failed gates retained. MDE is a separate approximate 80%-power estimate, not the half-width. Quit is external process exit and does not validate app-clock precision.
+
 | Warm action | A/B ratio | 95% CI | Half-width | MDE | Gate |
 |---|---:|---:|---:|---:|---|
 | import | 0.9504 | 0.8177–1.0033 | 9.77% | 15.75% | PASS |

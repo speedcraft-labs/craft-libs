@@ -3,7 +3,7 @@ import json,sys
 from pathlib import Path
 path=Path(sys.argv[1]);report=json.loads(path.read_text());assert report['comparison_complete'] and report['config']['aa'] and len(report['sessions'])==40
 assert report['publishable'] and report['output_checked'] and report['gpu_process_checks_passed'] and report['prior_acquisitions_passed'] and report['guard']['contended'] is False
-out=['HANDOFF 313b — fixed 20-pair A/A complete. Ratios are A/B; unity must be inside the 95% CI, with unrounded half-width≤5% (import/startup≤10%). Thresholds are unchanged; failed gates retained. MDE is a separate approximate 80%-power estimate, not the half-width. Quit is external process exit and does not validate app-clock precision.', '| Warm action | A/B ratio | 95% CI | Half-width | MDE | Gate |','|---|---:|---:|---:|---:|---|']
+out=['HANDOFF 313b — fixed 20-pair A/A complete. Ratios are A/B; unity must be inside the 95% CI, with unrounded half-width≤5% (import/startup≤10%). Thresholds are unchanged; failed gates retained. MDE is a separate approximate 80%-power estimate, not the half-width. Quit is external process exit and does not validate app-clock precision.', '', '| Warm action | A/B ratio | 95% CI | Half-width | MDE | Gate |','|---|---:|---:|---:|---:|---|']
 for row in report['rows']:
  if row['phase']!='warm':continue
  assert row['observed_pairs']==20
