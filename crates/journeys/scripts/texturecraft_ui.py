@@ -123,9 +123,11 @@ try:
         if action == "open":
             started = time.perf_counter_ns()
             request("command.run", {"id": "file.open", "params": {"path": project}}, 2)
+            request("ui.screenshot", request_id=9)
             duration = time.perf_counter_ns() - started
         else:
             request("command.run", {"id": "file.open", "params": {"path": project}}, 2)
+            request("ui.screenshot", request_id=9)
             started = time.perf_counter_ns()
         if action == "paint":
             layer = request("command.run", {"id": "layer.add.paint", "params": {}}, 3)
