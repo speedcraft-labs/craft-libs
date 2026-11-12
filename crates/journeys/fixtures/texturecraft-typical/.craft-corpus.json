@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "name": "texturecraft-typical",
+  "files": [
+    {
+      "path": "material-ball-2048.tcraft",
+      "sha256": "4361abde5b8ebd8247945f39b1ed0fe28a08ffa4a0a077da24876211a17606a3",
+      "bytes": 35770698,
+      "tags": [
+        "texturecraft",
+        "material-ball",
+        "2048",
+        "built-in-sample"
+      ],
+      "redistributable": true,
+      "licence": "MIT OR Apache-2.0"
+    }
+  ]
+}
