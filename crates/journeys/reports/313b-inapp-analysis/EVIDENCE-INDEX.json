@@ -36,9 +36,9 @@
   "scheduler": "scheduling-observations.jsonl",
   "binary_root_local_only": "/jobs/work/speedcraft-labs/tmp/313b-binaries",
   "next": [
-    "Finish fresh direct20AA then10real; active WT191b35 remains frozen",
-    "After ALL run final identity proof/tables/diagnostics/plots/prune/NASonce",
-    "Production PR already ad0f520c tested55; finalize descriptions, ready+merge queues; no additional runtime changes planned"
+    "Finish current real-import-1259-direct10primarypairs+10upstream; leave frozen191b35 WT unchanged",
+    "After ALL run final identity proof/tables/plots, retain failures and hash/prune passing images, NASonce",
+    "Finalize PR descriptions; queue ready/merge only after reporting+backup complete; sources already integrated/tested/green"
   ],
   "pipeline": "operators/post-direct-import.py",
   "pipeline_log": "post-direct-import.log",
@@ -71,7 +71,7 @@
   "real50_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-derived-report.json",
   "real50_complete": "10pairs +10upstream; developedpixels unequal, descriptive only",
   "ci_fix": "ci-lts-pin.json",
-  "archive_branch": "wip/313b-inapp-analysis 5575ec26",
+  "archive_branch": "wip/313b-inapp-analysis 7c38cace",
   "heavy_aa_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-19-primary-attempt0/report.json",
   "heavy_aa_summary": "20pairs COMPLETE; ratio.9852 CI[.8908,1.1158], half-width11.42% FAIL(limit10), MDE17.46%",
   "failed_precision_branch": "failed/313b-warm-precision e7b0c5f5",
@@ -81,8 +81,8 @@
   "failed_forecast_branch": "failed/313b-forecast-selection 50bc3179",
   "failed_pair_budget_branch": "failed/313b-real-pair-budget 35bcfd54",
   "real_budget_expiry": "real-import-lease-expiry.json",
-  "active_campaign": "real-import-1259-cont2",
-  "controller_parent": 3697366,
+  "active_campaign": "real-import-1259-direct",
+  "controller_parent": "Read CURRENT-STATE.json",
   "pipeline_args": [
     "real-import-1259-cont2"
   ],
@@ -110,7 +110,7 @@
   "harness_binary_sha256": "c179b7bc951239eefedfdc053fd43f7eef131afd5f05d222e7a56e6e547ba4fd",
   "legacy_harness_binary_sha256": "054ea4f977a63eccd0c4f9d2d492f666503878f654936adb0b0e72c21644b92e",
   "legacy_driver_sha256": "0e5419347a4661c3cf465c8c40f2c5a25ee15b13726df8696081274851c961e3",
-  "controller_log": "aa-import-1259-direct-campaign.log",
+  "controller_log": "real-import-1259-direct-campaign.log",
   "controller_resume": "Collector already running: do NOT duplicate. If absent, inspect latest cumulative then use a NEW campaign name with identical config plus resume_report; never overwrite completed/incomplete directories. Preserve fixed20AA/10real totals.",
   "branch_manifest": "branch-refs-20261111.json; refresh archivehead/final failures at end",
   "failed_branches": {

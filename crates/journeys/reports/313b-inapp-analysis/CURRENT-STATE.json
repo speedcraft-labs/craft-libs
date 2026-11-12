@@ -13,11 +13,11 @@
     "libs_workspace": "3835 pass,0 fail,127 ignored",
     "app_workspace": "6365 pass;4 matching-clean-main-reproduced denoise GPU failures; UI32 pass before full-suite exit SIGSEGV (targeted baseline UI exits0)"
   },
-  "status": "aa-import-1259-direct: 20/20 complete pairs",
+  "status": "real-import-1259-direct: 4/10 complete pairs",
   "next": [
-    "Finish fresh direct20AA then10real; active WT191b35 remains frozen",
-    "After ALL run final identity proof/tables/diagnostics/plots/prune/NASonce",
-    "Production PR already ad0f520c tested55; finalize descriptions, ready+merge queues; no additional runtime changes planned"
+    "Finish current real-import-1259-direct10primarypairs+10upstream; leave frozen191b35 WT unchanged",
+    "After ALL run final identity proof/tables/plots, retain failures and hash/prune passing images, NASonce",
+    "Finalize PR descriptions; queue ready/merge only after reporting+backup complete; sources already integrated/tested/green"
   ],
   "target": "/jobs/work/speedcraft-labs/targets/313b",
   "operator": "operators/lease.py",
@@ -56,7 +56,7 @@
   "controller_policy": "flock bench.lock then flock -x -w5 -E76 gpu.lock; release/retry without app start when sharedGPU tests hold lock",
   "unit_tests": "final-journeys-tests.log: 3Rust/55Python PASS; cargo fmt/diff checks PASS",
   "libs_workspace": "3835 pass,0fail,127ignored",
-  "latest_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-19-primary-attempt0/report.json",
+  "latest_report": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-3-descriptive-attempt0/report.json",
   "app_workspace": "6365pass;4 GPUdenoise baseline-reproduced failures; UI32pass; prior full-suite exit segfault not reproduced in targeted baseline UI",
   "scheduling_observer": "operators/scheduling_observer.py on CPUs0-21, read-only /proc/stat and pressure every2s; supplemental coverage starts after pair0, no sample selection",
   "harness_binary": "/jobs/work/speedcraft-labs/tmp/313b-binaries/craft-journeys-direct-import",
@@ -67,13 +67,13 @@
     "313-switch-proof-calibrated.service"
   ],
   "active_campaign": "real-import-1259-direct",
-  "controller_parent": 312957,
+  "controller_parent": 1856456,
   "pipeline": "operators/post-direct-import.py",
   "pipeline_log": "post-direct-import.log",
   "failed_lease_protocol_branch": "failed/313b-lease12 f54d0a17",
   "process_observer": "operators/process-observer.py; read-only thread schedstat/page faults every2s on CPUs0-21; partial R4 coverage, never filters",
   "foreign_process_rule": "User steering08:32UTC: never stop another worker process. Daily upstream-sync GPUtests legitimate. After>45min foreign GPU block AND about0%CPU, report PID/age/CPU%/command and continue lock-free work; otherwise wait.",
-  "archive_branch": "wip/313b-inapp-analysis 5575ec26",
+  "archive_branch": "wip/313b-inapp-analysis 7c38cace",
   "metadata_updated_utc": "2026-11-12T00:04:25.001789+00:00",
   "pipeline_phase": "real-import-1259-direct",
   "pipeline_config": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-import-1259-direct-config.json",
@@ -113,10 +113,6 @@
   "failed_pair_budget_branch": "failed/313b-real-pair-budget 35bcfd54",
   "real_budget_expiry": "real-import-lease-expiry.json",
   "status_campaign_names": [
-    "aa-import-1259-fixed",
-    "real-50-descriptive",
-    "direct-import-probe",
-    "aa-import-1259-direct",
     "real-import-1259-direct"
   ],
   "pipeline_args": [
@@ -150,5 +146,6 @@
   "direct_heavy_aa_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-direct-19-primary-attempt0/report.json",
   "direct_heavy_aa_summary": "COMPLETE20pairs; ratio.9504 CI[.8177,1.0033],HW9.77% PASS10;MDE15.75%;no incomplete acquisitions",
   "current_aa_summary": "5/7 app/tier gates pass; approximate80%-power5% detection exposure/export only",
-  "direct_heavy_diagnostics": "aa-import-1259-direct-residual-variation.json;clock-isolation-proof.json;action-diagnostics.json"
+  "direct_heavy_diagnostics": "aa-import-1259-direct-residual-variation.json;clock-isolation-proof.json;action-diagnostics.json",
+  "status_view_note": "Only unfinished campaign is scanned for live locks/processes; all closed cohorts remain recorded in active_cohorts and immutable reports"
 }
