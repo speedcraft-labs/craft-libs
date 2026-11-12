@@ -71,7 +71,7 @@
   "real50_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/real-50-descriptive-9-derived-report.json",
   "real50_complete": "10pairs +10upstream; developedpixels unequal, descriptive only",
   "ci_fix": "ci-lts-pin.json",
-  "archive_branch": "wip/313b-inapp-analysis 5d7dfc4f",
+  "archive_branch": "wip/313b-inapp-analysis a47886cb",
   "heavy_aa_final": "/jobs/work/speedcraft-labs/keep/313b-inapp-timing/aa-import-1259-fixed-19-primary-attempt0/report.json",
   "heavy_aa_summary": "20pairs COMPLETE; ratio.9852 CI[.8908,1.1158], half-width11.42% FAIL(limit10), MDE17.46%",
   "failed_precision_branch": "failed/313b-warm-precision e7b0c5f5",

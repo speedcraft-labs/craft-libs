@@ -1,0 +1,83 @@
+{
+  "scope": "All pushed313b production, working and failed refs; refreshed final snapshot must include any later failed-precision branch",
+  "checked_utc": "2026-11-11T23:37:55.826Z",
+  "repositories": {
+    "lightcraft": [
+      {
+        "branch": "algo/313b-inapp-timing",
+        "sha": "be68fb49482096d0a4b3def38e5938b3d731480d"
+      },
+      {
+        "branch": "failed/313b-startup-filmstrip",
+        "sha": "53bf7a74bb0864ab7dad5fbfb18af90db0231f5d"
+      },
+      {
+        "branch": "failed/313b-ui-record-wake",
+        "sha": "f97c5740d38161906c0990d0a8f804bc995cf02f"
+      }
+    ],
+    "craft-libs": [
+      {
+        "branch": "algo/313b-inapp-timing",
+        "sha": "ad0f520c5bf295cfd20091d36c9baf4f7a701b1c"
+      },
+      {
+        "branch": "failed/313b-ci-latest",
+        "sha": "191421d166115745eda789defd1df5903324ed21"
+      },
+      {
+        "branch": "failed/313b-default-process-equivalence",
+        "sha": "9ebcba29eeb94dae075f7de959f0724272dbbea5"
+      },
+      {
+        "branch": "failed/313b-forecast-selection",
+        "sha": "50bc31797650644f09bb815fc5809520b2cebdde"
+      },
+      {
+        "branch": "failed/313b-import-admission",
+        "sha": "f051d06c05941e5cfd565a6ad2747d60a5abe66f"
+      },
+      {
+        "branch": "failed/313b-import-coverage",
+        "sha": "69a3a1e55127379e53bc738ac0fdb6f0667adaff"
+      },
+      {
+        "branch": "failed/313b-lease12",
+        "sha": "f54d0a1788b46e5811e54e475d80cd9a8533f7b1"
+      },
+      {
+        "branch": "failed/313b-real-pair-budget",
+        "sha": "9995d1c68534fdeba8c45ce635c494050373edf8"
+      },
+      {
+        "branch": "failed/313b-retry-config",
+        "sha": "de82ffc76e3998255a3db025c3b0cb40f5be50c4"
+      },
+      {
+        "branch": "failed/313b-reviewed-import-budget",
+        "sha": "e774bbbc100c2aab49411e095632befcf9b02d19"
+      },
+      {
+        "branch": "failed/313b-ui-record-wake",
+        "sha": "f78de9268ca99e2d79292cc0f9542ccce563be8a"
+      },
+      {
+        "branch": "failed/313b-warm-precision",
+        "sha": "e7b0c5f53c13d3af6067bfee42ec1d0bd2eaabc7"
+      },
+      {
+        "branch": "failed/313b-workspace-artifacts",
+        "sha": "740361dd7fff04600b18e87a7e5de5cbd3861484"
+      },
+      {
+        "branch": "wip/313b-direct-import",
+        "sha": "ad0f520c5bf295cfd20091d36c9baf4f7a701b1c"
+      },
+      {
+        "branch": "wip/313b-inapp-analysis",
+        "sha": "a47886cb18383f9bd2d1446eabab2020936f293d"
+      }
+    ]
+  }
+}
+

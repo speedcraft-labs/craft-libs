@@ -1,0 +1,18 @@
+{
+  "checked_utc": "2026-11-11T23:47:42.905400+00:00",
+  "libs": {
+    "head": "ad0f520c5bf295cfd20091d36c9baf4f7a701b1c",
+    "checks": "checks SUCCESS;rustgpu-shader SUCCESS",
+    "run": 43115566042,
+    "reviewDecision": "none",
+    "draft": true
+  },
+  "app": {
+    "head": "be68fb49482096d0a4b3def38e5938b3d731480d",
+    "checks": "Ubuntu SUCCESS;Windows scope SUCCESS;Windows retry SUCCESS",
+    "windows_run": 43108717617,
+    "reviewDecision": "none",
+    "draft": true,
+    "windows_success_completed_utc": "2026-11-11T23:46:35Z"
+  }
+}

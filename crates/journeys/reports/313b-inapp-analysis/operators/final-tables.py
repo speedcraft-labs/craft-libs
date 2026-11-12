@@ -99,9 +99,10 @@ lead += (f' The specified A/A precision gate passes {pass_count}/{len(app_rows)}
          'The retired confirmation-import cohort is reported separately and is never pooled with folder-drop imports.')
 slow = next(row for row in rows('slowdown') if row['action'] == 'switch')
 dose = json.loads((root / 'switch-dose-result.json').read_text())
+slow_table = '\n'.join(['| Physical slowdown | Control ms | Delayed ms | Actual dose | A/B ratio [95% CI] | Verdict | MDE¹ |', '|---|---:|---:|---:|---:|---|---:|', f"| switch | {slow['sides']['point']['median_ns']/1e6:.2f} | {slow['sides']['main']['median_ns']/1e6:.2f} | {dose['actual_dose_control_pct']:.2f}% | {ratio(slow)} | {slow['verdict']} | {effect(slow)} |"])
 legacy = json.loads((root / 'legacy-confirmation-retirement.json').read_text())
 resources = []
-for p in sorted(root.glob('real-import-1259*.incomplete.json')):
+for p in sorted(root.glob('*.incomplete.json')):
     value = json.loads(p.read_text())
     resources.append(dict(path=str(p), sha256=hashlib.sha256(p.read_bytes()).hexdigest(), details=value))
 (root / 'final-incomplete-attempt-index.json').write_text(json.dumps(resources, indent=2) + '\n')
@@ -115,6 +116,7 @@ sections = [lead,
     '³ External time retains driver send/capture boundaries. Excess over native time includes transport, verification and boundary differences; it is not isolated RPC overhead. After a tagged command the driver makes one native record wait on the socket thread, without dispatching to the UI or repainting. No inspect-poll result enters an app interval. Idle gates require empty task/queue/activity state for one second plus the authoritative native idle check; timeout fails the sample.',
     'There are two explicitly different import protocols. Typical50 and the retired heavy cohort start at confirmation after review preparation. The current1,259 cohort starts at folder-drop acceptance with the existing importDroppedDirectly setting, so directory expansion/preparation is inside its clock. Both end after import/scan complete and every visible thumbnail is shown; exact catalogue names and all virtualized pages are verified outside timing. Empty-grid checks before direct drops prevent prior thumbnails satisfying completion. These durations must not be compared as an app optimization. Switch records both first photo response and full-quality completion; export ends with its completed task/result frame.',
     f"Physical10% slowdown: switch {ratio(slow)}, **{slow['verdict']}**. App-side requested delay {dose['requested_delay_ns']/1e6:.3f}ms was10% of an independent two-pair untreated pilot. Actual median delay {dose['actual_delay_median_ns']/1e6:.3f}ms was {dose['actual_dose_control_pct']:.2f}% of contemporaneous test control latency. Pilot excluded; inference uses ten fresh interleaved pairs. Both binaries contain identical delay code; timestamps were never adjusted arithmetically.",
+    slow_table,
     real_table(('real50', 'heavy_real')),
     '² The50-RAW defaults use processV4 at fork point andV7 at main/upstream. Their strict developed-pixel gate FAILED; publishable remains false and all those rows are descriptive only. Their numerical MDEs describe width and do not authorize a speed claim. Aliased acquisition roles were mapped to actual revision names only after timing; no durations changed. Import1,259 checks exact catalogue membership and every non-placeholder thumbnail, without asserting developed-pixel equality. Upstream is a descriptive column acquired separately, with no upstream speed verdict. Every “no measurable change” has a count-adjusted A/A/current-CI MDE; rejected controls stay descriptive.',
     'Retired reviewed-import protocol — all results retained separately:',

@@ -10,5 +10,7 @@
   "log": "app-be68-windows-ci-failure.log",
   "log_sha256": "b6c16bd155f46f77c82b8ce012b1e836741db4ca7a28117c1be219024dc39820",
   "action": "Reran failed Windows job on same head, no test/threshold/CI/source edits",
-  "underlying_cause": "unresolved; do not infer infrastructure or recorder regression without evidence"
+  "underlying_cause": "unresolved; do not infer infrastructure or recorder regression without evidence",
+  "rerun_outcome": "SUCCESS on unchanged head",
+  "rerun_success_completed_utc": "2026-11-11T23:46:35Z"
 }
