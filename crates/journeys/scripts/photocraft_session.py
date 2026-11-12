@@ -27,22 +27,16 @@ def digest(path: Path) -> str:
     return h.hexdigest()
 
 
-def capture_canvas(path: Path, ui: dict[str, Any]) -> dict[str, Any]:
-    """Capture the displayed canvas immediately, without asking PhotoCraft to repaint."""
-    display = os.environ.get("DISPLAY")
-    if not display:
-        raise RuntimeError("pixel proof requires DISPLAY")
-    width, height = (int(x) for x in ui["window"].values())
-    capture = subprocess.run(
-        ["ffmpeg", "-loglevel", "error", "-f", "x11grab", "-video_size", f"{width}x{height}", "-i", display,
-         "-frames:v", "1", "-y", str(path)],
-        capture_output=True, text=True, check=False,
-    )
-    if capture.returncode:
-        raise RuntimeError(f"display pixel capture failed: {capture.stderr.strip()}")
+def capture_canvas(path: Path, ui: dict[str, Any], control: Control) -> dict[str, Any]:
+    """Capture PhotoCraft's next rendered screenshot and crop the same canvas region."""
+    control.rpc("ui.screenshot", {"path": str(path), "focus": False})
     from PIL import Image
     image = Image.open(path).convert("RGB")
     x, y, w, h = (int(v) for v in ui["canvas"])
+    window = ui["window"]
+    scale_x = image.width / float(window["width"])
+    scale_y = image.height / float(window["height"])
+    x, y, w, h = (round(v * scale) for v, scale in ((x, scale_x), (y, scale_y), (w, scale_x), (h, scale_y)))
     # The stroke path crosses the centre. Keep this crop away from the brush cursor at its end.
     cx, cy = x + w // 2, y + h // 2
     radius = min(180, w // 2, h // 2)
@@ -70,7 +64,7 @@ def pixel_proof(before: dict[str, Any], immediate: dict[str, Any], settled: dict
         "changed_pixels_settled": changed_later,
         "immediate_settled_mae": sum(sum(p) for p in settled_diff.getdata()) / (total * 3),
         "immediate_settled_stable_pct": 100 * stable_pixels / total,
-        "pixel_capture_boundary": "first display capture after ui.latency.wait returned; settled capture 1000ms later",
+        "pixel_capture_boundary": "first PhotoCraft screenshot frame after ui.latency.wait returned; settled capture 1000ms later",
     }
 
 
@@ -450,7 +444,7 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
                 before_history_count = len(before_document.get("history", []))
                 pixels_before = None
                 if config.get("pixel_proof") and repetition == 0:
-                    pixels_before = capture_canvas(out / f"{label}-before.png", ui)
+                    pixels_before = capture_canvas(out / f"{label}-before.png", ui, control)
                 ident = arm("brush", label, phase)
                 send([{"kind": "down", "x": path[0][0], "y": path[0][1]}])
                 send([{"kind": "move", "x": x, "y": y} for x, y in path[1:]])
@@ -458,9 +452,9 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
                 raw = control.result(ident)
                 proof = None
                 if pixels_before is not None:
-                    pixels_now = capture_canvas(out / f"{label}-immediate.png", ui)
+                    pixels_now = capture_canvas(out / f"{label}-immediate.png", ui, control)
                     time.sleep(1.0)
-                    pixels_settled = capture_canvas(out / f"{label}-settled.png", ui)
+                    pixels_settled = capture_canvas(out / f"{label}-settled.png", ui, control)
                     proof = pixel_proof(pixels_before, pixels_now, pixels_settled)
                     proof["files"] = [pixels_before["path"], pixels_now["path"], pixels_settled["path"]]
                 point_latencies = [sample["duration_ns"] for sample in raw["input_samples"] if sample["kind"] in {"down", "move"}]
