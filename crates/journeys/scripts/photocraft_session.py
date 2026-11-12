@@ -444,10 +444,10 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
                 before_history_count = len(before_document.get("history", []))
                 pixels_before = None
                 if config.get("pixel_proof") and repetition == 0:
-                    path = profile / f"{label}-before.png"
-                    pixels_before = capture_canvas(path, ui, control)
-                    archived = out / path.name
-                    shutil.copyfile(path, archived)
+                    capture_path = profile / f"{label}-before.png"
+                    pixels_before = capture_canvas(capture_path, ui, control)
+                    archived = out / capture_path.name
+                    shutil.copyfile(capture_path, archived)
                     pixels_before["path"] = str(archived)
                 ident = arm("brush", label, phase)
                 send([{"kind": "down", "x": path[0][0], "y": path[0][1]}])
@@ -456,16 +456,16 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
                 raw = control.result(ident)
                 proof = None
                 if pixels_before is not None:
-                    path = profile / f"{label}-immediate.png"
-                    pixels_now = capture_canvas(path, ui, control)
-                    archived = out / path.name
-                    shutil.copyfile(path, archived)
+                    capture_path = profile / f"{label}-immediate.png"
+                    pixels_now = capture_canvas(capture_path, ui, control)
+                    archived = out / capture_path.name
+                    shutil.copyfile(capture_path, archived)
                     pixels_now["path"] = str(archived)
                     time.sleep(1.0)
-                    path = profile / f"{label}-settled.png"
-                    pixels_settled = capture_canvas(path, ui, control)
-                    archived = out / path.name
-                    shutil.copyfile(path, archived)
+                    capture_path = profile / f"{label}-settled.png"
+                    pixels_settled = capture_canvas(capture_path, ui, control)
+                    archived = out / capture_path.name
+                    shutil.copyfile(capture_path, archived)
                     pixels_settled["path"] = str(archived)
                     proof = pixel_proof(pixels_before, pixels_now, pixels_settled)
                     proof["files"] = [pixels_before["path"], pixels_now["path"], pixels_settled["path"]]
