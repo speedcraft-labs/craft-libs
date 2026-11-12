@@ -33,7 +33,7 @@ Counts are changed pixels versus the pre-stroke region / pixels differing from t
 
 ## Heavy document and cause
 
-The heavy A/A gate has 17 of 20 publishable pairs; three remain. Heavy three-build runs and the cause checkpoint measurement are pending. The upstream #10013 change moves live painting to a worker while allowing the cursor to advance, which explains why a presented cursor frame can precede brush pixels. A pre-#10013 control is built for the same typical brush actions; its paired result will distinguish that UI scheduling change from brush-engine progress. That historical checkpoint needed a compile-only duplicate-TIFF-constant removal on `wip/315b-photocraft-pre10013` (`ffc413ca8`); no brush code changed.
+The earlier 17/20 heavy A/A count mixed two executable hashes after the target directory was rebuilt, so those 14 old-hash pairs are retained but excluded. The current hash-matched gate has 4/20 pairs (0, 14, 15, 16); 16 remain. Heavy three-build runs and the cause checkpoint are pending. Upstream #10013 moves live painting to a worker while the cursor advances, consistent with the cursor frame preceding brush pixels. A pre-#10013 control is built to isolate that scheduling change from earlier paint-path changes. That historical checkpoint needed only a compile-only duplicate-TIFF-constant removal on `wip/315b-photocraft-pre10013` (`ffc413ca8`); no brush code changed.
 
 ## Reproduction pins
 
