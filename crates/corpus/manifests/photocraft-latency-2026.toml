@@ -1,0 +1,42 @@
+name = "photocraft-latency-2026"
+description = "Pinned NASA public-domain photographs and pinned MIT psd-tools fixture layers used to construct two non-redistributed layered PhotoCraft latency payloads on demand."
+
+[[file]]
+path = "iss050e013545.jpg"
+url = "https://images-assets.nasa.gov/image/iss050e013545/iss050e013545~orig.jpg"
+sha256 = "c6495475f3fe7402a0b7735dee4fa5795be50e918b85a1f9559d45b6e3033c4c"
+licence = "Public domain, U.S. government work (NASA); credit requested to NASA JSC Earth Science and Remote Sensing Unit"
+provenance = "https://eol.jsc.nasa.gov/SearchPhotos/photo.pl?mission=ISS050&roll=E&frame=013545"
+tags = ["photocraft-latency", "photo", "nasa-public-domain", "source"]
+
+[[file]]
+path = "iss048e046434.jpg"
+url = "https://images-assets.nasa.gov/image/iss048e046434/iss048e046434~orig.jpg"
+sha256 = "952f63ab26b964617a0736a97f747f2676dc41470cb7824f5ffa2e8083cfadda"
+licence = "Public domain, U.S. government work (NASA); credit requested to NASA JSC Earth Science and Remote Sensing Unit"
+provenance = "https://eol.jsc.nasa.gov/SearchPhotos/photo.pl?mission=ISS048&roll=E&frame=046434"
+tags = ["photocraft-latency", "photo", "nasa-public-domain", "source"]
+
+[[file]]
+path = "iss035e013332.jpg"
+url = "https://images-assets.nasa.gov/image/iss035e013332/iss035e013332~orig.jpg"
+sha256 = "03c766a6188d557a3be363614d9649b7c0f87f299a40c7e5baeddc75c17d56d3"
+licence = "Public domain, U.S. government work (NASA); credit requested to NASA JSC Earth Science and Remote Sensing Unit"
+provenance = "https://eol.jsc.nasa.gov/SearchPhotos/photo.pl?mission=ISS035&roll=E&frame=013332"
+tags = ["photocraft-latency", "photo", "nasa-public-domain", "source"]
+
+[[file]]
+path = "adjustment-mask.psd"
+url = "https://raw.githubusercontent.com/psd-tools/psd-tools/96eb134c17b2c65edf4c4151c0f00b802ada86c2/tests/psd_files/adjustment-mask.psd"
+sha256 = "6c866b95c1458b5a639249f379fad009e3dd6f8cfa2d3dfbbb431ee637c30390"
+licence = "MIT"
+provenance = "https://github.com/psd-tools/psd-tools/tree/96eb134c17b2c65edf4c4151c0f00b802ada86c2/tests/psd_files"
+tags = ["photocraft-latency", "psd-fixture", "adjustment-layer", "source"]
+
+[[file]]
+path = "layer_effects.psd"
+url = "https://raw.githubusercontent.com/psd-tools/psd-tools/96eb134c17b2c65edf4c4151c0f00b802ada86c2/tests/psd_files/layer_effects.psd"
+sha256 = "6ab41ce6e17b3287c703dc4cf4d898506ffc1bd9babf20d0f1de5ef6df1d2e1e"
+licence = "MIT"
+provenance = "https://github.com/psd-tools/psd-tools/tree/96eb134c17b2c65edf4c4151c0f00b802ada86c2/tests/psd_files"
+tags = ["photocraft-latency", "psd-fixture", "layer-effects", "source"]

@@ -523,3 +523,87 @@ This mode needs its own matching A/A: a confirmation-to-grid control cannot
 calibrate a folder-drop-to-grid comparison. The clock source, bootstrap, and
 5%/10% precision thresholds are unchanged. Legacy confirmation measurements
 remain a separately labelled protocol.
+
+### PhotoCraft session latency (hyper #291)
+
+This protocol measures one long-lived PhotoCraft desktop process per session.
+It opens one layered document four times (one cold open and three warm opens),
+records brush strokes (200 points at 30 px, 500 px, and canvas-width), visibility
+and blend changes, a 60-step large-layer move, zoom/pan, and four saves. The first
+action of each type in a session is reported as cold; subsequent repetitions are
+warm. It does not use the old launch-per-task journeys.
+
+The app's opt-in recorder is enabled only by
+`PHOTOCRAFT_LATENCY_RECORDER=1`. `ui.latency.input` puts egui pointer events on
+PhotoCraft's ordinary synthetic input queue. The app drains that queue into the
+same `RawInput` path used by window events, then calls the same widgets, canvas,
+tool, and brush engine. Its reply waits until PhotoCraft has handled the event.
+`ui.latency.wait` reads the recorded result on the control socket thread and
+does not dispatch work to the UI or request a repaint. Open/save start at their
+accepted UI-thread command and finish after import/write completion. Each record
+ends at the GPU completion callback attached to the first rendered frame that
+consumed the completed action; this is not monitor scanout.
+
+For blend mode, the first click opens the mode dropdown and is marked
+non-terminal; the second click selects the mode. The recorder completes after
+that selection release, so the full user's operation is timed. Brush input uses
+three ordered `ui.latency.input` phases: press, one batch containing all 199
+moves, and release. PhotoCraft drains each phase into an ordinary `RawInput`
+pass; the recorder stamps every accepted pointer event on the UI thread and each
+first GPU-completed frame reflecting those events. This mirrors desktop input
+that accumulates while a frame is busy, keeps the 200-point path on the normal
+brush engine, and avoids inserting artificial waits between individual points.
+The report keeps per-point accepted-input-to-frame times and full-stroke time.
+The 60-step move and pan paths use the same press, batched moves, and release
+method, with one UI acceptance/frame timing sample per queued pointer event.
+Read-only inspection after each action confirms brush history, visibility,
+blend mode, layer bounds, and pan center changed as intended; these checks are
+outside the timed interval.
+The move-tool setup turns Auto-Select off before timing the drag so PhotoCraft
+keeps the selected full-canvas layer as the target for all 60 steps.
+
+The comparison pins the PhotoCraft fork tip and the fetched upstream tip before
+building. The upstream recorder patch is applied by the journey's
+`app_base_patch`; both builds use their own app dependency lock. A/A calibration
+uses two clean builds of the same fork SHA. Each paired acquisition takes
+`bench.lock` then exclusive `gpu.lock`, launches one `scripts/bench-run` lease,
+and releases both locks between pairs; binaries are copied into the ticket keep
+directory before queued runs. One lease may not exceed 15 minutes. The deliberate
+slowdown check sets the recorder's test-only delay after UI acceptance for one
+action; the added time remains inside the real input-to-frame clock.
+
+The A/A gate uses 20 pairs. The slowdown and fork/upstream comparisons use at
+least 10 pairs. Reports include each action's paired ratio and 95% interval, the
+A/A half-width, and minimum detectable effect. They also list every interaction
+whose p95 point/step time is at least 16 ms and every visibility/blend composite
+whose median or p95 is at least 100 ms on either build.
+
+No exact-size layered document was present in the local PSD scan. The generated
+payloads therefore use real NASA photographs and are explicitly constructed.
+`crates/corpus/manifests/photocraft-latency-2026.toml` pins the source URLs,
+SHA-256 values, and provenance. Fetch sources on demand with `craft-corpus fetch`,
+then run `scripts/build_photocraft_payloads.py CORPUS_DIR OUTPUT_DIR` outside the
+stamped source directory. The script requires `scripts/requirements-photocraft.txt`
+and records the generated SHA-256 values in `payload-manifest.json`; generated
+PSD files are never committed.
+
+* `typical`: 4,000 × 3,000 (12 MP), 16 layers, 8-bit RGB; 12 NASA-photo raster
+  layers, one actual brightness/contrast adjustment layer, and three native
+  effect layers. The source photos are NASA's ISS050-E-013545 (São Francisco
+  River), ISS048-E-046434 (cumulonimbus clouds), and ISS035-E-013332 (Earth's
+  terminator and sunrise). NASA asks that astronaut-photo sources credit the
+  Earth Science and Remote Sensing Unit at Johnson Space Center and include the
+  photo ID; NASA's [media guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/)
+  describe NASA-created media as public domain, subject to third-party exceptions.
+* `heavy`: 5,000 × 4,800 (24 MP), 43 layers, 8-bit RGB; 31 NASA-photo raster
+  layers, one actual brightness/contrast adjustment layer, and eleven native
+  effect layers. This is a constructed layered PSD, not a found design freebie.
+
+The generator uses `ImageOps.fit` with Lanczos resampling, fixed source order,
+fixed centering values, and fixed layer offsets. It creates the full-canvas
+background first, adds deterministic photo patches and the real adjustment/effect
+records above it, then adds a translucent full-canvas photo on top as the selected
+large move/paint target. The native effect records come from `psd-tools`' MIT-licensed
+fixture PSD at pinned commit `96eb134c17b2c65edf4c4151c0f00b802ada86c2`.
+The NASA [astronaut photo FAQ](https://eol.jsc.nasa.gov/faq/) requests source
+credit with photo ID; the generated report retains all source hashes and IDs.

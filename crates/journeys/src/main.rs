@@ -975,7 +975,7 @@ fn build_app(journey: &Journey, rev: &str, app_rev: &str, input: &Input, checkou
             command.args(["-n", "19", "cargo"]);
             command
         };
-        command.env("CARGO_BUILD_JOBS", "8");
+        command.env("CARGO_BUILD_JOBS", std::env::var("CARGO_BUILD_JOBS").unwrap_or_else(|_| "8".into()));
         command
     } else {
         Command::new(build_program)
@@ -1127,8 +1127,16 @@ fn execute_session(args: &[String]) -> Result<bool, String> {
     let throttle_before = probe.throttle();
     let cores = probe.logical_cores();
     let fingerprint = Fingerprint::collect(cores);
+    let config_path = PathBuf::from(&config);
+    let config_value: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&config_path).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    let driver = match config_value.get("app").and_then(serde_json::Value::as_str) {
+        Some("photocraft") => "photocraft_session.py",
+        Some("lightcraft") | None => "lightcraft_real_app.py",
+        Some(app) => return Err(format!("unsupported session driver app {app:?}")),
+    };
     let status = Command::new("python3")
-        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/lightcraft_real_app.py"))
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts").join(driver))
         .args(["session", "--config", &config, "--out"])
         .arg(&out)
         .status()
@@ -1143,14 +1151,22 @@ fn execute_session(args: &[String]) -> Result<bool, String> {
     });
     let path = out.join("report.json");
     let mut report: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-    let publishable = status.success()
-        && !guard.contended
-        && report["config"]["sessions"].as_u64().is_some_and(|n| n >= 10)
-        && report["comparison_complete"] == true
-        && report["prior_acquisitions_passed"] == true
-        && report["output_checked"] == true
-        && report["gpu_process_checks_passed"] == true
-        && report["gpu_adapters"].as_array().is_some_and(|a| !a.is_empty());
+    let publishable = if driver == "photocraft_session.py" {
+        status.success()
+            && !guard.contended
+            && report["session_complete"] == true
+            && report["gpu_process_checks_passed"] == true
+            && report["gpu_state_passed"] == true
+    } else {
+        status.success()
+            && !guard.contended
+            && report["config"]["sessions"].as_u64().is_some_and(|n| n >= 10)
+            && report["comparison_complete"] == true
+            && report["prior_acquisitions_passed"] == true
+            && report["output_checked"] == true
+            && report["gpu_process_checks_passed"] == true
+            && report["gpu_adapters"].as_array().is_some_and(|a| !a.is_empty())
+    };
     report["fingerprint"] = serde_json::to_value(fingerprint).map_err(|e| e.to_string())?;
     report["guard"] = serde_json::to_value(guard).map_err(|e| e.to_string())?;
     report["publishable"] = publishable.into();
@@ -1225,6 +1241,14 @@ mod tests {
 fn lightcraft_session_boundaries_and_statistics() {
     let status = Command::new("python3").arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/test_lightcraft_session.py")).status().unwrap();
     assert!(status.success(), "session lifecycle/report tests failed");
+}
+
+#[cfg(test)]
+#[test]
+fn photocraft_session_report_statistics() {
+    let status =
+        Command::new("python3").arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/test_photocraft_session_report.py")).status().unwrap();
+    assert!(status.success(), "PhotoCraft session/report tests failed");
 }
 
 #[cfg(test)]

@@ -1,0 +1,5 @@
+psd-tools==1.26.1
+Pillow==13.0.0
+attrs==26.1.0
+numpy==2.5.4
+scipy==1.18.1

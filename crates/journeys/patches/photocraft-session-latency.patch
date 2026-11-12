@@ -1,0 +1,812 @@
+diff --git a/apps/photocraft/src/control_server.rs b/apps/photocraft/src/control_server.rs
+index ae7fa8a32..b76d005f1 100644
+--- a/apps/photocraft/src/control_server.rs
++++ b/apps/photocraft/src/control_server.rs
+@@ -12,12 +12,12 @@ use photocraft_automation::security::{
+     AUTH_DEADLINE, AuthDeadlineStream, AuthStep, ConnectionLimiter, LineRead, MAX_CONNECTIONS, MAX_REQUEST_BYTES, ServerHandshake, configure_stream,
+     read_bounded_line, repeat_auth_reply,
+ };
+-use photocraft_ui_egui::ControlRequest;
+ use photocraft_ui_egui::control::REPLY_DEADLINE;
++use photocraft_ui_egui::{ControlRequest, latency::Reader};
+ use serde_json::{Value, json};
+ 
+ /// Start serving a listener already bound during startup, before a window is opened.
+-pub fn start(listener: TcpListener, token: String, ctx: egui::Context) -> Receiver<ControlRequest> {
++pub fn start(listener: TcpListener, token: String, ctx: egui::Context, latency: Option<Reader>) -> Receiver<ControlRequest> {
+     let (tx, rx) = channel::<ControlRequest>();
+     let port = listener.local_addr().map_or(0, |a| a.port());
+     eprintln!("photocraft: control server listening on {}", listening_addr(&listener, port));
+@@ -33,9 +33,10 @@ pub fn start(listener: TcpListener, token: String, ctx: egui::Context) -> Receiv
+             let tx = tx.clone();
+             let ctx = ctx.clone();
+             let token = Arc::clone(&token);
++            let latency = latency.clone();
+             std::thread::spawn(move || {
+                 let _permit = permit;
+-                serve(stream, &token, tx, ctx);
++                serve(stream, &token, tx, ctx, latency.clone());
+             });
+         }
+     });
+@@ -52,13 +53,13 @@ fn listening_addr(listener: &TcpListener, requested_port: u16) -> String {
+     }
+ }
+ 
+-fn serve(stream: TcpStream, token: &str, tx: Sender<ControlRequest>, ctx: egui::Context) {
+-    serve_with_auth_deadline(stream, token, tx, ctx, AUTH_DEADLINE);
++fn serve(stream: TcpStream, token: &str, tx: Sender<ControlRequest>, ctx: egui::Context, latency: Option<Reader>) {
++    serve_with_auth_deadline(stream, token, tx, ctx, AUTH_DEADLINE, latency);
+ }
+ 
+ /// [`serve`] for a connection that must complete `auth` within `auth_deadline` of connecting,
+ /// however much it sends meanwhile (#4965); after that only the idle timeout applies.
+-fn serve_with_auth_deadline(stream: TcpStream, token: &str, tx: Sender<ControlRequest>, ctx: egui::Context, auth_deadline: Duration) {
++fn serve_with_auth_deadline(stream: TcpStream, token: &str, tx: Sender<ControlRequest>, ctx: egui::Context, auth_deadline: Duration, latency: Option<Reader>) {
+     if configure_stream(&stream).is_err() {
+         return;
+     }
+@@ -106,20 +107,38 @@ fn serve_with_auth_deadline(stream: TcpStream, token: &str, tx: Sender<ControlRe
+                 let id = msg.get("id").cloned().unwrap_or(Value::Null);
+                 let method = msg.get("method").and_then(Value::as_str).unwrap_or("").to_string();
+                 let params = msg.get("params").cloned().unwrap_or(json!({}));
+-                let deadline = Instant::now() + REPLY_DEADLINE;
+-                let (mut req, rrx) = ControlRequest::new(method, params);
+-                req.deadline = Some(deadline);
+-                let dispatch = req.dispatch.clone();
+-                if tx.send(req).is_err() {
+-                    break;
++                if method == "ui.latency.wait" {
++                    let mut reply = if let Some(reader) = latency.as_ref() {
++                        let (reply, done) = std::sync::mpsc::channel();
++                        if let Err(error) = reader.wait(&params, reply) {
++                            json!({"id":id,"ok":false,"error":error})
++                        } else {
++                            done.recv_timeout(Duration::from_secs(600)).unwrap_or_else(|_| json!({"id":id,"ok":false,"error":"latency record timeout"}))
++                        }
++                    } else {
++                        json!({"id":id,"ok":false,"error":"latency recorder disabled"})
++                    };
++                    if let Some(object) = reply.as_object_mut() {
++                        object.insert("id".into(), id);
++                    }
++                    reply
++                } else {
++                    let deadline = Instant::now() + REPLY_DEADLINE;
++                    let (mut req, rrx) = ControlRequest::new(method, params);
++                    req.deadline = Some(deadline);
++                    let dispatch = req.dispatch.clone();
++                    if tx.send(req).is_err() {
++                        break;
++                    }
++                    ctx.request_repaint();
++                    let mut r = rrx
++                        .recv_timeout(deadline.saturating_duration_since(Instant::now()))
++                        .unwrap_or_else(|_| json!({"ok": false, "error": dispatch.give_up()}));
++                    if let Some(o) = r.as_object_mut() {
++                        o.insert("id".into(), id);
++                    }
++                    r
+                 }
+-                ctx.request_repaint();
+-                let mut r =
+-                    rrx.recv_timeout(deadline.saturating_duration_since(Instant::now())).unwrap_or_else(|_| json!({"ok": false, "error": dispatch.give_up()}));
+-                if let Some(o) = r.as_object_mut() {
+-                    o.insert("id".into(), id);
+-                }
+-                r
+             }
+             Err(e) => json!({"id": null, "ok": false, "error": format!("bad JSON: {e}")}),
+         };
+@@ -182,7 +201,7 @@ mod tests {
+         let server = std::thread::spawn(move || {
+             let (stream, _) = listener.accept().unwrap();
+             let started = Instant::now();
+-            serve_with_auth_deadline(stream, "unused", tx, egui::Context::default(), Duration::from_millis(300));
++            serve_with_auth_deadline(stream, "unused", tx, egui::Context::default(), Duration::from_millis(300), None);
+             started.elapsed()
+         });
+         // Blank lines and partial frames, one byte every 20 ms: each read succeeds long before
+diff --git a/apps/photocraft/src/main.rs b/apps/photocraft/src/main.rs
+index b7622e297..23cb25c6a 100644
+--- a/apps/photocraft/src/main.rs
++++ b/apps/photocraft/src/main.rs
+@@ -619,7 +619,7 @@ fn main() -> eframe::Result {
+                 }
+             });
+             if let Some((listener, token, _)) = control {
+-                let rx = control_server::start(listener, token, cc.egui_ctx.clone());
++                let rx = control_server::start(listener, token, cc.egui_ctx.clone(), app.latency_reader());
+                 app = app.with_control(rx);
+             }
+             #[cfg(target_os = "macos")]
+diff --git a/crates/ui-egui/src/app.rs b/crates/ui-egui/src/app.rs
+index a8cf267e4..4268b8455 100644
+--- a/crates/ui-egui/src/app.rs
++++ b/crates/ui-egui/src/app.rs
+@@ -2,11 +2,11 @@ use super::services::{ExportSettings, FormatChoices, SAVE_OPTIONS_OPEN, SaveKind
+ use super::{
+     ControlRequest, DocId, Document, HashMap, PhotocraftApp, Receiver, Session, SyntheticTarget, Tool, UiState, Value, actions, analysis_ui, brush_panel,
+     brush_picker, camera_raw_ui, canvas, dds_options_ui, delete_layer_prompt, dialogs, discard_ui, distort_ui, dock, field_wheel, file_open, gpu_canvas,
+-    gpu_status, gradient_ui, histogram_panel, i18n, jobs_ui, jpeg_options_ui, json, kys_import, last_brush, layers_panel_ui, mask_thumbs_ui, mask_trash_prompt,
+-    monitor_status, native_menu, notices, open_prompt, paint_mouse, palette, panel_docking, panels, prefs_ui, preset_files_ui, preset_panels, rasterize_prompt,
+-    screen_picker, shape_stroke_ui, shortcuts, single_line_drag, smart_svg_ui, state, stroke_trace, stylus, targa_options_ui, text_field_menu, theme,
+-    tiff_options_ui, timeline_ui, titlebar, tool_cursor, tool_memory, transform_tool, type_panels_ui, type_tool, type_transform, updates_ui, vector_ui,
+-    view_cmds, wheel_nav, wide_angle_ui, widgets, work_area, workspace_ui,
++    gpu_status, gradient_ui, histogram_panel, i18n, jobs_ui, jpeg_options_ui, json, kys_import, last_brush, latency, layers_panel_ui, mask_thumbs_ui,
++    mask_trash_prompt, monitor_status, native_menu, notices, open_prompt, paint_mouse, palette, panel_docking, panels, prefs_ui, preset_files_ui,
++    preset_panels, rasterize_prompt, screen_picker, shape_stroke_ui, shortcuts, single_line_drag, smart_svg_ui, state, stroke_trace, stylus, targa_options_ui,
++    text_field_menu, theme, tiff_options_ui, timeline_ui, titlebar, tool_cursor, tool_memory, transform_tool, type_panels_ui, type_tool, type_transform,
++    updates_ui, vector_ui, view_cmds, wheel_nav, wide_angle_ui, widgets, work_area, workspace_ui,
+ };
+ 
+ mod clipboard;
+@@ -33,6 +33,11 @@ pub(crate) use thumbs::layer_thumb_frame;
+ pub use thumbs::surface_fingerprint;
+ 
+ impl PhotocraftApp {
++    /// Clone the optional latency read endpoint for the local control transport.
++    pub fn latency_reader(&self) -> Option<latency::Reader> {
++        self.latency.as_ref().map(|r| r.reader())
++    }
++
+     /// Creates a new application state managing the engine session and UI services; the session
+     /// keeps the services' automation policy as the gate actions automation wrote play under.
+     pub fn new(mut session: Session, mut services: Services) -> Self {
+@@ -90,6 +95,7 @@ impl PhotocraftApp {
+             caps_lock: false,
+             opacity_keys: None,
+             control_rx: None,
++            latency: latency::Recorder::from_env(),
+             captures: crate::screenshot::Captures::default(),
+             type_ime: type_tool::ImeState::default(),
+             input_waiters: Vec::new(),
+@@ -288,6 +294,12 @@ impl eframe::App for PhotocraftApp {
+             wheel_nav::fold_legacy_pinch(ctx, raw_input);
+         }
+         self.inject_synthetic(ctx, raw_input);
++        if let Some(recorder) = &mut self.latency {
++            recorder.accept_events(&raw_input.events);
++            if let Some(delay) = recorder.test_delay_after_accept() {
++                std::thread::sleep(delay);
++            }
++        }
+         // After the control channel's own events (`ui.type`) join the OS's, before any widget.
+         widgets::cap_text_events(&mut raw_input.events);
+         self.control_click.normalize(&mut raw_input.events, cfg!(target_os = "macos"));
+@@ -312,6 +324,9 @@ impl eframe::App for PhotocraftApp {
+             self.ui.status_error = true;
+         }
+         self.ui_frame(ui, frame);
++        if self.latency.is_some() {
++            latency::frame(self, ui, frame);
++        }
+         self.finish_type_reset_pass(ui.ctx());
+     }
+ }
+diff --git a/crates/ui-egui/src/app/control.rs b/crates/ui-egui/src/app/control.rs
+index ab20ffca3..e9c3a3ec2 100644
+--- a/crates/ui-egui/src/app/control.rs
++++ b/crates/ui-egui/src/app/control.rs
+@@ -34,6 +34,12 @@ impl PhotocraftApp {
+                 let _ = reply.send(serde_json::json!({"ok": false, "error": crate::control::expired_error()}));
+                 continue;
+             }
++            if req.method == "ui.latency.arm" {
++                let result = self.latency.as_mut().ok_or("latency recorder disabled").and_then(|r| r.arm(&req.params));
++                let value = result.map_or_else(|e| serde_json::json!({"ok":false,"error":e}), |_| serde_json::json!({"ok":true,"result":{"armed":true}}));
++                let _ = reply.send(value);
++                continue;
++            }
+             match crate::control::handle(self, ctx, &req) {
+                 crate::control::Outcome::Done(v) => {
+                     let _ = reply.send(v);
+diff --git a/crates/ui-egui/src/control/dispatch.rs b/crates/ui-egui/src/control/dispatch.rs
+index d4e90ff90..281d82e98 100644
+--- a/crates/ui-egui/src/control/dispatch.rs
++++ b/crates/ui-egui/src/control/dispatch.rs
+@@ -1173,6 +1173,7 @@ fn input_methods(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequ
+     let p = &req.params;
+     Some(match req.method.as_str() {
+         "ui.pointer" => pointer(app, ctx, p),
++        "ui.latency.input" => latency_input(app, ctx, p),
+         "ui.click" | "ui.move" => click(app, ctx, p, req.method == "ui.click"),
+         "ui.key" => key(app, ctx, p),
+         "ui.type" => {
+@@ -1185,6 +1186,71 @@ fn input_methods(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequ
+     })
+ }
+ 
++/// Queue desktop pointer events for the latency recorder. They re-enter egui through the app's
++/// ordinary synthetic-input queue and then follow the same widgets/canvas/tool/brush path as OS
++/// pointer events; this deliberately does not call the tool handler directly.
++fn latency_input(app: &mut PhotocraftApp, ctx: &egui::Context, p: &Value) -> Outcome {
++    if app.latency.is_none() {
++        return err("latency recorder disabled");
++    }
++    let complete = p.get("complete").and_then(Value::as_bool).unwrap_or(true);
++    if let Some(recorder) = app.latency.as_mut() {
++        recorder.set_input_completion_allowed(complete);
++    }
++    let Some(events) = p.get("events").and_then(Value::as_array) else {
++        return err("events must be an array");
++    };
++    if events.is_empty() || events.len() > 2048 {
++        return err("events must contain between 1 and 2048 entries");
++    }
++    if !app.synthetic.is_empty() || app.synthetic_batch.is_some() {
++        return err("synthetic input queue is busy");
++    }
++    let mut parsed = Vec::with_capacity(events.len());
++    for event in events {
++        let kind = event.get("kind").and_then(Value::as_str).unwrap_or("");
++        let pos = if matches!(kind, "move" | "down" | "up") {
++            let Some(x) = event.get("x").and_then(Value::as_f64).filter(|v| v.is_finite()).map(|v| v as f32).filter(|v| v.is_finite()) else {
++                return err("pointer x must be a finite screen coordinate");
++            };
++            let Some(y) = event.get("y").and_then(Value::as_f64).filter(|v| v.is_finite()).map(|v| v as f32).filter(|v| v.is_finite()) else {
++                return err("pointer y must be a finite screen coordinate");
++            };
++            egui::pos2(x, y)
++        } else {
++            egui::Pos2::ZERO
++        };
++        let value = match kind {
++            "move" => egui::Event::PointerMoved(pos),
++            "down" | "up" => {
++                let button = match event.get("button").and_then(Value::as_str).unwrap_or("left") {
++                    "left" => egui::PointerButton::Primary,
++                    "right" => egui::PointerButton::Secondary,
++                    "middle" => egui::PointerButton::Middle,
++                    _ => return err("button must be left, middle or right"),
++                };
++                egui::Event::PointerButton { pos, button, pressed: kind == "down", modifiers: egui::Modifiers::NONE }
++            }
++            "wheel" => {
++                let Some(dy) = event.get("deltaY").and_then(Value::as_f64).filter(|v| v.is_finite()) else { return err("deltaY must be finite") };
++                let dx = event.get("deltaX").and_then(Value::as_f64).filter(|v| v.is_finite()).unwrap_or(0.0);
++                egui::Event::MouseWheel {
++                    source: egui::MouseWheelSource::Unknown,
++                    unit: egui::MouseWheelUnit::Line,
++                    delta: egui::vec2(dx as f32, dy as f32),
++                    phase: egui::TouchPhase::Move,
++                    modifiers: egui::Modifiers::NONE,
++                }
++            }
++            _ => return err("event kind must be move, down, up or wheel"),
++        };
++        parsed.push(value);
++    }
++    app.synthetic.extend(parsed);
++    ctx.request_repaint();
++    Outcome::AfterInput
++}
++
+ fn click(app: &mut PhotocraftApp, ctx: &egui::Context, p: &Value, click: bool) -> Outcome {
+     let fields: &[&str] = if click { &["x", "y", "button", "count"] } else { &["x", "y"] };
+     let parsed = (|| -> std::result::Result<_, String> {
+@@ -1579,21 +1645,40 @@ fn app_methods(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlReques
+     let p = &req.params;
+     Some(match req.method.as_str() {
+         "app.open" => match str_param(p, "path") {
+-            Some(path) => match p.get("approveHighMemory") {
+-                None | Some(Value::Null) => app_open(app, path, false),
+-                Some(Value::Bool(approved)) => app_open(app, path, *approved),
+-                Some(_) => err("expected boolean for `approveHighMemory`"),
+-            },
++            Some(path) => {
++                let approved = match p.get("approveHighMemory") {
++                    None | Some(Value::Null) => false,
++                    Some(Value::Bool(approved)) => *approved,
++                    Some(_) => return Some(err("expected boolean for `approveHighMemory`")),
++                };
++                if let Some(recorder) = app.latency.as_mut() {
++                    recorder.accept_command("open");
++                }
++                let outcome = app_open(app, path, approved);
++                if let Some(recorder) = app.latency.as_mut() {
++                    recorder.complete_command("open");
++                }
++                outcome
++            }
+             None => err("missing `path`"),
+         },
+         "app.save" => match crate::FormatChoices::from_params(p, "app.save") {
+             Ok(choices) => {
+                 let path = str_param(p, "path").map(str::to_string);
+-                run_waiting(app, wait_param(p), move |app| {
++                if let Some(recorder) = app.latency.as_mut() {
++                    recorder.accept_command("save");
++                }
++                let outcome = run_waiting(app, wait_param(p), move |app| {
+                     // Saving bypasses `menus::invoke`: a Type box drag in progress applies its box first.
+                     crate::type_box_preview::end_drag(app);
+                     app.save_automation_with(path, choices)
+-                })
++                });
++                if matches!(&outcome, Outcome::Done(_))
++                    && let Some(recorder) = app.latency.as_mut()
++                {
++                    recorder.complete_command("save");
++                }
++                outcome
+             }
+             Err(e) => err(e),
+         },
+diff --git a/crates/ui-egui/src/jobs_ui.rs b/crates/ui-egui/src/jobs_ui.rs
+index 7459f54be..be493b19c 100644
+--- a/crates/ui-egui/src/jobs_ui.rs
++++ b/crates/ui-egui/src/jobs_ui.rs
+@@ -472,6 +472,9 @@ fn finish_save(app: &mut PhotocraftApp, ctx: &egui::Context, save: SaveJob, labe
+         }
+     }
+     close_after_saves(app, ctx);
++    if let Some(recorder) = app.latency.as_mut() {
++        recorder.complete_command("save");
++    }
+ }
+ 
+ /// Forget saves whose job ended and whose worker has returned; repeat a held window close once
+@@ -651,6 +654,9 @@ fn on_event(app: &mut PhotocraftApp, ctx: &egui::Context, e: JobEvent) {
+             }
+         }
+         end_batch(app);
++        if let Some(recorder) = app.latency.as_mut() {
++            recorder.complete_command("open");
++        }
+         return;
+     }
+     match e.outcome {
+diff --git a/crates/ui-egui/src/latency.rs b/crates/ui-egui/src/latency.rs
+new file mode 100644
+index 000000000..3868a44da
+--- /dev/null
++++ b/crates/ui-egui/src/latency.rs
+@@ -0,0 +1,394 @@
++//! Opt-in accepted-input to reflecting-frame completion recorder for desktop journeys.
++//! Pointer clocks start in `raw_input_hook` after the app has accepted an input event. Open/Save
++//! clocks start when their control request is dispatched on the UI thread. They end from a
++//! completion callback on the command buffer for the frame that consumed the final action.
++//! This is GPU-work completion, not display scanout.
++
++use serde_json::{Value, json};
++use std::sync::{Arc, Mutex, mpsc::Sender};
++use std::time::{Duration, Instant};
++
++#[derive(Default)]
++struct State {
++    records: Vec<Value>,
++    waiters: Vec<(String, Sender<Value>)>,
++}
++
++/// Socket-thread read access. A read does not dispatch to the UI or request a repaint.
++#[derive(Clone)]
++pub struct Reader(Arc<Mutex<State>>);
++
++impl Reader {
++    pub fn wait(&self, params: &Value, reply: Sender<Value>) -> Result<(), &'static str> {
++        let id = params["id"].as_str().ok_or("missing latency id")?;
++        let mut state = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++        let record = state.records.iter().find(|r| r["id"] == id).ok_or("unknown latency id")?;
++        if !record["completed_ns"].is_null() {
++            let _ = reply.send(json!({"ok":true,"result":record}));
++        } else if state.waiters.len() < 16 {
++            state.waiters.push((id.into(), reply));
++        } else {
++            return Err("too many latency waiters");
++        }
++        Ok(())
++    }
++}
++
++/// Constructed only when `PHOTOCRAFT_LATENCY_RECORDER=1`.
++pub struct Recorder {
++    epoch: Instant,
++    state: Arc<Mutex<State>>,
++    active: Option<Active>,
++    queued: Vec<(String, u64)>,
++}
++
++struct Active {
++    id: String,
++    action: String,
++    accepted: Option<u64>,
++    command_completed: bool,
++    input_completion_allowed: bool,
++    test_delay_applied: bool,
++}
++
++impl Recorder {
++    pub fn from_env() -> Option<Self> {
++        #[cfg(not(target_arch = "wasm32"))]
++        {
++            (std::env::var("PHOTOCRAFT_LATENCY_RECORDER").as_deref() == Ok("1")).then(|| Self {
++                epoch: Instant::now(),
++                state: Arc::new(Mutex::new(State::default())),
++                active: None,
++                queued: Vec::new(),
++            })
++        }
++        #[cfg(target_arch = "wasm32")]
++        {
++            None
++        }
++    }
++
++    pub fn reader(&self) -> Reader {
++        Reader(self.state.clone())
++    }
++
++    pub fn arm(&mut self, params: &Value) -> Result<(), &'static str> {
++        let id = params["id"].as_str().filter(|s| !s.is_empty() && s.len() <= 128).ok_or("invalid latency id")?;
++        let action = params["action"]
++            .as_str()
++            .filter(|s| matches!(*s, "brush" | "visibility" | "blend" | "move" | "zoom" | "pan" | "open" | "save"))
++            .ok_or("invalid latency action")?;
++        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++        if self.active.is_some() || state.records.len() >= 4096 || state.records.iter().any(|r| r["id"] == id) {
++            return Err("latency recorder busy, full, or duplicate id");
++        }
++        state.records.push(json!({"id":id,"action":action,"accepted_ns":null,"completed_ns":null,
++            "duration_ns":null,"endpoint":"accepted-input-frame-gpu-work-complete","input_samples":[]}));
++        self.active = Some(Active {
++            id: id.into(),
++            action: action.into(),
++            accepted: None,
++            command_completed: false,
++            input_completion_allowed: action != "blend",
++            test_delay_applied: false,
++        });
++        self.queued.clear();
++        Ok(())
++    }
++
++    /// Optional physical slowdown dose for the calibration check. The accepted-input timestamp
++    /// is recorded before this delay; the production path is inert unless both test variables are
++    /// explicitly set in a recorder-enabled build.
++    pub(crate) fn test_delay_after_accept(&mut self) -> Option<Duration> {
++        let active = self.active.as_mut()?;
++        if active.test_delay_applied || active.accepted.is_none() {
++            return None;
++        }
++        let requested = std::env::var("PHOTOCRAFT_LATENCY_SLOW_ACTION").ok()?;
++        if !test_delay_matches(&active.action, &active.id, &requested) {
++            return None;
++        }
++        let millis = std::env::var("PHOTOCRAFT_LATENCY_SLOW_MS").ok()?.parse::<u64>().ok()?;
++        if millis == 0 {
++            return None;
++        }
++        active.test_delay_applied = true;
++        Some(Duration::from_millis(millis))
++    }
++
++    /// Stamp an app.open/app.save control request on the UI thread after dispatch accepts it.
++    pub(crate) fn accept_command(&mut self, action: &str) {
++        let at = ns(self.epoch);
++        let Some(active) = self.active.as_mut().filter(|active| active.action == action && active.accepted.is_none()) else { return };
++        active.accepted = Some(at);
++        self.queued.push(("command".into(), at));
++    }
++
++    /// Finish Open/Save only after PhotoCraft has applied the resulting document or written it.
++    pub(crate) fn complete_command(&mut self, action: &str) {
++        let at = ns(self.epoch);
++        let Some(active) = self.active.as_mut().filter(|active| active.action == action && active.accepted.is_some()) else { return };
++        active.command_completed = true;
++        self.queued.push(("command-complete".into(), at));
++    }
++
++    /// A blend-mode UI action includes opening the dropdown and selecting an option. The driver
++    /// marks the second pointer release as the semantic endpoint.
++    pub(crate) fn set_input_completion_allowed(&mut self, allowed: bool) {
++        if let Some(active) = self.active.as_mut().filter(|active| active.action == "blend") {
++            active.input_completion_allowed = allowed;
++        }
++    }
++
++    /// Stamp events after the OS/egui host has placed them in this frame's input queue.
++    pub(crate) fn accept_events(&mut self, events: &[egui::Event]) {
++        if self.active.as_ref().is_none_or(|active| matches!(active.action.as_str(), "open" | "save")) {
++            return;
++        }
++        for event in events {
++            let kind = match event {
++                egui::Event::PointerMoved(_) => "move",
++                egui::Event::PointerButton { pressed: true, .. } => "down",
++                egui::Event::PointerButton { pressed: false, .. } => "up",
++                egui::Event::MouseWheel { .. } | egui::Event::Zoom(_) => "view",
++                _ => continue,
++            };
++            let at = ns(self.epoch);
++            if let Some(active) = self.active.as_mut() {
++                if active.accepted.is_none() {
++                    active.accepted = Some(at);
++                }
++                self.queued.push((kind.into(), at));
++            }
++        }
++    }
++
++    /// Called only after a visible UI pass. The callback is registered on that frame's GPU queue.
++    pub(crate) fn frame_callback(&mut self) -> Option<Box<dyn FnOnce() + Send>> {
++        let active = self.active.as_ref()?;
++        if self.queued.is_empty() {
++            return None;
++        }
++        let id = active.id.clone();
++        let accepted = active.accepted?;
++        let queued = std::mem::take(&mut self.queued);
++        let epoch = self.epoch;
++        let state = self.state.clone();
++        let release = queued.iter().any(|(kind, _)| kind == "up");
++        let view_step = queued.iter().any(|(kind, _)| kind == "view");
++        let finish = match active.action.as_str() {
++            "brush" | "visibility" | "move" | "pan" => release,
++            "blend" => release && active.input_completion_allowed,
++            "zoom" => view_step,
++            "open" | "save" => active.command_completed,
++            _ => false,
++        };
++        if finish {
++            self.active = None;
++        }
++        Some(Box::new(move || {
++            let end = ns(epoch);
++            let mut state = state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++            let Some(record) = state.records.iter_mut().find(|r| r["id"] == id) else { return };
++            let samples = record["input_samples"].as_array_mut();
++            if let Some(samples) = samples {
++                for (kind, start) in queued {
++                    samples.push(json!({"kind":kind,"accepted_ns":start,"presented_frame_ns":end,"duration_ns":end.saturating_sub(start)}));
++                }
++            }
++            if finish {
++                record["accepted_ns"] = json!(accepted);
++                record["completed_ns"] = json!(end);
++                record["duration_ns"] = json!(end.saturating_sub(accepted));
++                let result = record.clone();
++                state.waiters.retain(|(wait_id, reply)| {
++                    if *wait_id == id {
++                        let _ = reply.send(json!({"ok":true,"result":result}));
++                        false
++                    } else {
++                        true
++                    }
++                });
++            }
++        }))
++    }
++}
++
++fn test_delay_matches(action: &str, id: &str, requested: &str) -> bool {
++    requested == action || id.contains(requested)
++}
++
++#[cfg(not(target_arch = "wasm32"))]
++pub(crate) fn frame(app: &mut crate::PhotocraftApp, ui: &egui::Ui, frame: &eframe::Frame) {
++    use eframe::egui_wgpu::{self, wgpu};
++    use std::sync::{
++        OnceLock,
++        atomic::{AtomicBool, Ordering},
++        mpsc,
++    };
++    use std::time::Duration;
++    if ui.ctx().will_discard() {
++        return;
++    }
++    let Some(recorder) = app.latency.as_mut() else { return };
++    let Some(render) = frame.wgpu_render_state() else { return };
++    // Do not consume the queued sample until there is a GPU queue to attach its completion
++    // fence to. This also makes the recorder inert when PhotoCraft is running through its CPU
++    // fallback path.
++    let Some(done) = recorder.frame_callback() else { return };
++    type Work = Arc<AtomicBool>;
++    static POLLER: OnceLock<mpsc::Sender<Work>> = OnceLock::new();
++    let device = render.device.clone();
++    let poller = POLLER.get_or_init(|| {
++        let (tx, rx) = mpsc::channel::<Work>();
++        let _ = std::thread::Builder::new().name("photocraft-latency-fence".into()).spawn(move || {
++            while let Ok(done) = rx.recv() {
++                while !done.load(Ordering::Acquire) {
++                    if device.poll(wgpu::PollType::Poll).is_err() {
++                        break;
++                    }
++                    std::thread::sleep(Duration::from_micros(100));
++                }
++            }
++        });
++        tx
++    });
++    ui.painter().add(egui_wgpu::Callback::new_paint_callback(ui.max_rect(), Fence { done: Mutex::new(Some(done)), poller: poller.clone() }));
++}
++
++#[cfg(target_arch = "wasm32")]
++pub(crate) fn frame(_app: &mut crate::PhotocraftApp, _ui: &egui::Ui, _frame: &mut eframe::Frame) {}
++
++#[cfg(not(target_arch = "wasm32"))]
++struct Fence {
++    done: Mutex<Option<Box<dyn FnOnce() + Send>>>,
++    poller: std::sync::mpsc::Sender<std::sync::Arc<std::sync::atomic::AtomicBool>>,
++}
++
++#[cfg(not(target_arch = "wasm32"))]
++impl eframe::egui_wgpu::CallbackTrait for Fence {
++    fn prepare(
++        &self,
++        _device: &eframe::egui_wgpu::wgpu::Device,
++        _queue: &eframe::egui_wgpu::wgpu::Queue,
++        _screen: &eframe::egui_wgpu::ScreenDescriptor,
++        encoder: &mut eframe::egui_wgpu::wgpu::CommandEncoder,
++        _resources: &mut eframe::egui_wgpu::CallbackResources,
++    ) -> Vec<eframe::egui_wgpu::wgpu::CommandBuffer> {
++        use std::sync::{
++            Arc,
++            atomic::{AtomicBool, Ordering},
++        };
++        if let Some(callback) = self.done.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take() {
++            let done = Arc::new(AtomicBool::new(false));
++            let worker_done = done.clone();
++            encoder.on_submitted_work_done(move || {
++                callback();
++                worker_done.store(true, Ordering::Release);
++            });
++            let _ = self.poller.send(done);
++        }
++        vec![]
++    }
++    fn paint(
++        &self,
++        _info: eframe::egui::epaint::PaintCallbackInfo,
++        _pass: &mut eframe::egui_wgpu::wgpu::RenderPass<'static>,
++        _resources: &eframe::egui_wgpu::CallbackResources,
++    ) {
++    }
++}
++
++fn ns(epoch: Instant) -> u64 {
++    u64::try_from(epoch.elapsed().as_nanos()).unwrap_or(u64::MAX)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    #[test]
++    fn recorder_starts_at_accepted_input_and_waits_for_frame_completion() {
++        let mut r = Recorder { epoch: Instant::now(), state: Arc::new(Mutex::new(State::default())), active: None, queued: Vec::new() };
++        r.arm(&json!({"id":"stroke-1","action":"brush"})).unwrap();
++        r.accept_events(&[egui::Event::PointerButton {
++            pos: egui::pos2(2.0, 2.0),
++            button: egui::PointerButton::Primary,
++            pressed: true,
++            modifiers: egui::Modifiers::NONE,
++        }]);
++        let reader = r.reader();
++        let (tx, rx) = std::sync::mpsc::channel();
++        reader.wait(&json!({"id":"stroke-1"}), tx).unwrap();
++        assert!(rx.try_recv().is_err());
++        let done = r.frame_callback().unwrap();
++        assert!(rx.try_recv().is_err());
++        done();
++        assert!(rx.try_recv().is_err(), "brush remains armed until release");
++        r.accept_events(&[egui::Event::PointerButton {
++            pos: egui::pos2(2.0, 2.0),
++            button: egui::PointerButton::Primary,
++            pressed: false,
++            modifiers: egui::Modifiers::NONE,
++        }]);
++        r.frame_callback().unwrap()();
++        let reply = rx.recv().unwrap();
++        assert!(reply["result"]["duration_ns"].as_u64().unwrap() > 0);
++        assert_eq!(reply["result"]["input_samples"].as_array().unwrap().len(), 2);
++    }
++
++    #[test]
++    fn click_actions_wait_for_release_and_open_waits_for_completion() {
++        let mut r = Recorder { epoch: Instant::now(), state: Arc::new(Mutex::new(State::default())), active: None, queued: Vec::new() };
++        r.arm(&json!({"id":"toggle-1","action":"visibility"})).unwrap();
++        r.accept_events(&[egui::Event::PointerButton {
++            pos: egui::pos2(4.0, 4.0),
++            button: egui::PointerButton::Primary,
++            pressed: true,
++            modifiers: egui::Modifiers::NONE,
++        }]);
++        let down = r.frame_callback().unwrap();
++        down();
++        assert!(r.active.is_some(), "a click begins on press and finishes on release");
++        r.accept_events(&[egui::Event::PointerButton {
++            pos: egui::pos2(4.0, 4.0),
++            button: egui::PointerButton::Primary,
++            pressed: false,
++            modifiers: egui::Modifiers::NONE,
++        }]);
++        r.frame_callback().unwrap()();
++        assert!(r.active.is_none());
++
++        r.arm(&json!({"id":"open-1","action":"open"})).unwrap();
++        let reader = r.reader();
++        let (tx, rx) = std::sync::mpsc::channel();
++        reader.wait(&json!({"id":"open-1"}), tx).unwrap();
++        r.accept_command("open");
++        r.frame_callback().unwrap()();
++        assert!(rx.try_recv().is_err(), "dispatch acceptance is not document completion");
++        r.complete_command("open");
++        r.frame_callback().unwrap()();
++        assert!(rx.recv().unwrap()["result"]["duration_ns"].as_u64().unwrap() > 0);
++    }
++
++    #[test]
++    fn blend_waits_for_the_layer_mode_selection_release() {
++        let mut r = Recorder { epoch: Instant::now(), state: Arc::new(Mutex::new(State::default())), active: None, queued: Vec::new() };
++        r.arm(&json!({"id":"blend-1","action":"blend"})).unwrap();
++        let click =
++            |pressed| egui::Event::PointerButton { pos: egui::pos2(8.0, 8.0), button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE };
++        r.set_input_completion_allowed(false);
++        r.accept_events(&[click(true), click(false)]);
++        r.frame_callback().unwrap()();
++        assert!(r.active.is_some(), "opening the blend list does not finish the mode change");
++        r.set_input_completion_allowed(true);
++        r.accept_events(&[click(true), click(false)]);
++        r.frame_callback().unwrap()();
++        assert!(r.active.is_none());
++    }
++
++    #[test]
++    fn slowdown_check_can_target_one_brush_size_label() {
++        assert!(test_delay_matches("brush", "aa-0-slow-brush-30px-1", "brush-30px"));
++        assert!(!test_delay_matches("brush", "aa-0-fast-brush-500px-1", "brush-30px"));
++    }
++}
+diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
+index 7a56e9b70..59aabba5a 100644
+--- a/crates/ui-egui/src/lib.rs
++++ b/crates/ui-egui/src/lib.rs
+@@ -41,6 +41,7 @@ mod icon_data;
+ pub mod icons;
+ pub mod jobs_ui;
+ pub(crate) mod last_brush;
++pub mod latency;
+ pub mod levels_clipping;
+ pub mod links;
+ pub mod memory_warning;
+@@ -459,6 +460,8 @@ pub struct PhotocraftApp {
+     /// The first digit of a two-digit opacity typed on the number keys (`opacity_keys`, #352).
+     pub(crate) opacity_keys: opacity_keys::Pending,
+     control_rx: Option<Receiver<ControlRequest>>,
++    /// Opt-in input-to-presented-frame timing; absent in ordinary launches.
++    pub(crate) latency: Option<latency::Recorder>,
+     /// `ui.screenshot` requests: bounded admission, a weak-slot callback per issuance, monotonic
+     /// deadlines and a capture-time geometry epoch (see `screenshot.rs`).
+     captures: screenshot::Captures,
+diff --git a/docs/control-protocol.md b/docs/control-protocol.md
+index 154453df0..f3cfb300f 100644
+--- a/docs/control-protocol.md
++++ b/docs/control-protocol.md
+@@ -834,6 +834,27 @@ retain custom collapse settings and Timeline visibility.
+ ### Frame Tool controls
+ 
+ `ui.set {"tool":"frame","frameShape":"rectangle|ellipse|triangle|polygon|custom","frameSides":5,"frameTarget":"frame|content|both"}` selects creation options or the target inside the active frame. `ui.inspect` includes `frameTool`. `layer.frame.info {"layer":id}` queries geometry, stroke, and content without adding history. Frame edits use `layer.frame.set`, `layer.frame.fit`, `layer.frame.convert` and `layer.frame.setContent`; placement accepts `frame: id` to target an explicit frame or `frame: false` to place outside frames. See [Frame Tool behavior and persistence limits](frame-tool.md).
++### Opt-in accepted-input frame timing
++
++Desktop builds start this recorder only with PHOTOCRAFT_LATENCY_RECORDER=1. The harness
++arms one observation with ui.latency.arm {"id":"sample-1","action":"brush"}, queues normal
++egui pointer events with ui.latency.input {"events":[{"kind":"down","x":...,"y":...}, ...]},
++then reads the result with ui.latency.wait {"id":"sample-1"}. ui.latency.input places events
++in the same synthetic input queue used by the desktop shell; egui dispatches them through the
++ordinary canvas, tool and brush handlers. It does not call a brush or tool command directly.
++Actions accepted are brush, visibility, blend, move, zoom, pan, open and save. Pointer events
++are move, down and up; wheel events use kind:"wheel" with deltaX and deltaY. Use screen points
++as reported by ui.inspect.
++
++Pointer clocks start in raw_input_hook after the app has accepted an input event. Brush, layer
++visibility, blend, move and pan gestures finish on release; zoom finishes on its wheel or pinch
++event. Records retain a sample for each accepted pointer or view event, each ending at the first
++GPU-complete frame that consumed that event. Open and Save clocks start when the corresponding
++control request is dispatched on the UI thread and finish after the document import or save job
++completes, at the first GPU-complete frame afterward. The endpoint confirms GPU work completion
++for that frame; it is not a scanout or photon timestamp. ui.latency.wait reads an already-created
++record on the control socket thread, without a UI dispatch or repaint. With the environment
++variable unset, the recorder, its worker, and its frame callback are absent.
+ 
+ ### Select the layer under the pointer
+ 
