@@ -9,7 +9,7 @@ ROOT = Path('/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway')
 BENCH = '/jobs/work/speedcraft-labs/bench.lock'
 GPU = '/jobs/work/speedcraft-labs/gpu.lock'
 LEASE = ROOT / 'operators/lease.py'
-HARNESS = ROOT / 'bin/craft-journeys'
+HARNESS = Path('/jobs/work/speedcraft-labs/targets/315b/pinned/craft-journeys')
 
 def main():
     parser=argparse.ArgumentParser()
