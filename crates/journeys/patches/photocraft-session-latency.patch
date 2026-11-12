@@ -121,7 +121,7 @@ index b7622e297..23cb25c6a 100644
              }
              #[cfg(target_os = "macos")]
 diff --git a/crates/ui-egui/src/app.rs b/crates/ui-egui/src/app.rs
-index a8cf267e4..4268b8455 100644
+index a8cf267e4..aa6034ebc 100644
 --- a/crates/ui-egui/src/app.rs
 +++ b/crates/ui-egui/src/app.rs
 @@ -2,11 +2,11 @@ use super::services::{ExportSettings, FormatChoices, SAVE_OPTIONS_OPEN, SaveKind
@@ -174,16 +174,6 @@ index a8cf267e4..4268b8455 100644
          // After the control channel's own events (`ui.type`) join the OS's, before any widget.
          widgets::cap_text_events(&mut raw_input.events);
          self.control_click.normalize(&mut raw_input.events, cfg!(target_os = "macos"));
-@@ -312,6 +324,9 @@ impl eframe::App for PhotocraftApp {
-             self.ui.status_error = true;
-         }
-         self.ui_frame(ui, frame);
-+        if self.latency.is_some() {
-+            latency::frame(self, ui, frame);
-+        }
-         self.finish_type_reset_pass(ui.ctx());
-     }
- }
 diff --git a/crates/ui-egui/src/app/control.rs b/crates/ui-egui/src/app/control.rs
 index ab20ffca3..e9c3a3ec2 100644
 --- a/crates/ui-egui/src/app/control.rs
@@ -201,6 +191,30 @@ index ab20ffca3..e9c3a3ec2 100644
              match crate::control::handle(self, ctx, &req) {
                  crate::control::Outcome::Done(v) => {
                      let _ = reply.send(v);
+diff --git a/crates/ui-egui/src/app/frame.rs b/crates/ui-egui/src/app/frame.rs
+index 1b51f3aab..19e5664e3 100644
+--- a/crates/ui-egui/src/app/frame.rs
++++ b/crates/ui-egui/src/app/frame.rs
+@@ -1,6 +1,6 @@
+ use super::{
+     PhotocraftApp, analysis_ui, brush_panel, brush_picker, camera_raw_ui, canvas, dds_options_ui, dialogs, discard_ui, distort_ui, field_wheel, gpu_canvas,
+-    gpu_status, gradient_ui, i18n, jobs_ui, jpeg_options_ui, kys_import, last_brush, layers_panel_ui, monitor_status, native_menu, notices, paint_mouse,
++    gpu_status, gradient_ui, i18n, jobs_ui, jpeg_options_ui, kys_import, last_brush, latency, layers_panel_ui, monitor_status, native_menu, notices, paint_mouse,
+     palette, panels, prefs_ui, preset_panels, rasterize_prompt, screen_picker, shape_stroke_ui, shortcuts, smart_svg_ui, targa_options_ui, text_field_menu,
+     theme, tiff_options_ui, timeline_ui, titlebar, tool_cursor, tool_memory, transform_tool, type_panels_ui, type_tool, updates_ui, vector_ui, view_cmds,
+     wide_angle_ui, work_area, workspace_ui,
+@@ -198,6 +198,11 @@ impl PhotocraftApp {
+         // Every frame that started its stage record closes it, whichever way `ui_body` returns.
+         let drawn = self.ui_body(ui);
+         let ui_ms = gpu_canvas::now_ms() - t0;
++        // The recorder must see this frame's canvas refresh stage before finish_frame takes it.
++        // It attaches its GPU fence to the same rendered UI pass that reflects the action.
++        if drawn && self.latency.is_some() {
++            latency::frame(self, ui, frame);
++        }
+         // A GPU measurement lands a frame or two after the refresh it belongs to. Refreshes
+         // carry them out, but the last refresh before the app settles has none following it, so
+         // drain the timer here too or its number is never reported. Drain it either way: a
 diff --git a/crates/ui-egui/src/control/dispatch.rs b/crates/ui-egui/src/control/dispatch.rs
 index d4e90ff90..281d82e98 100644
 --- a/crates/ui-egui/src/control/dispatch.rs
