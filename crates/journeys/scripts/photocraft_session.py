@@ -334,6 +334,13 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
                     raise RuntimeError("PhotoCraft did not open the pinned layered payload")
                 identity["update_notice_after_open"] = bool(first_state.get("updatesOpen"))
                 if first_state.get("updatesOpen"):
+                    if config.get("capture_update_notice"):
+                        capture_path = profile / "update-notice-after-open.png"
+                        control.rpc("ui.screenshot", {"path": str(capture_path), "focus": False})
+                        archived = out / "update-notice-after-open.png"
+                        shutil.copyfile(capture_path, archived)
+                        identity["update_notice_capture"] = str(archived)
+                        capture_path.unlink()
                     later_x, later_y = config["ui"].get("update_later", [818, 551])
                     for _ in range(3):
                         control.rpc("ui.click", {"x": later_x, "y": later_y})
