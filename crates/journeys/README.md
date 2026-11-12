@@ -70,6 +70,8 @@ target root so prepared builds can be reused.
 | `pdfcraft.export-pdf.form-fixture` | PdfCraft | Export the pinned one-page form PDF to PNG |
 | `vectorcraft.export-svg.still-life` | VectorCraft | Export the pinned Still Life document to SVG |
 | `designcraft.synthetic-performance` | DesignCraft | Compose a deterministic synthetic document |
+| `designcraft.select-drag-export.arts-program` | DesignCraft | Open, select, move and PDF-export the pinned four-spread arts program |
+| `designcraft.drag-preview.opaque-rectangle` | DesignCraft | Render the CPU drag-preview path for an opaque rectangle |
 | `effectcraft.synthetic-project-open` | EffectCraft | Open a generated project sized toward the surveyed 125 MB |
 | `effectcraft.first-frame-heavy-comp` | EffectCraft | Render a cold full-resolution (1,920×1,080) first frame of a generated 5,000-layer composition |
 | `photocraft.synthetic-image-open` | PhotoCraft | Open a generated 4096×2731 image on CPU |
