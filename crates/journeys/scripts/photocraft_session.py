@@ -84,6 +84,7 @@ def pixel_proof(before: dict[str, Any], immediate: dict[str, Any], settled: dict
             "presented_frame_ns": frame_times[0] if len(frame_times) == 1 else None,
             "same_recorded_frame": len(frame_times) == 1,
             "pixel_hash": pixel_hash,
+            "pixel_path": capture.get("pixel_path"),
             "matches_before": pixel_hash == before["crop_fnv1a64"],
             "matches_immediate": pixel_hash == immediate["crop_fnv1a64"],
             "matches_settled": pixel_hash == settled["crop_fnv1a64"],
@@ -101,6 +102,28 @@ def pixel_proof(before: dict[str, Any], immediate: dict[str, Any], settled: dict
         "frame_matches_immediate": median_capture.get("matches_immediate") if median_capture else None,
         "frame_matches_settled": median_capture.get("matches_settled") if median_capture else None,
     }
+    if median_capture is None or not median_capture.get("pixel_path"):
+        raise RuntimeError("median point frame RGB crop was not saved")
+    from PIL import Image
+    median_pixels = Path(median_capture["pixel_path"]).read_bytes()
+    median_crop = Image.frombytes("RGB", immediate["crop"].size, median_pixels)
+    if fnv1a64(median_pixels) != median_capture["pixel_hash"]:
+        raise RuntimeError("median point frame RGB crop does not match its recorded hash")
+    median_frame_path = Path(median_capture["pixel_path"]).with_suffix(".png")
+    median_crop.save(median_frame_path)
+    median_vs_before = ImageChops.difference(before["crop"], median_crop)
+    median_vs_settled = ImageChops.difference(settled["crop"], median_crop)
+    median_point_frame.update({
+        "rgb_file_sha256": hashlib.sha256(median_pixels).hexdigest(),
+        "changed_pixels_from_before": sum(max(p) > 2 for p in median_vs_before.getdata()),
+        "changed_pixels_vs_settled": sum(max(p) > 2 for p in median_vs_settled.getdata()),
+        "roi_size": list(median_crop.size),
+        "image_path": str(median_frame_path),
+    })
+    for capture in raw.get("frame_captures", []):
+        pixel_path = capture.pop("pixel_path", None)
+        if pixel_path:
+            Path(pixel_path).unlink(missing_ok=True)
     return {
         "roi": immediate["crop_box"],
         "before_sha256": before["crop_sha256"],
@@ -126,7 +149,8 @@ def has_median_point_frame_capture(raw: dict[str, Any]) -> bool:
     median = sorted(points, key=lambda sample: int(sample["duration_ns"]))[len(points) // 2]
     key = (median.get("kind"), median.get("accepted_ns"))
     return any(
-        any((event.get("kind"), event.get("accepted_ns")) == key for event in capture.get("accepted_events", []))
+        capture.get("pixel_path") and Path(capture["pixel_path"]).is_file()
+        and any((event.get("kind"), event.get("accepted_ns")) == key for event in capture.get("accepted_events", []))
         for capture in raw.get("frame_captures", [])
     )
 
@@ -274,8 +298,12 @@ def spawn_side(side: dict[str, Any], work: dict[str, Any], config: dict[str, Any
             env.pop(key, None)
     if config.get("pixel_proof"):
         env["PHOTOCRAFT_LATENCY_FRAME_CAPTURE"] = "1"
+        frame_capture_dir = out / side["name"] / "frame-crops"
+        frame_capture_dir.mkdir(parents=True, exist_ok=True)
+        env["PHOTOCRAFT_LATENCY_FRAME_CAPTURE_DIR"] = str(frame_capture_dir)
     else:
         env.pop("PHOTOCRAFT_LATENCY_FRAME_CAPTURE", None)
+        env.pop("PHOTOCRAFT_LATENCY_FRAME_CAPTURE_DIR", None)
     log_path = out / side["name"] / "app.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("wb") as log:
