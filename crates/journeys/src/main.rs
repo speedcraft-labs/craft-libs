@@ -129,6 +129,7 @@ struct AppResult {
     gpu_adapter: Option<String>,
     prefix_hits: Option<u64>,
     prefix_passes_skipped: Option<u64>,
+    window_raise_requested_without_activation: bool,
 }
 
 fn parse_u64_marker(stdout: &str, marker: &str) -> Result<Option<u64>, String> {
@@ -195,6 +196,7 @@ fn run_command(
     // avoids comparing timing text or logs, which naturally differ from run to run.
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
+    let window_raise_requested_without_activation = stdout.lines().any(|line| line == "CRAFT_WINDOW_RAISE_REQUESTED_WITHOUT_ACTIVATION=true");
     let gpu_adapter = stdout
         .lines()
         .find_map(|line| line.strip_prefix("CRAFT_GPU_ADAPTER="))
@@ -572,7 +574,7 @@ fn run_command(
             .ok_or_else(|| "verifier output is missing CRAFT_OUTPUT_SHA256=<hex>".to_string())?;
     }
     let duration_ns = primary_wall_time(spec.wall_time, app_duration_ns, process_duration_ns);
-    Ok(AppResult { duration_ns, identity, gpu_adapter, prefix_hits, prefix_passes_skipped })
+    Ok(AppResult { duration_ns, identity, gpu_adapter, prefix_hits, prefix_passes_skipped, window_raise_requested_without_activation })
 }
 
 fn make_command(spec: &CommandSpec, context: &CommandContext<'_>, program: String) -> Command {
@@ -1033,6 +1035,9 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
     let adapters = Arc::new(Mutex::new(BTreeSet::new()));
     let old_adapters = Arc::clone(&adapters);
     let new_adapters = Arc::clone(&adapters);
+    let window_raise_requested = Arc::new(Mutex::new(false));
+    let old_window_raise_requested = Arc::clone(&window_raise_requested);
+    let new_window_raise_requested = Arc::clone(&window_raise_requested);
     let old_prefix = Arc::new(Mutex::new(PrefixCacheSide::default()));
     let new_prefix = Arc::new(Mutex::new(PrefixCacheSide::default()));
     let old_prefix_runs = Arc::clone(&old_prefix);
@@ -1046,7 +1051,13 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
                     gpu_adapter: None,
                     prefix_hits: None,
                     prefix_passes_skipped: None,
+                    window_raise_requested_without_activation: false,
                 });
+            if result.window_raise_requested_without_activation
+                && let Ok(mut requested) = old_window_raise_requested.lock()
+            {
+                *requested = true;
+            }
             if let Some(adapter) = &result.gpu_adapter
                 && let Ok(mut observed) = old_adapters.lock()
             {
@@ -1069,7 +1080,13 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
                     gpu_adapter: None,
                     prefix_hits: None,
                     prefix_passes_skipped: None,
+                    window_raise_requested_without_activation: false,
                 });
+            if result.window_raise_requested_without_activation
+                && let Ok(mut requested) = new_window_raise_requested.lock()
+            {
+                *requested = true;
+            }
             if let Some(adapter) = &result.gpu_adapter
                 && let Ok(mut observed) = new_adapters.lock()
             {
@@ -1094,6 +1111,9 @@ fn execute(journey: &Journey, old_rev: &str, new_rev: &str, out: Option<&Path>, 
         .wall_meter(|output| output.duration_ns)
         .run(&Config { revs: Revs::default(), ..Config::default() })
         .map_err(|e| e.to_string())?;
+    if *window_raise_requested.lock().map_err(|_| "window raise metadata lock poisoned".to_string())? {
+        report.name.push_str(" (window raised without activation before timed UI work)");
+    }
     report.gpu_adapters = adapters.lock().map_err(|_| "GPU adapter metadata lock poisoned".to_string())?.iter().cloned().collect();
     let old_prefix = old_prefix.lock().map_err(|_| "old prefix-cache metadata lock poisoned".to_string())?.clone();
     let new_prefix = new_prefix.lock().map_err(|_| "new prefix-cache metadata lock poisoned".to_string())?.clone();
