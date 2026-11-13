@@ -16,6 +16,9 @@ import sys
 import time
 
 
+MAP_ONLY_APPS = {"figcraft", "materialcraft", "designcraft", "soundcraft", "filmcraft"}
+
+
 X11_STARTUP_TITLES = {
     "cadcraft": "CADCraft",
     "deckcraft": "DeckCraft",
@@ -26,6 +29,11 @@ X11_STARTUP_TITLES = {
     "effectcraft": "EffectCraft",
     "lightcraft": "LightCraft",
     "wordcraft": "WordCraft",
+    "figcraft": "FigCraft",
+    "materialcraft": "MaterialCraft",
+    "designcraft": "DesignCraft",
+    "soundcraft": "SoundCraft",
+    "filmcraft": "FilmCraft",
 }
 
 
@@ -171,6 +179,11 @@ def launch(
     elif app == "vectorcraft":
         port = free_port()
         command = [str(binary), "--control", str(port), "--new-instance"]
+    elif app in MAP_ONLY_APPS:
+        port = free_port()
+        command = [str(binary), "--control", str(port)]
+        if app in {"materialcraft", "filmcraft"}:
+            command.append("--empty")
     elif app == "effectcraft":
         if input_path is None:
             raise RuntimeError("EffectCraft startup requires a project path")
@@ -214,6 +227,16 @@ def launch(
     proc = subprocess.Popen(command, cwd=profile, env=env, stdout=debug_log or subprocess.DEVNULL, stderr=debug_log or subprocess.DEVNULL)
     try:
         deadline = time.monotonic() + timeout_s
+        if app in MAP_ONLY_APPS:
+            while time.monotonic() < deadline and not mapped_at_path.is_file():
+                if proc.poll() is not None:
+                    raise RuntimeError(f"{app} exited before its window mapped (status {proc.returncode})")
+                time.sleep(0.001)
+            if not mapped_at_path.is_file():
+                raise TimeoutError(f"{app} window did not map")
+            elapsed = int(mapped_at_path.read_text().strip()) - started
+            print(f"CRAFT_WINDOW_MAPPED_NS={elapsed}", flush=True)
+            return elapsed
         if app == "pdfcraft":
             while time.monotonic() < deadline and not control_file.exists():
                 if proc.poll() is not None:
@@ -424,7 +447,7 @@ def main() -> int:
         return 2
     app, binary_text, mode, profile_text = sys.argv[1:5]
     input_path = Path(sys.argv[5]).resolve() if len(sys.argv) == 6 else None
-    if app not in {"photocraft", "pdfcraft", "gridcraft", "cadcraft", "wordcraft", "deckcraft", "lightcraft", "vectorcraft", "effectcraft"} or mode not in {"cold", "warm"}:
+    if app not in {"photocraft", "pdfcraft", "gridcraft", "cadcraft", "wordcraft", "deckcraft", "lightcraft", "vectorcraft", "effectcraft", "figcraft", "materialcraft", "designcraft", "soundcraft", "filmcraft"} or mode not in {"cold", "warm"}:
         print("invalid app or mode", file=sys.stderr)
         return 2
     binary, profile = Path(binary_text).resolve(), Path(profile_text).resolve()
