@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a minimal checkpoint containing upstream PhotoCraft #11152.
+"""Build the exact #11152 brush-budget patch on the measured merge-base.
 
 This is compile/config work only. It never acquires the bench or GPU locks.
 """
@@ -15,15 +15,12 @@ import subprocess
 
 ROOT = Path('/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway')
 TARGET = Path('/jobs/work/speedcraft-labs/targets/315b/pinned')
-SOURCE = Path('/jobs/work/speedcraft-labs/wt/315b-photocraft-stroke-budget')
-REVISION = '0a6655ffe6ef5cdc885cd20027360311bdb60779'
-SOURCE_HEAD = '8946de6589f5dade05e27059461a096be1ae458a'
+SOURCE = Path('/jobs/work/speedcraft-labs/wt/315b-photocraft-cause-11152')
+REVISION = 'ad30e11c42c88fecc39a9129e667b3fe13927b5b'
+SOURCE_HEAD = REVISION
+RECORDER_COMMIT = '936a9bb696ce2a957d240b8149051e9bbd7ffa6b'
 MERGE_BASE = '74330157cb601573ae4523a95bb9132822fc3918'
-STROKE_BUDGET_COMMITS = [
-    'd98b9ea17be9b1b96aa3e052fb33e981b36928b9',
-    'efd725cc89aa0cea7844319d8a6561d914ec92cf',
-    '90cd7a78df19996af59184799befd7e93617923d',
-]
+UPSTREAM_PR_MERGE = 'a2067ab4566d1c2901b661b5e31de99b64029beb'
 OUTPUT = TARGET / 'photocraft-stroke-budget-control'
 RECORDER_SHA256 = '0c5c15480a8ea911b24707a7001a743412d548b3f7fa93f503364ef7aec59653'
 
@@ -39,9 +36,16 @@ def main() -> int:
     if head != SOURCE_HEAD or dirty:
         raise RuntimeError(f'cause source must be clean at {SOURCE_HEAD}; got {head}, dirty={bool(dirty)}')
     subprocess.run(['git', '-C', str(SOURCE), 'merge-base', '--is-ancestor', REVISION, 'HEAD'], check=True)
-    subprocess.run(['git', '-C', str(SOURCE), 'merge-base', '--is-ancestor', MERGE_BASE, 'HEAD'], check=True)
-    for commit in STROKE_BUDGET_COMMITS:
-        subprocess.run(['git', '-C', str(SOURCE), 'merge-base', '--is-ancestor', commit, 'HEAD'], check=True)
+    recorder_parent = subprocess.check_output(
+        ['git', '-C', str(SOURCE), 'rev-parse', f'{RECORDER_COMMIT}^'], text=True,
+    ).strip()
+    if recorder_parent != MERGE_BASE:
+        raise RuntimeError(f'common recorder commit must be based directly on merge-base; got {recorder_parent}')
+    source_parent = subprocess.check_output(
+        ['git', '-C', str(SOURCE), 'rev-parse', 'HEAD^'], text=True,
+    ).strip()
+    if source_parent != RECORDER_COMMIT:
+        raise RuntimeError(f'cause source must contain only the #11152 patch after the recorder; got {source_parent}')
     recorder = SOURCE / 'crates/ui-egui/src/latency.rs'
     if not recorder.is_file() or sha256(recorder) != RECORDER_SHA256:
         raise RuntimeError('cause source is missing the common recorder or its hash differs')
@@ -73,7 +77,8 @@ def main() -> int:
     matrix.setdefault('source_pins', {})['cause_control'] = {
         'revision': REVISION,
         'based_on_merge_base': MERGE_BASE,
-        'includes': STROKE_BUDGET_COMMITS,
+        'upstream_pr_merge': UPSTREAM_PR_MERGE,
+        'patch_commit': REVISION,
         'recorder_sha256': RECORDER_SHA256,
     }
     for tier in ('typical', 'heavy'):
@@ -96,7 +101,8 @@ def main() -> int:
             'binary': str(OUTPUT),
             'binary_sha256': binary_sha,
             'based_on_merge_base': MERGE_BASE,
-            'includes': STROKE_BUDGET_COMMITS,
+            'upstream_pr_merge': UPSTREAM_PR_MERGE,
+            'patch_commit': REVISION,
             'recorder_sha256': RECORDER_SHA256,
         }
         manifest.write_text(json.dumps(data, indent=2) + '\n')
