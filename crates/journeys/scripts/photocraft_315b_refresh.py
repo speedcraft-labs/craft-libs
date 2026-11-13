@@ -13,10 +13,10 @@ from typing import Any
 
 ROOT = Path('/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway')
 TARGET = Path('/jobs/work/speedcraft-labs/targets/315b')
-RUNNER = ROOT / 'operators/run-campaign.py'
+RUNNER = Path(__file__).with_name('photocraft_threeway_run_campaign.py')
 REPORTER = Path(__file__).with_name('photocraft_threeway_report.py')
 CAUSE_PREPARER = Path(__file__).with_name('prepare_photocraft_315b_cause_control.py')
-LEASE = ROOT / 'operators/lease.py'
+LEASE = Path(__file__).with_name('photocraft_threeway_lease.py')
 NAS_KEEP = Path('/jobs/work/speedcraft-labs/scripts/nas-keep')
 HARNESS = TARGET / 'pinned/craft-journeys'
 HARNESS_SHA256 = '00d2ccf8a292aa54e4c1a697b9cf6317f29e595ce2e057ffc56deab0311aed2a'
@@ -224,7 +224,10 @@ def run_cause_control(tier: str) -> bool:
         command = [
             'flock', '-x', BENCH,
             'flock', '-x', GPU,
-            'env', f'CRAFT_JOURNEYS_HARNESS_BIN={HARNESS}',
+            'env', 'CRAFT_JOURNEYS_BENCH_LOCK_HELD=1',
+            'CRAFT_JOURNEYS_GPU_LOCK_HELD=1',
+            'BENCH_LOCK_FILE=/jobs/work/speedcraft-labs/bench.lock.guard.flock',
+            f'CRAFT_JOURNEYS_HARNESS_BIN={HARNESS}',
             sys.executable, str(LEASE), str(config_path), str(out),
         ]
         log(f'{acquisition}: queue one lock-bounded acquisition, try {attempt}')

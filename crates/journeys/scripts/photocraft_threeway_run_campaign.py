@@ -8,7 +8,10 @@ from pathlib import Path
 ROOT = Path('/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway')
 BENCH = '/jobs/work/speedcraft-labs/bench.lock'
 GPU = '/jobs/work/speedcraft-labs/gpu.lock'
-LEASE = ROOT / 'operators/lease.py'
+BENCH_HELD = 'CRAFT_JOURNEYS_BENCH_LOCK_HELD'
+GPU_HELD = 'CRAFT_JOURNEYS_GPU_LOCK_HELD'
+BENCH_GUARD = '/jobs/work/speedcraft-labs/bench.lock.guard.flock'
+LEASE = Path(__file__).with_name('photocraft_threeway_lease.py')
 HARNESS = Path('/jobs/work/speedcraft-labs/targets/315b/pinned/craft-journeys')
 
 def main():
@@ -49,6 +52,12 @@ def main():
     selected_pairs=list(range(pairs)) if args.only_pairs is None else args.only_pairs
     if len(set(selected_pairs)) != len(selected_pairs) or any(pair < 0 or pair >= pairs for pair in selected_pairs):
         parser.error(f'--only-pairs values must be unique integers in [0, {pairs - 1}]')
+    inherited_bench=os.environ.get(BENCH_HELD)=='1'
+    inherited_gpu=os.environ.get(GPU_HELD)=='1'
+    if inherited_gpu and not inherited_bench:
+        parser.error('GPU lock marker requires the bench lock marker')
+    if inherited_bench and inherited_gpu and len(selected_pairs)!=1:
+        parser.error('a caller-owned lock lease may contain exactly one pair')
     for pair in selected_pairs:
         config=configs/f'pair-{pair:02d}.json'
         config_value=json.loads(config.read_text())
@@ -83,7 +92,12 @@ def main():
                 continue
             # Queue fairly in bench-then-GPU order. The lock chain owns neither lock
             # while waiting for bench; the lease bounds each acquired measurement.
-            command=['flock','-x',BENCH,'flock','-x',GPU,'env',f'CRAFT_JOURNEYS_HARNESS_BIN={HARNESS}','python3',str(LEASE),str(config),str(out)]
+            command=[]
+            if not inherited_bench:
+                command.extend(['flock','-x',BENCH])
+            if not inherited_gpu:
+                command.extend(['flock','-x',GPU])
+            command.extend(['env',f'{BENCH_HELD}=1',f'{GPU_HELD}=1',f'BENCH_LOCK_FILE={BENCH_GUARD}',f'CRAFT_JOURNEYS_HARNESS_BIN={HARNESS}','python3',str(LEASE),str(config),str(out)])
             print(f'{acquisition} pair {pair:02d} try {attempt}: one locked acquisition',flush=True)
             result=subprocess.run(command,text=True,capture_output=True)
             (reports/f'pair-{pair:02d}-try-{attempt:02d}.operator.log').write_text(f'exit_code={result.returncode}\nCOMMAND={" ".join(command)}\n\nSTDOUT\n{result.stdout}\nSTDERR\n{result.stderr}')
