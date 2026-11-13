@@ -361,10 +361,20 @@ def launch(
                     if not mapped_at_path.is_file():
                         raise RuntimeError("LightCraft returned a screenshot before its X11 window was mapped")
                     mapped_ns = int(mapped_at_path.read_text().strip())
-                    print(f"CRAFT_WINDOW_MAPPED_NS={mapped_ns - started}", flush=True)
+                    mapped_elapsed = mapped_ns - started
+                    print(f"CRAFT_WINDOW_MAPPED_NS={mapped_elapsed}", flush=True)
                     print(f"CRAFT_CONTENT_READY_NS={elapsed}", flush=True)
                     print(f"CRAFT_SCREENSHOT_NS={screenshot_elapsed}", flush=True)
                     print(f"CRAFT_SCREENSHOT_RPC_NS={screenshot_rpc_elapsed}", flush=True)
+                    diagnostics = profile.parent / f"{profile.name}.timing.jsonl"
+                    with diagnostics.open("a", encoding="utf-8") as stream:
+                        stream.write(json.dumps({
+                            "window_mapped_ns": mapped_elapsed,
+                            "library_ready_ns": elapsed,
+                            "screenshot_complete_ns": screenshot_elapsed,
+                            "screenshot_rpc_ns": screenshot_rpc_elapsed,
+                        }, sort_keys=True) + "\n")
+                    elapsed = mapped_elapsed
                 rpc(stream, "ui.inspect", {}, 3)
                 try:
                     rpc(stream, "engine.execute", {"command": "app.quit"}, 4)
