@@ -233,6 +233,11 @@ try:
         proc = launch()
         wait_for_server(proc)
         screenshot_frame(proc)
+        if platform.system() == "Darwin":
+            # TextureCraft's macOS control screenshot orders its window forward without
+            # activating the app. The control window stays hidden through launch, then this
+            # request exposes it before timed UI work so occlusion does not throttle rendering.
+            print("CRAFT_WINDOW_RAISE_REQUESTED_WITHOUT_ACTIVATION=true")
     if action not in ("startup-cold", "startup-warm"):
         if action == "open":
             started = time.perf_counter_ns()
