@@ -16,7 +16,7 @@ All builds had equal dab counts and matching settled RGB crop hashes for each ac
 
 ## Three-build matrix
 
-Typical-document A/A has 17 of 20 valid pairs so far; the remaining work is queued for the shared bench/GPU locks. No three-build conclusion or cause attribution is reported until the A/A gate and paired comparisons complete.
+At 09:08 UTC on 2026-11-13, typical-document A/A had 18 of 20 valid pairs; pair 18 is queued for the shared bench/GPU locks. No three-build conclusion or cause attribution is reported until the A/A gate and paired comparisons complete.
 
 ## Pins and evidence
 
