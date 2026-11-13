@@ -14,7 +14,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from desktop_startup import ensure_display
+from desktop_startup import ensure_display, mac_window_watch_binary
 
 
 binary, project, action, output = sys.argv[1:]
@@ -38,6 +38,7 @@ proc = None
 launch_index = 0
 watcher = None
 watcher_dir = None
+watcher_pid_path = None
 
 def launch():
     global launch_index, port
@@ -46,7 +47,10 @@ def launch():
     cmd = [binary, "--control", str(port)]
     if platform.system() == "Linux" and os.environ.get("DISPLAY") is None:
         cmd = ["xvfb-run", "-a", "--server-args=-extension GLX", *cmd]
-    return subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    process = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    if platform.system() == "Darwin" and watcher_pid_path is not None:
+        watcher_pid_path.write_text(f"{process.pid}\n")
+    return process
 
 def stop(process):
     try:
@@ -99,6 +103,29 @@ def request_until_ready(process, method):
     raise RuntimeError(f"TextureCraft did not answer {method} within 15 seconds: {last_error}")
 
 def start_map_watch(directory):
+    global watcher_pid_path
+    if platform.system() == "Darwin":
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        ready = directory / "mac-window-watch.ready"
+        mapped = directory / "window-mapped.monotonic-ns"
+        watcher_pid_path = directory / "mac-window-pid"
+        ready.unlink(missing_ok=True)
+        mapped.unlink(missing_ok=True)
+        watcher_pid_path.unlink(missing_ok=True)
+        watcher = subprocess.Popen(
+            [str(mac_window_watch_binary()), str(ready), str(watcher_pid_path), str(mapped)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        deadline = time.monotonic() + 10
+        while not ready.is_file() and watcher.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.001)
+        if not ready.is_file():
+            watcher.terminate()
+            watcher.wait(timeout=2)
+            raise RuntimeError("Cocoa window observer did not attach before TextureCraft launch")
+        return watcher, mapped
     if platform.system() != "Linux" or not os.environ.get("DISPLAY"):
         return None, None
     directory = Path(directory)
@@ -182,6 +209,8 @@ try:
     mapped_elapsed_ns = None
     frame_sha256 = None
     if action in ("startup-cold", "startup-warm"):
+        if platform.system() == "Darwin":
+            mac_window_watch_binary()
         started = time.perf_counter_ns()
         watcher_dir = tempfile.TemporaryDirectory(prefix="texturecraft-map-watch-")
         watcher, mapped_path = start_map_watch(watcher_dir.name)
