@@ -211,11 +211,11 @@ try:
     if action in ("startup-cold", "startup-warm"):
         if platform.system() == "Darwin":
             mac_window_watch_binary()
+        watcher_dir = tempfile.TemporaryDirectory(prefix="texturecraft-map-watch-")
+        watcher, mapped_path = start_map_watch(watcher_dir.name)
         started = time.perf_counter_ns()
         # The Cocoa watcher timestamps CLOCK_MONOTONIC; macOS Python's perf counter uses a different origin.
         mapped_started = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
-        watcher_dir = tempfile.TemporaryDirectory(prefix="texturecraft-map-watch-")
-        watcher, mapped_path = start_map_watch(watcher_dir.name)
         proc = launch()
         wait_for_server(proc)
         if watcher is not None:
@@ -225,7 +225,7 @@ try:
         screenshot_rpc_ns = time.perf_counter_ns() - capture_started
         screenshot_total_ns = time.perf_counter_ns() - started
         frame_sha256 = hashlib.sha256(png).hexdigest()
-        duration = mapped_elapsed_ns if mapped_elapsed_ns is not None else screenshot_total_ns
+        duration = screenshot_total_ns
         if mapped_elapsed_ns is not None:
             print(f"CRAFT_WINDOW_MAPPED_NS={mapped_elapsed_ns}")
         print(f"CRAFT_SCREENSHOT_NS={screenshot_total_ns}")
