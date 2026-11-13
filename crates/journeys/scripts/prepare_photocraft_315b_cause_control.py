@@ -22,6 +22,7 @@ RECORDER_COMMIT = '936a9bb696ce2a957d240b8149051e9bbd7ffa6b'
 MERGE_BASE = '74330157cb601573ae4523a95bb9132822fc3918'
 UPSTREAM_PR_MERGE = 'a2067ab4566d1c2901b661b5e31de99b64029beb'
 OUTPUT = TARGET / 'photocraft-stroke-budget-control'
+BUILD_TARGET = TARGET.parent / 'cause-build-target'
 RECORDER_SHA256 = '0c5c15480a8ea911b24707a7001a743412d548b3f7fa93f503364ef7aec59653'
 
 
@@ -52,13 +53,14 @@ def main() -> int:
 
     env = dict(os.environ)
     env['CARGO_BUILD_JOBS'] = '6'
+    env['CARGO_TARGET_DIR'] = str(BUILD_TARGET)
     command = [
         'taskset', '-c', '0-21', 'nice', '-n', '19',
         'cargo', 'build', '--release', '--locked', '-p', 'photocraft', '--bin', 'photocraft',
     ]
     print(f'$ (cd {SOURCE} && ' + ' '.join(command) + ')', flush=True)
     subprocess.run(command, cwd=SOURCE, env=env, check=True)
-    binary = SOURCE / 'target/release/photocraft'
+    binary = BUILD_TARGET / 'release/photocraft'
     TARGET.mkdir(parents=True, exist_ok=True)
     shutil.copy2(binary, OUTPUT)
     binary_sha = sha256(OUTPUT)
