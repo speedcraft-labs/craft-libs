@@ -1,50 +1,79 @@
 # PhotoCraft brush three-build report
 
-Ticket 315b compares the fork merge-base (A), fork tip (B), and upstream tip (C). A/B measures our changes since the fork point; A/C measures upstream changes since then.
+Ticket 315b compares the fork merge-base (A), fork tip (B), and upstream tip (C). A/B isolates changes made in our fork since the split; A/C measures upstream changes since that point.
 
 ## Validity verdict
 
-The earlier point-frame comparison is withdrawn. On upstream, the first reflected frame could show the cursor before paint pixels arrived, so its 8–9 ms value did not consistently measure the stroke. The corrected recorder captures the stroke region at that frame and again after the release-frame GPU fence.
+The earlier fork-vs-upstream point-frame comparison is **withdrawn**. Upstream's first reflected frame sometimes showed the cursor before paint pixels arrived, so the old 8–9 ms reading did not consistently measure a completed stroke. The corrected recorder captures the stroke region at that frame and again after the release-frame GPU fence. Pixel captures show stamping can be deferred beyond the recorded point frame.
 
-| Brush action | Dabs | Changed pixels at first frame, A/B/C | Added by release fence, A/B/C |
-|---|---:|---:|---:|
-| 30 px | 763 | 0 / 5,207 / 0 | 5,207 / 0 / 5,207 |
-| 500 px soft | 46 | 0 / 0 / 0 | 79,895 / 79,895 / 79,895 |
-| Canvas-width soft | 6 | 78,573 / 78,573 / 78,573 | 72,868 / 72,868 / 72,868 |
+The table gives changed crop pixels from the same pre-stroke image at the first reflected frame and after the release-frame GPU fence. Dab counts match across A/B/C for each document/action; release-fence crops have matching RGB hashes across builds and match the settled image.
 
-All builds had equal dab counts and matching settled RGB crop hashes for each action. The captured pixels at the release fence match the settled result. This confirms asynchronous stamping: the upstream frame can precede the stroke, especially for 30 px and 500 px actions. One proof run per build on each document size establishes recorder validity; these values are not matrix statistics.
+| Document | Action | Dabs per build | Point-frame changed pixels, A/B/C | Release-frame changed pixels, A/B/C |
+|---|---|---:|---:|---:|
+| 12 MP typical | 30 px | 763 | 0 / 5,207 / 0 | 5,207 / 5,207 / 5,207 |
+| 12 MP typical | 500 px soft | 46 | 0 / 0 / 0 | 79,895 / 79,895 / 79,895 |
+| 12 MP typical | Canvas-width soft | 6 | 78,573 / 78,573 / 78,573 | 79,992 / 79,992 / 79,992 |
+| 24 MP heavy | 30 px | 1,220 | 0 / 0 / 0 | 3,489 / 3,489 / 3,489 |
+| 24 MP heavy | 500 px soft | 74 | 0 / 0 / 0 | 50,681 / 50,681 / 50,681 |
+| 24 MP heavy | Canvas-width soft | 8 | 97,022 / 97,022 / 97,022 | 98,803 / 98,803 / 98,803 |
 
-The 24 MP heavy-document proof (pair 00 try 03) repeats the result: A/B/C dab counts were 1,220 / 74 / 8 for the three actions; point-frame changed-pixel counts were 0 / 0 / 97,022; every release-frame hash matched both the immediate and settled RGB crop, and immediate-to-settled MAE was 0. The point frame therefore omitted pixels for the first two heavy-document strokes as well. The failed try 02 is retained; its canvas-width screenshot capture timed out and it is excluded.
+On the heavy proof, immediate-release and settled crop hashes match for all builds/actions (MAE 0). The captured 97,022 canvas-width pixels are present in all three builds. Pixel proof is a validity check, not a latency sample. Earlier point-frame values must not be compared as stroke latency.
 
 ## Three-build matrix
 
-The exact-pin typical matrix has 10 of 10 valid A/B/C pairs. The independent fork-tip A/A gate has 20 pairs per action and phase; all six stroke-total gates pass, with the widest 95% interval half-width at 4.94%. The first three-build files (pairs 00–09, try 01) used different build commits and are excluded.
+The matrix has 10 valid interleaved A/B/C pairs per document tier. A/A uses 20 fork-tip pairs per tier; all six stroke-total gates pass in both tiers. The table reports completed stroke totals from first accepted input through the release-frame GPU fence. Ratios are paired bootstrap medians with 95% intervals: a/b is merge-base divided by fork tip; a/c is merge-base divided by upstream tip. A ratio below 1 means the right-hand build took longer.
 
-Table values are completed stroke totals from first accepted input through the release-frame GPU fence. Ratios use per-pair session medians and 10,000 bootstrap resamples: a/b compares merge-base with fork tip; a/c compares merge-base with upstream tip. Point-frame values are excluded because RGB proof showed upstream can present the cursor before stroke pixels.
+
+### Typical document
+
+Ratio a/b compares merge-base with fork tip; a/c compares merge-base with upstream tip. Both are left-side latency divided by right-side latency, so a ratio above 1 means the right-side build was faster. Ratios use per-pair session medians and 10,000 bootstrap resamples. Stroke total runs from first accepted input through the release-frame GPU fence. Point-frame values are excluded from this stroke table because RGB proof showed upstream can present the cursor before the stroke pixels.
 
 | Tier | Brush action | State | A median/p95 ms | B median/p95 ms | C median/p95 ms | a/b (95% CI) | a/c (95% CI) | A/A gate |
 |---|---|---|---:|---:|---:|---:|---:|---|
-| typical | brush-30px | cold | 123.54/126.32 | 123.73/130.86 | 113.11/117.66 | 0.993 (0.971–1.007) | 1.106 (1.071–1.118) | PASS |
-| typical | brush-30px | warm | 124.09/128.53 | 124.30/128.24 | 111.31/118.55 | 0.999 (0.989–1.019) | 1.119 (1.084–1.133) | PASS |
-| typical | brush-500px-soft | cold | 221.12/230.06 | 220.58/223.05 | 200.03/202.92 | 1.011 (0.995–1.041) | 1.124 (1.104–1.133) | PASS |
-| typical | brush-500px-soft | warm | 223.62/231.34 | 219.37/235.21 | 197.65/210.56 | 1.017 (0.999–1.034) | 1.140 (1.105–1.161) | PASS |
-| typical | brush-canvas-width-soft | cold | 2022.59/2046.40 | 2020.94/2049.26 | 1782.66/1847.84 | 0.998 (0.982–1.019) | 1.123 (1.109–1.146) | PASS |
-| typical | brush-canvas-width-soft | warm | 2114.24/2154.91 | 2107.08/2182.72 | 1748.95/1780.83 | 1.000 (0.989–1.006) | 1.204 (1.193–1.219) | PASS |
+| typical | brush-30px | cold | 111.20/114.47 | 110.04/116.07 | 108.46/126.38 | 0.986 (0.953–1.014) | 1.018 (0.931–1.049) | PASS |
+| typical | brush-30px | warm | 109.12/119.21 | 109.23/116.23 | 109.99/119.97 | 1.013 (0.986–1.030) | 0.999 (0.985–1.041) | PASS |
+| typical | brush-500px-soft | cold | 147.55/164.23 | 162.38/181.49 | 150.01/200.52 | 0.924 (0.877–0.984) | 1.019 (0.902–1.048) | PASS |
+| typical | brush-500px-soft | warm | 153.41/165.36 | 151.07/164.90 | 149.68/233.06 | 0.974 (0.954–1.036) | 1.021 (0.976–1.061) | PASS |
+| typical | brush-canvas-width-soft | cold | 1432.22/1581.72 | 1483.37/1679.66 | 1498.92/1892.30 | 0.971 (0.871–1.018) | 0.975 (0.875–1.015) | PASS |
+| typical | brush-canvas-width-soft | warm | 1332.58/1484.00 | 1385.09/1549.34 | 1387.91/1556.31 | 0.971 (0.877–1.025) | 0.968 (0.909–1.002) | PASS |
 
 A/A gate uses 20 identical fork-tip pairs per tier. PASS requires the 95% interval to include 1.00 and relative half-width at most 5%. Contrasts failing that row gate remain descriptive.
 
-Typical result: fork-tip vs merge-base has no resolved stroke-total difference in these six rows. Upstream tip is faster than merge-base in all six; its paired median stroke total is about 10–20% lower. This attributes the observed improvement to changes since the fork point, but source attribution still needs the minimal #11152 stroke-budget control after the heavy matrix.
 
-The refresh scheduler is running the heavy-document proof, A/A gate, and exact-pin three-build matrix as one pair per lock acquisition. No application changes were made.
+### Heavy document
+
+Ratio a/b compares merge-base with fork tip; a/c compares merge-base with upstream tip. Both are left-side latency divided by right-side latency, so a ratio above 1 means the right-side build was faster. Ratios use per-pair session medians and 10,000 bootstrap resamples. Stroke total runs from first accepted input through the release-frame GPU fence. Point-frame values are excluded from this stroke table because RGB proof showed upstream can present the cursor before the stroke pixels.
+
+| Tier | Brush action | State | A median/p95 ms | B median/p95 ms | C median/p95 ms | a/b (95% CI) | a/c (95% CI) | A/A gate |
+|---|---|---|---:|---:|---:|---:|---:|---|
+| heavy | brush-30px | cold | 120.00/123.18 | 117.61/124.75 | 116.78/120.34 | 0.996 (0.979–1.053) | 1.021 (0.991–1.060) | PASS |
+| heavy | brush-30px | warm | 117.31/124.35 | 113.73/121.35 | 113.37/120.88 | 1.011 (0.993–1.034) | 1.013 (1.001–1.050) | PASS |
+| heavy | brush-500px-soft | cold | 211.86/232.09 | 207.67/222.50 | 208.12/224.45 | 1.003 (0.972–1.062) | 1.027 (0.980–1.080) | PASS |
+| heavy | brush-500px-soft | warm | 203.61/222.54 | 202.24/219.84 | 201.82/210.34 | 1.001 (0.962–1.034) | 1.005 (0.970–1.050) | PASS |
+| heavy | brush-canvas-width-soft | cold | 2676.08/2811.43 | 2694.61/2841.96 | 2696.55/2823.02 | 1.001 (0.961–1.011) | 0.980 (0.970–1.004) | PASS |
+| heavy | brush-canvas-width-soft | warm | 2506.06/2686.65 | 2520.05/2587.49 | 2528.83/2679.80 | 0.997 (0.990–1.026) | 0.992 (0.985–1.009) | PASS |
+
+A/A gate uses 20 identical fork-tip pairs per tier. PASS requires the 95% interval to include 1.00 and relative half-width at most 5%. Contrasts failing that row gate remain descriptive.
+
+
+## Cause
+
+The only resolved fork-side difference is typical 12 MP, 500 px soft, cold: A 147.55 ms vs B 162.38 ms; a/b 0.924 (95% CI 0.877–0.984), so fork tip is about 8–10% slower on this row. Other A/B rows do not resolve a difference. Upstream C is not broadly faster in the corrected matrix: most a/c intervals include 1; the only interval narrowly above 1 is heavy 30 px warm (1.013, 1.001–1.050), about a 1% change and one of 12 comparisons.
+
+The minimum own-side check is in progress: a one-commit leave-out build removes fork commit `64d38ba373af6927665e78649fd1880af162a657` (`perf(compose): skip idle layer effect allocations`, `crates/compose/src/effects/composite.rs`) from B. The first attempted pair is retained but excluded because a foreign EffectCraft process appeared during A's GPU session (PID 2741580). No cause is attributed until a clean paired rerun completes; if that commit does not remove the measured regression, the next check is the other compose commit since the split.
+
+Upstream PR #11152 (`a2067ab4566d1c2901b661b5e31de99b64029beb`) adds out-of-canvas dab clipping and a dab-area budget. A single heavy control pair was exploratory; it does not establish that PR as the cause of a current three-build difference. Its change arrives by syncing, but the corrected matrix does not show a broad upstream brush-latency win.
 
 ## Pins and evidence
 
 - A merge-base: `74330157cb601573ae4523a95bb9132822fc3918`
 - B fork tip: `629049f550e5cad1c483fe800a66047cd02bf150`
 - C upstream tip: `e052eabf4be74612725400955d184f85d208c0f0`
-- Recorder source SHA-256: `0c5c15480a8ea911b24707a7001a743412d548b3f7fa93f503364ef7aec59653`
+- Recorder SHA-256: `0c5c15480a8ea911b24707a7001a743412d548b3f7fa93f503364ef7aec59653`
 - Harness SHA-256: `00d2ccf8a292aa54e4c1a697b9cf6317f29e595ce2e057ffc56deab0311aed2a`
 - Driver SHA-256: `ff8429f223ff214f2217986bd5ff9c94872f60dccd8cd4ca228800e55358f47c`
-- Typical pixel-proof report: `/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway/reports/proof-typical/pair-00-try-08/report.json`
-- Heavy pixel-proof report: `/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway/reports/proof-heavy/pair-00-try-03/report.json`
-- NAS checkpoints are stored under `wormhole:/mnt/bulk/backups/speedcraft-labs/tickets/315b-photocraft-threeway/`.
+- Typical pixel proof: `/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway/reports/proof-typical/pair-00-try-08/report.json`
+- Heavy pixel proof: `/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway/reports/proof-heavy/pair-00-try-03/report.json`
+- Typical matrix summary: `/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway/reports/threeway-typical-summary-current.json`
+- Heavy matrix summary: `/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway/reports/threeway-heavy-summary-current.json`
+- NAS snapshots: `wormhole:/mnt/bulk/backups/speedcraft-labs/tickets/315b-photocraft-threeway/`
