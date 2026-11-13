@@ -268,6 +268,8 @@ def launch(
             map_watch.wait(timeout=2)
             raise RuntimeError(f"X11 map observer did not attach before {app} launch")
     started = time.perf_counter_ns()
+    # Cocoa and X11 watchers timestamp CLOCK_MONOTONIC; use that same clock domain for map deltas.
+    mapped_started = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
     debug_log = (profile / "startup-app.log").open("wb") if os.environ.get("CRAFT_STARTUP_DEBUG") == "1" else None
     proc = subprocess.Popen(command, cwd=profile, env=env, stdout=debug_log or subprocess.DEVNULL, stderr=debug_log or subprocess.DEVNULL)
     if sys.platform == "darwin" and map_watch is not None:
@@ -281,7 +283,7 @@ def launch(
                 time.sleep(0.001)
             if not mapped_at_path.is_file():
                 raise TimeoutError(f"{app} window did not map")
-            elapsed = int(mapped_at_path.read_text().strip()) - started
+            elapsed = int(mapped_at_path.read_text().strip()) - mapped_started
             print(f"CRAFT_WINDOW_MAPPED_NS={elapsed}", flush=True)
             write_timing_diagnostic(
                 profile,
@@ -385,7 +387,7 @@ def launch(
                     if not mapped_at_path.is_file():
                         raise RuntimeError("LightCraft returned a screenshot before its X11 window was mapped")
                     mapped_ns = int(mapped_at_path.read_text().strip())
-                    mapped_elapsed = mapped_ns - started
+                    mapped_elapsed = mapped_ns - mapped_started
                     print(f"CRAFT_WINDOW_MAPPED_NS={mapped_elapsed}", flush=True)
                     print(f"CRAFT_CONTENT_READY_NS={elapsed}", flush=True)
                     print(f"CRAFT_SCREENSHOT_NS={screenshot_elapsed}", flush=True)
@@ -467,7 +469,7 @@ def launch(
                 if not mapped_at_path.is_file():
                     raise RuntimeError(f"{app} returned a screenshot before its X11 window was mapped")
                 mapped_ns = int(mapped_at_path.read_text().strip())
-                elapsed = mapped_ns - started
+                elapsed = mapped_ns - mapped_started
                 print(f"CRAFT_WINDOW_MAPPED_NS={elapsed}", flush=True)
                 print(f"CRAFT_SCREENSHOT_NS={screenshot_elapsed}", flush=True)
             write_timing_diagnostic(
