@@ -83,7 +83,14 @@ def locks_busy() -> tuple[bool, str]:
         text=True,
     )
     rows = json.loads(raw).get('locks', [])
-    busy = [row for row in rows if row.get('path') in BUSY_PATHS]
+    # lslocks marks queued requests with a trailing "*" (for example WRITE*).
+    # A waiter does not own the lock. Let each acquisition join that queue after
+    # current owners clear, or a steady stream of waiters can starve this ticket.
+    busy = [
+        row for row in rows
+        if row.get('path') in BUSY_PATHS
+        and not str(row.get('mode', '')).endswith('*')
+    ]
     return bool(busy), ', '.join(f"{row.get('command')}:{row.get('path')}" for row in busy)
 
 
@@ -249,8 +256,8 @@ def run_cause_control(tier: str) -> bool:
         report_path = out / 'report.json'
         wait_for_admission()
         command = [
-            'flock', '-n', '-x', BENCH,
-            'flock', '-n', '-x', GPU,
+            'flock', '-x', BENCH,
+            'flock', '-x', GPU,
             'env', f'CRAFT_JOURNEYS_HARNESS_BIN={HARNESS}',
             sys.executable, str(LEASE), str(config_path), str(out),
         ]
