@@ -121,6 +121,25 @@ def open_document(control: Control, path: Path) -> int:
     return int(count)
 
 
+def wait_for_canvas(control: Control, timeout_s: float = 5.0) -> dict:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        state = control.call("ui.inspect")
+        rect = state.get("canvasRect") if isinstance(state, dict) else None
+        view = state.get("view") if isinstance(state, dict) else None
+        if (
+            isinstance(rect, list)
+            and len(rect) >= 4
+            and all(isinstance(value, (int, float)) for value in rect[:4])
+            and rect[2] > 0
+            and rect[3] > 0
+            and view is not None
+        ):
+            return state
+        time.sleep(0.02)
+    raise TimeoutError("VectorCraft canvas did not become ready")
+
+
 def selected_path(control: Control) -> tuple[int, dict]:
     result = control.call("engine.execute", {
         "command": "document.find",
@@ -192,10 +211,7 @@ def run_task(binary: Path, task: str, input_path: Path, target_dir: Path) -> int
             identity["paths"] = path_count
             action_elapsed = time.perf_counter_ns() - start
         elif task == "zoom":
-            before = control.call("ui.inspect")
-            rect = before.get("canvasRect") if isinstance(before, dict) else None
-            if not isinstance(rect, list) or len(rect) < 4:
-                raise RuntimeError("VectorCraft canvas is not ready for zoom")
+            before = wait_for_canvas(control)
             before_view = before.get("view")
             control.call("engine.execute", {"command": "view.zoomIn", "params": {}})
             changed = False
@@ -278,10 +294,7 @@ def verify_action(binary: Path, task: str, input_path: Path, target_dir: Path) -
             edit_fill(control)
             identity.update({"fill": EDIT_COLOR, "paths": count})
         elif task == "zoom":
-            before = control.call("ui.inspect")
-            rect = before.get("canvasRect") if isinstance(before, dict) else None
-            if not isinstance(rect, list) or len(rect) < 4:
-                raise RuntimeError("VectorCraft canvas is not ready for zoom verification")
+            before = wait_for_canvas(control)
             control.call("engine.execute", {"command": "view.zoomIn", "params": {}})
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
