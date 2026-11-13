@@ -23,9 +23,7 @@ HARNESS_SHA256 = '00d2ccf8a292aa54e4c1a697b9cf6317f29e595ce2e057ffc56deab0311aed
 DRIVER = Path(__file__).with_name('photocraft_session.py')
 DRIVER_SHA256 = 'ff8429f223ff214f2217986bd5ff9c94872f60dccd8cd4ca228800e55358f47c'
 BENCH = '/jobs/work/speedcraft-labs/bench.lock'
-GUARD = '/jobs/work/speedcraft-labs/bench.lock.guard.flock'
 GPU = '/jobs/work/speedcraft-labs/gpu.lock'
-BUSY_PATHS = {BENCH, GUARD, GPU}
 LOG = ROOT / 'reports/refresh-scheduler.log'
 _PIN_SHA_CACHE: dict[tuple[str, int, int, str], bool] = {}
 
@@ -75,36 +73,6 @@ def pinned_inputs(config_path: Path) -> tuple[bool, str]:
         if not _PIN_SHA_CACHE[key]:
             return False, f'pinned binary hash mismatch: {binary}'
     return True, ''
-
-
-def locks_busy() -> tuple[bool, str]:
-    raw = subprocess.check_output(
-        ['sudo', '-n', 'lslocks', '--json', '--output', 'PID,COMMAND,MODE,PATH'],
-        text=True,
-    )
-    rows = json.loads(raw).get('locks', [])
-    # lslocks marks queued requests with a trailing "*" (for example WRITE*).
-    # A waiter does not own the lock. Let each acquisition join that queue after
-    # current owners clear, or a steady stream of waiters can starve this ticket.
-    busy = [
-        row for row in rows
-        if row.get('path') in BUSY_PATHS
-        and not str(row.get('mode', '')).endswith('*')
-    ]
-    return bool(busy), ', '.join(f"{row.get('command')}:{row.get('path')}" for row in busy)
-
-
-def wait_for_admission() -> None:
-    last_note = 0.0
-    while True:
-        busy, detail = locks_busy()
-        if not busy:
-            return
-        now = time.monotonic()
-        if now - last_note >= 300:
-            log(f'no lock acquired; benchmark queue is occupied ({detail})')
-            last_note = now
-        time.sleep(30)
 
 
 def backup(note: str) -> bool:
@@ -172,12 +140,11 @@ def run_pair(campaign: str, tier: str, pair: int, max_attempts: int = 3) -> bool
         if not ready:
             log(f'{acquisition} pair {pair:02d}: stop before launch; {detail}')
             return False
-        wait_for_admission()
         command = [
             sys.executable, str(RUNNER), campaign, tier,
             '--only-pairs', str(pair), '--retries', '0',
         ]
-        log(f'{acquisition} pair {pair:02d}: start one lock-bounded acquisition, try {attempt}')
+        log(f'{acquisition} pair {pair:02d}: queue one lock-bounded acquisition, try {attempt}')
         result = subprocess.run(command, text=True, capture_output=True)
         if result.stdout.strip():
             log(result.stdout.strip().replace('\n', ' | '))
@@ -254,14 +221,13 @@ def run_cause_control(tier: str) -> bool:
     for attempt in range(first_attempt, first_attempt + 3):
         out = out_root / f'pair-00-try-{attempt:02d}'
         report_path = out / 'report.json'
-        wait_for_admission()
         command = [
             'flock', '-x', BENCH,
             'flock', '-x', GPU,
             'env', f'CRAFT_JOURNEYS_HARNESS_BIN={HARNESS}',
             sys.executable, str(LEASE), str(config_path), str(out),
         ]
-        log(f'{acquisition}: start one lock-bounded acquisition, try {attempt}')
+        log(f'{acquisition}: queue one lock-bounded acquisition, try {attempt}')
         result = subprocess.run(command, text=True, capture_output=True)
         if result.stdout.strip():
             log(result.stdout.strip().replace('\n', ' | '))
