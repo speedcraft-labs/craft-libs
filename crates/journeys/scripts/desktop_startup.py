@@ -276,6 +276,17 @@ def launch(
         mac_pid_path.write_text(f"{proc.pid}\n")
     try:
         deadline = time.monotonic() + timeout_s
+        mapped_elapsed = None
+        if sys.platform == "darwin" and map_watch is not None:
+            # Observe the native window before doing control work; the WindowServer mark
+            # remains valid when the desktop is locked or the app window is occluded.
+            while time.monotonic() < deadline and not mapped_at_path.is_file():
+                if proc.poll() is not None:
+                    raise RuntimeError(f"{app} exited before its window mapped (status {proc.returncode})")
+                time.sleep(0.001)
+            if not mapped_at_path.is_file():
+                raise TimeoutError(f"{app} window did not map")
+            mapped_elapsed = int(mapped_at_path.read_text().strip()) - mapped_started
         if app in MAP_ONLY_APPS:
             while time.monotonic() < deadline and not mapped_at_path.is_file():
                 if proc.poll() is not None:
@@ -372,6 +383,22 @@ def launch(
                 if not ready:
                     raise TimeoutError("LightCraft did not activate the imported photo")
                 elapsed = time.perf_counter_ns() - started
+                if mapped_elapsed is not None:
+                    rpc(stream, "ui.inspect", {}, 3)
+                    print(f"CRAFT_WINDOW_MAPPED_NS={mapped_elapsed}", flush=True)
+                    print(f"CRAFT_CONTENT_READY_NS={elapsed}", flush=True)
+                    write_timing_diagnostic(
+                        profile,
+                        window_mapped_ns=mapped_elapsed,
+                        library_ready_ns=elapsed,
+                        screenshot_complete_ns=None,
+                        screenshot_rpc_ns=None,
+                    )
+                    try:
+                        rpc(stream, "engine.execute", {"command": "app.quit"}, 4)
+                    except Exception:
+                        pass
+                    return mapped_elapsed
                 frame_path = profile / "first-frame.png"
                 frame_path.unlink(missing_ok=True)
                 capture_started = time.perf_counter_ns()
@@ -430,6 +457,26 @@ def launch(
                     time.sleep(0.02)
                 if not project_ready:
                     raise TimeoutError("EffectCraft did not load the pinned 1080p project")
+            if mapped_elapsed is not None:
+                # The post-map state query is cheap; screenshot RPC is omitted on macOS because
+                # a locked or occluded display can reject capture outside the measured interval.
+                inspect_id = 2
+                rpc(stream, "ui.state" if app == "pdfcraft" else "ui.inspect", {}, inspect_id, secret, secret_field)
+                if content_ready_elapsed is not None:
+                    print(f"CRAFT_CONTENT_READY_NS={content_ready_elapsed}", flush=True)
+                print(f"CRAFT_WINDOW_MAPPED_NS={mapped_elapsed}", flush=True)
+                write_timing_diagnostic(
+                    profile,
+                    window_mapped_ns=mapped_elapsed,
+                    library_ready_ns=content_ready_elapsed,
+                    screenshot_complete_ns=None,
+                    screenshot_rpc_ns=None,
+                )
+                try:
+                    rpc(stream, "app.quit" if app != "pdfcraft" else "ui.quit", {}, inspect_id + 1, secret, secret_field)
+                except Exception:
+                    pass
+                return mapped_elapsed
             screenshot_path = profile / "first-frame.png" if app in {"vectorcraft", "effectcraft"} else None
             capture_started = time.perf_counter_ns()
             if screenshot_path is not None:
