@@ -6,7 +6,7 @@ The upstream recorder's 8–10 ms point values measured cursor/UI frames before 
 
 The corrected latency runs from the first accepted brush input through the release-frame GPU fence, with the release frame checked against settled pixels.
 
-## Typical document, 12 MP
+## Preliminary typical document, 12 MP
 
 Ten paired, interleaved comparisons; values are warm stroke-total median/p95 in milliseconds. `A/B` is merge-base divided by fork-tip; `A/C` is merge-base divided by upstream tip, so values above 1 mean upstream completed faster.
 
@@ -16,7 +16,7 @@ Ten paired, interleaved comparisons; values are warm stroke-total median/p95 in 
 | 500 px soft | 223.62 / 231.34 | 219.37 / 235.21 | 197.65 / 210.56 | 1.017 (0.999–1.034) | 1.140 (1.105–1.161) |
 | Canvas-width soft | 2114.24 / 2154.91 | 2107.08 / 2182.72 | 1748.95 / 1780.83 | 1.000 (0.989–1.006) | 1.204 (1.193–1.219) |
 
-Typical A/A passed the 20-pair gate for all brush actions. The fork tip has no resolved change from merge-base; upstream since merge-base completes the three actions about 10.6%, 12.3%, and 16.9% faster by their medians.
+The previous typical A/A gate cannot validate these contrasts. Its 20 reports used fork-tip binary SHA `11d56a76…` and driver SHA `98f1feeb…`; the typical three-build reports used B binary SHA `59284ea9…` and driver SHA `ff8429f2…`. Treat these rows and ratios as descriptive only. Current rebuilt pins are A `9e127556…`, B `19aab350…`, C `fe08d44f…`; the exact-pin typical A/A gate and three-build matrix must be rerun before drawing a gated conclusion.
 
 ## Pixel evidence at the selected move frame
 
