@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -14,6 +15,7 @@ TARGET = Path('/jobs/work/speedcraft-labs/targets/315b')
 RUNNER = ROOT / 'operators/run-campaign.py'
 REPORTER = Path(__file__).with_name('photocraft_threeway_report.py')
 LEASE = ROOT / 'operators/lease.py'
+NAS_KEEP = Path('/jobs/work/speedcraft-labs/scripts/nas-keep')
 HARNESS = TARGET / 'pinned/craft-journeys'
 BENCH = '/jobs/work/speedcraft-labs/bench.lock'
 GUARD = '/jobs/work/speedcraft-labs/bench.lock.guard.flock'
@@ -52,6 +54,24 @@ def wait_for_admission() -> None:
             log(f'no lock acquired; benchmark queue is occupied ({detail})')
             last_note = now
         time.sleep(30)
+
+
+def backup(note: str) -> bool:
+    env = dict(os.environ, NAS_KEEP_NOTE=note)
+    result = subprocess.run(
+        [str(NAS_KEEP), '315b-photocraft-threeway', str(ROOT)],
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    if result.stdout.strip():
+        log(result.stdout.strip())
+    if result.stderr.strip():
+        log(f'NAS backup stderr: {result.stderr.strip()}')
+    if result.returncode:
+        log(f'NAS backup failed (exit {result.returncode}): {note}')
+        return False
+    return True
 
 
 def current_success(acquisition: str, pair: int) -> bool:
@@ -151,19 +171,28 @@ def run_cause_control() -> bool:
         (side.get('role'), side.get('revision'), side.get('binary_sha256'))
         for side in config.get('sides', [])
     }
-    for attempt in range(1, 4):
+    for existing_out in sorted(out_root.glob('pair-00-try-[0-9][0-9]')):
+        report_path = existing_out / 'report.json'
+        if not report_path.exists():
+            continue
+        report = json.loads(report_path.read_text())
+        recorded = report.get('config', {})
+        actual = {
+            (side.get('role'), side.get('revision'), side.get('binary_sha256'))
+            for side in recorded.get('sides', [])
+        }
+        if actual == expected and recorded.get('expected_driver_sha256') == config.get('expected_driver_sha256') and report.get('publishable') is True:
+            log('cause checkpoint: current-hash result already present')
+            return True
+    existing_attempts = [
+        int(path.name.rsplit('-try-', 1)[1])
+        for path in out_root.glob('pair-00-try-[0-9][0-9]')
+        if path.is_dir()
+    ]
+    first_attempt = max(existing_attempts, default=0) + 1
+    for attempt in range(first_attempt, first_attempt + 3):
         out = out_root / f'pair-00-try-{attempt:02d}'
         report_path = out / 'report.json'
-        if report_path.exists():
-            report = json.loads(report_path.read_text())
-            recorded = report.get('config', {})
-            actual = {
-                (side.get('role'), side.get('revision'), side.get('binary_sha256'))
-                for side in recorded.get('sides', [])
-            }
-            if actual == expected and recorded.get('expected_driver_sha256') == config.get('expected_driver_sha256') and report.get('publishable') is True:
-                log('cause checkpoint: current-hash result already present')
-                return True
         wait_for_admission()
         command = [
             'flock', '-n', '-x', BENCH,
@@ -197,7 +226,7 @@ def needs_cause(summary: Path | None) -> bool:
         return False
     data: dict[str, Any] = json.loads(summary.read_text())
     return any(
-        row.get('tier') == 'typical'
+        row.get('tier') in {'typical', 'heavy'}
         and row.get('phase') == 'warm'
         and row.get('metric') == 'stroke total'
         and row.get('label') in {'brush-500px-soft', 'brush-canvas-width-soft'}
@@ -210,23 +239,30 @@ def needs_cause(summary: Path | None) -> bool:
 
 
 def main() -> int:
-    schedule = [
-        *(('aa', 'typical', pair) for pair in range(20)),
-        *(('threeway', 'typical', pair) for pair in range(10)),
-        *(('aa', 'heavy', pair) for pair in range(20)),
-        *(('threeway', 'heavy', pair) for pair in range(10)),
+    stages = [
+        ('aa', 'typical', range(20)),
+        ('threeway', 'typical', range(10)),
+        ('aa', 'heavy', range(20)),
+        ('threeway', 'heavy', range(10)),
     ]
     missing = []
-    for campaign, tier, pair in schedule:
-        if not run_pair(campaign, tier, pair):
-            missing.append(f'{campaign}-{tier}:{pair:02d}')
+    for campaign, tier, pairs in stages:
+        for pair in pairs:
+            if not run_pair(campaign, tier, pair):
+                missing.append(f'{campaign}-{tier}:{pair:02d}')
+        if not backup(f'Exact-hash {campaign}-{tier} stage checkpoint; retain successful and failed attempts.'):
+            missing.append(f'nas-backup:{campaign}-{tier}')
     typical = make_summary('typical')
-    make_summary('heavy')
-    if needs_cause(typical):
+    heavy = make_summary('heavy')
+    if needs_cause(typical) or needs_cause(heavy):
         if not run_cause_control():
             missing.append('cause-control-typical:00')
+        if not backup('Cause checkpoint and exact-hash 315b summary reports.'):
+            missing.append('nas-backup:cause-control')
     else:
         log('cause checkpoint skipped: exact-hash typical matrix did not show a gated upstream win on a large brush')
+    if not backup('Final exact-hash 315b PhotoCraft research reports, summaries and logs.'):
+        missing.append('nas-backup:final')
     if missing:
         log('campaign refresh incomplete: ' + ', '.join(missing))
         return 1
