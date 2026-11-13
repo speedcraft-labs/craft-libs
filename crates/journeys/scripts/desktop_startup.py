@@ -147,6 +147,12 @@ def screenshot_ok(reply: dict, path: Path | None) -> bool:
     return False
 
 
+def write_timing_diagnostic(profile: Path, **markers: int | None) -> None:
+    diagnostics = profile.parent / f"{profile.name}.timing.jsonl"
+    with diagnostics.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(markers, sort_keys=True) + "\n")
+
+
 def launch(
     app: str,
     binary: Path,
@@ -277,6 +283,13 @@ def launch(
                 raise TimeoutError(f"{app} window did not map")
             elapsed = int(mapped_at_path.read_text().strip()) - started
             print(f"CRAFT_WINDOW_MAPPED_NS={elapsed}", flush=True)
+            write_timing_diagnostic(
+                profile,
+                window_mapped_ns=elapsed,
+                library_ready_ns=None,
+                screenshot_complete_ns=None,
+                screenshot_rpc_ns=None,
+            )
             return elapsed
         if app == "pdfcraft":
             while time.monotonic() < deadline and not control_file.exists():
@@ -377,14 +390,15 @@ def launch(
                     print(f"CRAFT_CONTENT_READY_NS={elapsed}", flush=True)
                     print(f"CRAFT_SCREENSHOT_NS={screenshot_elapsed}", flush=True)
                     print(f"CRAFT_SCREENSHOT_RPC_NS={screenshot_rpc_elapsed}", flush=True)
-                    diagnostics = profile.parent / f"{profile.name}.timing.jsonl"
-                    with diagnostics.open("a", encoding="utf-8") as stream:
-                        stream.write(json.dumps({
+                    write_timing_diagnostic(
+                        profile,
+                        **{
                             "window_mapped_ns": mapped_elapsed,
                             "library_ready_ns": elapsed,
                             "screenshot_complete_ns": screenshot_elapsed,
                             "screenshot_rpc_ns": screenshot_rpc_elapsed,
-                        }, sort_keys=True) + "\n")
+                        },
+                    )
                     elapsed = mapped_elapsed
                 rpc(stream, "ui.inspect", {}, 3)
                 try:
@@ -456,6 +470,13 @@ def launch(
                 elapsed = mapped_ns - started
                 print(f"CRAFT_WINDOW_MAPPED_NS={elapsed}", flush=True)
                 print(f"CRAFT_SCREENSHOT_NS={screenshot_elapsed}", flush=True)
+            write_timing_diagnostic(
+                profile,
+                window_mapped_ns=elapsed if map_watch is not None else None,
+                library_ready_ns=content_ready_elapsed,
+                screenshot_complete_ns=screenshot_elapsed,
+                screenshot_rpc_ns=screenshot_rpc_elapsed,
+            )
             # The frame capture runs on the UI thread; a subsequent inspection confirms the
             # window is accepting control requests. Its latency is deliberately outside the mark.
             inspect_id = request_id + 1 if screenshot_path is not None else 2
