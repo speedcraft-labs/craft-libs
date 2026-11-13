@@ -16,9 +16,24 @@ All builds had equal dab counts and matching settled RGB crop hashes for each ac
 
 ## Three-build matrix
 
-At 05:00 ET on 2026-11-13, typical-document A/A had 20 of 20 valid pairs. Pair 18 try 02 was rejected: its CPU load guard measured 5.44 against a 3.00 limit, so its one completed side is not counted. Pair 18 try 03 and pair 19 try 02 passed all checks; the corrected lease reused the caller-owned GPU lock without reacquiring it. The A/A stroke-total gate passes for all six action/phase combinations; the widest 95% interval half-width is 3.58%, below the 5% limit.
+The exact-pin typical matrix has 10 of 10 valid A/B/C pairs. The independent fork-tip A/A gate has 20 pairs per action and phase; all six stroke-total gates pass, with the widest 95% interval half-width at 4.94%. The first three-build files (pairs 00–09, try 01) used different build commits and are excluded.
 
-The first three-build files (pairs 00–09, try 01) used earlier build commits, so they are excluded from the pinned comparison. The refresh scheduler is re-running the exact A/B/C pins: pairs 00–08 try 02 passed session, GPU, output, and publishability checks; pair 09 is the last queued pair. Build order rotates across the paired runs. No three-build conclusion or cause attribution is reported until all ten exact-pin pairs pass. Exact-pin pair 00 passed at 05:04 ET.
+Table values are completed stroke totals from first accepted input through the release-frame GPU fence. Ratios use per-pair session medians and 10,000 bootstrap resamples: a/b compares merge-base with fork tip; a/c compares merge-base with upstream tip. Point-frame values are excluded because RGB proof showed upstream can present the cursor before stroke pixels.
+
+| Tier | Brush action | State | A median/p95 ms | B median/p95 ms | C median/p95 ms | a/b (95% CI) | a/c (95% CI) | A/A gate |
+|---|---|---|---:|---:|---:|---:|---:|---|
+| typical | brush-30px | cold | 123.54/126.32 | 123.73/130.86 | 113.11/117.66 | 0.993 (0.971–1.007) | 1.106 (1.071–1.118) | PASS |
+| typical | brush-30px | warm | 124.09/128.53 | 124.30/128.24 | 111.31/118.55 | 0.999 (0.989–1.019) | 1.119 (1.084–1.133) | PASS |
+| typical | brush-500px-soft | cold | 221.12/230.06 | 220.58/223.05 | 200.03/202.92 | 1.011 (0.995–1.041) | 1.124 (1.104–1.133) | PASS |
+| typical | brush-500px-soft | warm | 223.62/231.34 | 219.37/235.21 | 197.65/210.56 | 1.017 (0.999–1.034) | 1.140 (1.105–1.161) | PASS |
+| typical | brush-canvas-width-soft | cold | 2022.59/2046.40 | 2020.94/2049.26 | 1782.66/1847.84 | 0.998 (0.982–1.019) | 1.123 (1.109–1.146) | PASS |
+| typical | brush-canvas-width-soft | warm | 2114.24/2154.91 | 2107.08/2182.72 | 1748.95/1780.83 | 1.000 (0.989–1.006) | 1.204 (1.193–1.219) | PASS |
+
+A/A gate uses 20 identical fork-tip pairs per tier. PASS requires the 95% interval to include 1.00 and relative half-width at most 5%. Contrasts failing that row gate remain descriptive.
+
+Typical result: fork-tip vs merge-base has no resolved stroke-total difference in these six rows. Upstream tip is faster than merge-base in all six; its paired median stroke total is about 10–20% lower. This attributes the observed improvement to changes since the fork point, but source attribution still needs the minimal #11152 stroke-budget control after the heavy matrix.
+
+The refresh scheduler is running the heavy-document proof, A/A gate, and exact-pin three-build matrix as one pair per lock acquisition. No application changes were made.
 
 ## Pins and evidence
 
