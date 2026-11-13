@@ -276,7 +276,7 @@ def needs_cause(summary: Path | None) -> bool:
     data: dict[str, Any] = json.loads(summary.read_text())
     return any(
         row.get('tier') in {'typical', 'heavy'}
-        and row.get('phase') == 'warm'
+        and row.get('phase') in {'cold', 'warm'}
         and row.get('metric') == 'stroke total'
         and row.get('label') in {'brush-30px', 'brush-500px-soft', 'brush-canvas-width-soft'}
         and row.get('left_role') == 'a'
