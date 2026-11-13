@@ -267,8 +267,10 @@ def verify_export(input_path: Path, output: Path) -> int:
     return 0
 
 
-def verify_action(binary: Path, task: str, input_path: Path) -> int:
-    process, control = spawn(binary, input_path.parent / f"verify-{task}")
+def verify_action(binary: Path, task: str, input_path: Path, target_dir: Path) -> int:
+    state_dir = target_dir / "vectorcraft-real-world-verify" / task
+    shutil.rmtree(state_dir, ignore_errors=True)
+    process, control = spawn(binary, state_dir / "profile")
     try:
         count = open_document(control, input_path)
         identity = {"source": file_digest(input_path), "task": task}
@@ -319,7 +321,7 @@ def main() -> int:
         if task.startswith("verify-"):
             if input_path is None:
                 raise RuntimeError(f"{task} requires an input SVG")
-            return verify_action(binary, task.removeprefix("verify-"), input_path)
+            return verify_action(binary, task.removeprefix("verify-"), input_path, Path(os.environ["CARGO_TARGET_DIR"]))
         if input_path is None:
             raise RuntimeError("task requires an input SVG")
         return run_task(binary, task, input_path, Path(os.environ["CARGO_TARGET_DIR"]))
