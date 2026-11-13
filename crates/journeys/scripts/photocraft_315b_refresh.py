@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import subprocess
 import sys
@@ -22,6 +23,7 @@ GUARD = '/jobs/work/speedcraft-labs/bench.lock.guard.flock'
 GPU = '/jobs/work/speedcraft-labs/gpu.lock'
 BUSY_PATHS = {BENCH, GUARD, GPU}
 LOG = ROOT / 'reports/refresh-scheduler.log'
+_PIN_SHA_CACHE: dict[tuple[str, int, int, str], bool] = {}
 
 
 def log(message: str) -> None:
@@ -31,6 +33,29 @@ def log(message: str) -> None:
     LOG.parent.mkdir(parents=True, exist_ok=True)
     with LOG.open('a') as handle:
         handle.write(line + '\n')
+
+
+def pinned_inputs(config_path: Path) -> tuple[bool, str]:
+    if not HARNESS.is_file():
+        return False, f'missing harness {HARNESS}'
+    try:
+        config = json.loads(config_path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        return False, f'cannot read config {config_path}: {error}'
+    for side in config.get('sides', []):
+        binary = Path(side.get('binary', ''))
+        expected = str(side.get('binary_sha256', ''))
+        if not expected or not binary.is_file():
+            return False, f'missing pinned binary {binary}'
+        stat = binary.stat()
+        key = (str(binary), stat.st_size, stat.st_mtime_ns, expected)
+        if key not in _PIN_SHA_CACHE:
+            with binary.open('rb') as handle:
+                digest = hashlib.file_digest(handle, 'sha256').hexdigest()
+            _PIN_SHA_CACHE[key] = digest == expected
+        if not _PIN_SHA_CACHE[key]:
+            return False, f'pinned binary hash mismatch: {binary}'
+    return True, ''
 
 
 def locks_busy() -> tuple[bool, str]:
@@ -112,10 +137,15 @@ def current_success(acquisition: str, pair: int) -> bool:
 
 def run_pair(campaign: str, tier: str, pair: int, max_attempts: int = 3) -> bool:
     acquisition = f'{campaign}-{tier}'
+    config_path = ROOT / 'configs' / acquisition / f'pair-{pair:02d}.json'
     for attempt in range(1, max_attempts + 1):
         if current_success(acquisition, pair):
             log(f'{acquisition} pair {pair:02d}: current hash-matched result already present')
             return True
+        ready, detail = pinned_inputs(config_path)
+        if not ready:
+            log(f'{acquisition} pair {pair:02d}: stop before launch; {detail}')
+            return False
         wait_for_admission()
         command = [
             sys.executable, str(RUNNER), campaign, tier,
@@ -164,6 +194,10 @@ def make_summary(tier: str) -> Path | None:
 
 def run_cause_control() -> bool:
     config_path = ROOT / 'configs/cause-control-typical/pair-00.json'
+    ready, detail = pinned_inputs(config_path)
+    if not ready:
+        log(f'cause checkpoint stopped before launch; {detail}')
+        return False
     config = json.loads(config_path.read_text())
     out_root = ROOT / 'reports/cause-control-typical'
     out_root.mkdir(parents=True, exist_ok=True)
@@ -240,6 +274,8 @@ def needs_cause(summary: Path | None) -> bool:
 
 def main() -> int:
     stages = [
+        ('proof', 'typical', range(1)),
+        ('proof', 'heavy', range(1)),
         ('aa', 'typical', range(20)),
         ('threeway', 'typical', range(10)),
         ('aa', 'heavy', range(20)),
@@ -250,6 +286,13 @@ def main() -> int:
         for pair in pairs:
             if not run_pair(campaign, tier, pair):
                 missing.append(f'{campaign}-{tier}:{pair:02d}')
+                ready, _ = pinned_inputs(ROOT / 'configs' / f'{campaign}-{tier}' / f'pair-{pair:02d}.json')
+                if not ready:
+                    log('campaign refresh stopped: pinned inputs are unavailable; no later pairs launched')
+                    break
+        ready, _ = pinned_inputs(ROOT / 'configs' / f'{campaign}-{tier}' / 'pair-00.json')
+        if not ready:
+            break
         if not backup(f'Exact-hash {campaign}-{tier} stage checkpoint; retain successful and failed attempts.'):
             missing.append(f'nas-backup:{campaign}-{tier}')
     typical = make_summary('typical')
