@@ -15,6 +15,7 @@ ROOT = Path('/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway')
 TARGET = Path('/jobs/work/speedcraft-labs/targets/315b')
 RUNNER = ROOT / 'operators/run-campaign.py'
 REPORTER = Path(__file__).with_name('photocraft_threeway_report.py')
+CAUSE_PREPARER = Path(__file__).with_name('prepare_photocraft_315b_cause_control.py')
 LEASE = ROOT / 'operators/lease.py'
 NAS_KEEP = Path('/jobs/work/speedcraft-labs/scripts/nas-keep')
 HARNESS = TARGET / 'pinned/craft-journeys'
@@ -255,6 +256,25 @@ def run_cause_control() -> bool:
     return False
 
 
+def prepare_cause_control() -> bool:
+    log('cause checkpoint: build pre-#10013 release pin and refresh the config (no bench/GPU lock)')
+    result = subprocess.run(
+        [sys.executable, str(CAUSE_PREPARER)], text=True, capture_output=True,
+    )
+    if result.stdout.strip():
+        log(result.stdout.strip().replace('\n', ' | '))
+    if result.stderr.strip():
+        log(f'cause checkpoint build stderr: {result.stderr.strip()}')
+    if result.returncode:
+        log(f'cause checkpoint build/config failed (exit {result.returncode})')
+        return False
+    ready, detail = pinned_inputs(ROOT / 'configs/cause-control-typical/pair-00.json')
+    if not ready:
+        log(f'cause checkpoint pin validation failed: {detail}')
+        return False
+    return True
+
+
 def needs_cause(summary: Path | None) -> bool:
     if summary is None:
         return False
@@ -298,7 +318,7 @@ def main() -> int:
     typical = make_summary('typical')
     heavy = make_summary('heavy')
     if needs_cause(typical) or needs_cause(heavy):
-        if not run_cause_control():
+        if not prepare_cause_control() or not run_cause_control():
             missing.append('cause-control-typical:00')
         if not backup('Cause checkpoint and exact-hash 315b summary reports.'):
             missing.append('nas-backup:cause-control')
