@@ -128,6 +128,18 @@ def opened_project_identity(stream) -> str:
     return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
 
 
+def wait_for_opened_project(stream, timeout_s: float = 120.0) -> str:
+    deadline = time.monotonic() + timeout_s
+    last_error = None
+    while time.monotonic() < deadline:
+        try:
+            return opened_project_identity(stream)
+        except RuntimeError as error:
+            last_error = error
+            time.sleep(0.02)
+    raise TimeoutError(f"EffectCraft did not finish loading the pinned project: {last_error}")
+
+
 def export_identity(path: Path) -> str:
     result = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-f", "framemd5", "-"],
                             check=True, capture_output=True, text=True)
@@ -168,8 +180,7 @@ def main() -> int:
             process, stream, _startup_ns = start(binary.resolve(), profile, timeout_s=60)
             opened = time.perf_counter_ns()
             rpc(stream, "engine.execute", {"command": "file.open", "params": {"path": str(project.resolve())}}, 2)
-            open_ns = time.perf_counter_ns() - opened
-            opened_identity = opened_project_identity(stream)
+            opened_identity = wait_for_opened_project(stream)
             loaded_ns = time.perf_counter_ns() - opened
             if stage == "open":
                 duration_ns = loaded_ns
