@@ -229,6 +229,14 @@ try:
         print(f"CRAFT_SCREENSHOT_NS={screenshot_total_ns}")
         print(f"CRAFT_SCREENSHOT_RPC_NS={screenshot_rpc_ns}")
         print(f"CRAFT_FRAME_SHA256={frame_sha256}")
+        diagnostics = Path(output).parent / f"texturecraft-{action}.timing.jsonl"
+        with diagnostics.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps({
+                "window_mapped_ns": mapped_elapsed_ns,
+                "library_ready_ns": None,
+                "screenshot_complete_ns": screenshot_total_ns,
+                "screenshot_rpc_ns": screenshot_rpc_ns,
+            }, sort_keys=True) + "\n")
     else:
         proc = launch()
         wait_for_server(proc)
