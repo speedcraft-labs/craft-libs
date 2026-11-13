@@ -47,6 +47,17 @@ def mac_window_watch_binary() -> Path:
     return binary
 
 
+
+def vectorcraft_adapter(profile: Path) -> str | None:
+    log = profile / "vectorcraft-config" / "logs" / "vectorcraft.log"
+    if not log.is_file():
+        return None
+    for line in reversed(log.read_text(errors="replace").splitlines()):
+        marker = " rendering with "
+        if marker in line:
+            return line.split(marker, 1)[1].split(" (", 1)[0].strip() or None
+    return None
+
 def free_port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
