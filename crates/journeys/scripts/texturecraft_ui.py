@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """One-shot TextureCraft desktop journey driven through its documented control channel."""
+import base64
 import hashlib
 import json
 import os
@@ -11,6 +12,9 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
+
+from desktop_startup import ensure_display
 
 
 binary, project, action, output = sys.argv[1:]
@@ -23,10 +27,58 @@ cache = tempfile.TemporaryDirectory(prefix="texturecraft-journey-cache-")
 env.update(TEXTURECRAFT_NO_PREFS="1", TEXTURECRAFT_CONTROL_TOKEN=token, WGPU_BACKEND="vulkan", XDG_CACHE_HOME=cache.name)
 if platform.system() == "Linux":
     env["__EGL_VENDOR_LIBRARY_FILENAMES"] = "/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+display_process = ensure_display()
+if os.environ.get("DISPLAY"):
+    env["DISPLAY"] = os.environ["DISPLAY"]
 cmd = [binary, "--control", str(port)]
-if platform.system() == "Linux" and os.environ.get("DISPLAY") is None:
-    cmd = ["xvfb-run", "-a", "--server-args=-extension GLX", *cmd]
 proc = None
+watcher = None
+watcher_dir = None
+
+def start_map_watch(directory):
+    if platform.system() != "Linux" or not os.environ.get("DISPLAY"):
+        return None, None
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    ready = directory / "x11-map-watch.ready"
+    mapped = directory / "window-mapped.monotonic-ns"
+    ready.unlink(missing_ok=True)
+    mapped.unlink(missing_ok=True)
+    watcher = subprocess.Popen(
+        [sys.executable, str(Path(__file__).with_name("x11_map_watch.py")), "TextureCraft", str(ready), str(mapped)],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    deadline = time.monotonic() + 2
+    while not ready.is_file() and watcher.poll() is None and time.monotonic() < deadline:
+        time.sleep(0.001)
+    if not ready.is_file():
+        watcher.terminate()
+        watcher.wait(timeout=2)
+        raise RuntimeError("X11 map observer did not attach before TextureCraft launch")
+    return watcher, mapped
+
+def wait_for_map(process, mapped):
+    deadline = time.monotonic() + 60
+    while not mapped.is_file() and process.poll() is None and time.monotonic() < deadline:
+        time.sleep(0.001)
+    if not mapped.is_file():
+        raise RuntimeError("TextureCraft window did not map before its startup deadline")
+    return int(mapped.read_text().strip())
+
+def screenshot_frame():
+    result = request("ui.screenshot")
+    encoded = result.get("png") if isinstance(result, dict) else None
+    if not isinstance(encoded, str):
+        raise RuntimeError("TextureCraft screenshot reply did not contain PNG bytes")
+    try:
+        png = base64.b64decode(encoded, validate=True)
+    except (ValueError, base64.binascii.Error) as error:
+        raise RuntimeError(f"TextureCraft screenshot reply had invalid base64: {error}") from error
+    if not png.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise RuntimeError("TextureCraft screenshot reply did not have a PNG signature")
+    return png
 
 def launch():
     return subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -69,16 +121,53 @@ def request(method, params=None, request_id=1):
     return response.get("result")
 
 try:
-    proc = launch()
-    wait_for_server(proc)
     if action == "startup-warm":
-        request("ui.screenshot")
-        stop(proc)
         proc = launch()
         wait_for_server(proc)
-    started = time.perf_counter_ns()
-    request("ui.screenshot")
-    first_frame_ns = time.perf_counter_ns() - started
+        screenshot_frame()
+        stop(proc)
+        proc = None
+    screenshot_rpc_ns = None
+    screenshot_total_ns = None
+    mapped_elapsed_ns = None
+    frame_sha256 = None
+    if action in ("startup-cold", "startup-warm"):
+        started = time.perf_counter_ns()
+        watcher_dir = tempfile.TemporaryDirectory(prefix="texturecraft-map-watch-")
+        watcher, mapped_path = start_map_watch(watcher_dir.name)
+        proc = launch()
+        wait_for_server(proc)
+        if watcher is not None:
+            mapped_elapsed_ns = wait_for_map(proc, mapped_path) - started
+            capture_started = time.perf_counter_ns()
+            png = screenshot_frame()
+            screenshot_rpc_ns = time.perf_counter_ns() - capture_started
+            screenshot_total_ns = time.perf_counter_ns() - started
+            frame_sha256 = hashlib.sha256(png).hexdigest()
+            duration = mapped_elapsed_ns
+        else:
+            capture_started = time.perf_counter_ns()
+            png = screenshot_frame()
+            screenshot_rpc_ns = time.perf_counter_ns() - capture_started
+            screenshot_total_ns = time.perf_counter_ns() - started
+            frame_sha256 = hashlib.sha256(png).hexdigest()
+            duration = screenshot_total_ns
+        if watcher is not None:
+            print(f"CRAFT_WINDOW_MAPPED_NS={mapped_elapsed_ns}")
+        print(f"CRAFT_SCREENSHOT_NS={screenshot_total_ns}")
+        print(f"CRAFT_SCREENSHOT_RPC_NS={screenshot_rpc_ns}")
+        print(f"CRAFT_FRAME_SHA256={frame_sha256}")
+        if watcher is not None:
+            watcher.terminate()
+            watcher.wait(timeout=2)
+            watcher = None
+        watcher_dir.cleanup()
+        watcher_dir = None
+    else:
+        proc = launch()
+        wait_for_server(proc)
+        screenshot_frame()
+        duration = None
     if action not in ("startup-cold", "startup-warm"):
         if action == "open":
             started = time.perf_counter_ns()
@@ -114,8 +203,6 @@ try:
             if len(exported) != 12:
                 raise RuntimeError(f"expected 12 exported PNG maps, found {len(exported)}")
         duration = time.perf_counter_ns() - started
-    else:
-        duration = first_frame_ns
     # The runner's equivalence gate identifies this pinned project/action pair. The action itself
     # must succeed above; startup's generated default project contains random IDs, so session JSON
     # is not a stable identity across launches.
@@ -126,4 +213,12 @@ try:
 finally:
     if proc is not None:
         stop(proc)
+    if watcher is not None:
+        watcher.terminate()
+        watcher.wait(timeout=2)
+    if watcher_dir is not None:
+        watcher_dir.cleanup()
+    if display_process is not None:
+        display_process.terminate()
+        display_process.wait(timeout=2)
     cache.cleanup()
