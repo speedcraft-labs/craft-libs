@@ -16,7 +16,7 @@ All builds had equal dab counts and matching settled RGB crop hashes for each ac
 
 ## Three-build matrix
 
-At 09:08 UTC on 2026-11-13, typical-document A/A had 18 of 20 valid pairs. Pair 18 try 02 was rejected: its CPU load guard measured 5.44 against a 3.00 limit, so its one completed side is not counted. The lock-owner fix is in place and pair 18 will be retried as one bounded acquisition. No three-build conclusion or cause attribution is reported until the A/A gate and paired comparisons complete.
+At 09:55 UTC on 2026-11-13, typical-document A/A had 19 of 20 valid pairs. Pair 18 try 02 was rejected: its CPU load guard measured 5.44 against a 3.00 limit, so its one completed side is not counted. Pair 18 try 03 passed all checks; its lease reused the caller-owned GPU lock without reacquiring it. Pair 19 is queued. No three-build conclusion or cause attribution is reported until the A/A gate and paired comparisons complete.
 
 ## Pins and evidence
 
