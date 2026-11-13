@@ -151,6 +151,12 @@ GridCraft, TextureCraft and VectorCraft. Cold means an empty app profile, not a 
 file cache. Task journeys use
 `wall_time: "process"`, so their primary time is measured outside the process through exit.
 
+On macOS, the startup watcher uses CoreGraphics' WindowServer list to detect the matching process's
+nonzero app-level window, including when another window occludes it. This is the mapped-window mark;
+it does not activate the app or take keyboard focus. The Python driver and Swift watcher both use
+`CLOCK_MONOTONIC` for their timestamps. A cheap state query follows the mark; screenshot RPC is
+omitted on macOS because a locked or occluded display can reject capture, and capture is outside
+the timed interval.
 | App | Typical payload | Tasks |
 | --- | --- | --- |
 | PhotoCraft | `quote-card-misty-beach.psd`, 5,919,438 bytes; 1000×1000, 4 layers | open, Gaussian Blur, save PSD |

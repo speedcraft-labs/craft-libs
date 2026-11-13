@@ -47,7 +47,8 @@ def connect(port: int, process: subprocess.Popen, deadline: float):
     raise TimeoutError("EffectCraft control channel did not start")
 
 
-def start(binary: Path, profile: Path, input_path: Path | None = None, timeout_s: float = 60.0):
+def start(binary: Path, profile: Path, input_path: Path | None = None, timeout_s: float = 60.0,
+          capture_initial_frame: bool = True):
     profile.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env.update({
@@ -76,6 +77,8 @@ def start(binary: Path, profile: Path, input_path: Path | None = None, timeout_s
                 if time.monotonic() >= deadline:
                     raise TimeoutError("EffectCraft did not load the project before its first frame")
                 time.sleep(0.02)
+    if not capture_initial_frame:
+        return process, stream, time.perf_counter_ns() - started
     frame = profile / "startup.png"
     deadline = time.monotonic() + timeout_s
     request_id = 1
@@ -177,7 +180,10 @@ def main() -> int:
             duration_ns = startup_ns
             identity = opened_project_identity(stream)
         else:
-            process, stream, _startup_ns = start(binary.resolve(), profile, timeout_s=60)
+            process, stream, _startup_ns = start(
+                binary.resolve(), profile, timeout_s=60,
+                capture_initial_frame=stage != "open",
+            )
             opened = time.perf_counter_ns()
             rpc(stream, "engine.execute", {"command": "file.open", "params": {"path": str(project.resolve())}}, 2)
             opened_identity = wait_for_opened_project(stream)
