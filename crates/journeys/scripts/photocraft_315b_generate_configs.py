@@ -7,6 +7,8 @@ from pathlib import Path
 ROOT = Path('/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway')
 TARGET = Path('/jobs/work/speedcraft-labs/targets/315b/pinned')
 DRIVER = Path('/jobs/work/speedcraft-labs/wt/315b-craft-libs/crates/journeys/scripts/photocraft_session.py')
+HARNESS = TARGET/'craft-journeys'
+HARNESS_SHA256 = hashlib.sha256(HARNESS.read_bytes()).hexdigest()
 PINS = {
     'a': ('74330157cb601573ae4523a95bb9132822fc3918', TARGET/'photocraft-a-mergebase'),
     'b': ('629049f550e5cad1c483fe800a66047cd02bf150', TARGET/'photocraft-b-fork-tip'),
@@ -22,7 +24,7 @@ def side(role, build):
     revision, binary = PINS[build]
     return {'name':role,'role':role,'revision':revision,'binary':str(binary),'binary_sha256':BIN_HASHES[build]}
 def base(acquisition, pair, tier, planned, sides, proof=False):
-    return {'app':'photocraft','acquisition':acquisition,'pair':pair,'tier':tier,'planned_pairs':planned,'expected_driver_sha256':hashlib.sha256(DRIVER.read_bytes()).hexdigest(),'gpu_state':{'graphics_mhz':1350,'memory_mhz':7000},'payload':PAYLOADS[tier],'ui':UI,'sides':sides,'brush_only':True,'pixel_proof':proof,'capture_update_notice':proof,'source_pins':{'merge_base':PINS['a'][0],'fork_tip':PINS['b'][0],'upstream_tip':PINS['c'][0],'recorder':'crates/ui-egui/src/latency.rs sha256=0c5c15480a8ea911b24707a7001a743412d548b3f7fa93f503364ef7aec59653','recorder_commits':{'a':'936a9bb696ce2a957d240b8149051e9bbd7ffa6b','b':'79201e03d81b39df0e2a3c4a38cd21d9fbb80feb','c':'c14b9ae881d59b18c544c0d2a0facf62817ea5d0'},'craft_libs_driver_commit':'0d9528cb383f9e42c8e7cbf84feeb4a031228194','craft_libs_driver_sha256':hashlib.sha256(DRIVER.read_bytes()).hexdigest(),'upstream_recorder_patches':['photocraft-session-latency.patch','photocraft-session-frame-capture-and-dabs.patch','photocraft-session-point-frame-capture.patch','photocraft-session-frame-rgb-capture.patch','photocraft-session-upstream-dab-count.patch']}}
+    return {'app':'photocraft','acquisition':acquisition,'pair':pair,'tier':tier,'planned_pairs':planned,'expected_harness_sha256':HARNESS_SHA256,'expected_driver_sha256':hashlib.sha256(DRIVER.read_bytes()).hexdigest(),'gpu_state':{'graphics_mhz':1350,'memory_mhz':7000},'payload':PAYLOADS[tier],'ui':UI,'sides':sides,'brush_only':True,'pixel_proof':proof,'capture_update_notice':proof,'source_pins':{'merge_base':PINS['a'][0],'fork_tip':PINS['b'][0],'upstream_tip':PINS['c'][0],'recorder':'crates/ui-egui/src/latency.rs sha256=0c5c15480a8ea911b24707a7001a743412d548b3f7fa93f503364ef7aec59653','recorder_commits':{'a':'936a9bb696ce2a957d240b8149051e9bbd7ffa6b','b':'79201e03d81b39df0e2a3c4a38cd21d9fbb80feb','c':'c14b9ae881d59b18c544c0d2a0facf62817ea5d0'},'craft_libs_driver_commit':'0d9528cb383f9e42c8e7cbf84feeb4a031228194','craft_libs_driver_sha256':hashlib.sha256(DRIVER.read_bytes()).hexdigest(),'upstream_recorder_patches':['photocraft-session-latency.patch','photocraft-session-frame-capture-and-dabs.patch','photocraft-session-point-frame-capture.patch','photocraft-session-frame-rgb-capture.patch','photocraft-session-upstream-dab-count.patch']}}
 def write_campaign(name, tier, count, factory):
     folder=ROOT/'configs'/f'{name}-{tier}'
     folder.mkdir(parents=True,exist_ok=True)
@@ -33,4 +35,4 @@ for tier in PAYLOADS:
     write_campaign('proof',tier,1,lambda pair:base(f'proof-{tier}',pair,tier,1,[side('a','a'),side('b','b'),side('c','c')],True))
     write_campaign('aa',tier,20,lambda pair:base(f'aa-{tier}',pair,tier,20,[side('a','b'),side('b','b')]))
     write_campaign('threeway',tier,10,lambda pair:base(f'threeway-{tier}',pair,tier,10,[side('a','a'),side('b','b'),side('c','c')]))
-print('generated configs with driver sha256',hashlib.sha256(DRIVER.read_bytes()).hexdigest())
+print('generated configs with harness sha256',HARNESS_SHA256,'and driver sha256',hashlib.sha256(DRIVER.read_bytes()).hexdigest())

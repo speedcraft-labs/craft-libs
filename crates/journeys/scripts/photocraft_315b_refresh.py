@@ -19,6 +19,9 @@ CAUSE_PREPARER = Path(__file__).with_name('prepare_photocraft_315b_cause_control
 LEASE = ROOT / 'operators/lease.py'
 NAS_KEEP = Path('/jobs/work/speedcraft-labs/scripts/nas-keep')
 HARNESS = TARGET / 'pinned/craft-journeys'
+HARNESS_SHA256 = '00d2ccf8a292aa54e4c1a697b9cf6317f29e595ce2e057ffc56deab0311aed2a'
+DRIVER = Path(__file__).with_name('photocraft_session.py')
+DRIVER_SHA256 = 'ff8429f223ff214f2217986bd5ff9c94872f60dccd8cd4ca228800e55358f47c'
 BENCH = '/jobs/work/speedcraft-labs/bench.lock'
 GUARD = '/jobs/work/speedcraft-labs/bench.lock.guard.flock'
 GPU = '/jobs/work/speedcraft-labs/gpu.lock'
@@ -43,6 +46,21 @@ def pinned_inputs(config_path: Path) -> tuple[bool, str]:
         config = json.loads(config_path.read_text())
     except (OSError, json.JSONDecodeError) as error:
         return False, f'cannot read config {config_path}: {error}'
+    if config.get('expected_harness_sha256') != HARNESS_SHA256:
+        return False, f'config harness pin mismatch: {config_path}'
+    if config.get('expected_driver_sha256') != DRIVER_SHA256:
+        return False, f'config driver pin mismatch: {config_path}'
+    if not DRIVER.is_file():
+        return False, f'missing driver {DRIVER}'
+    for path, expected in ((HARNESS, HARNESS_SHA256), (DRIVER, DRIVER_SHA256)):
+        stat = path.stat()
+        key = (str(path), stat.st_size, stat.st_mtime_ns, expected)
+        if key not in _PIN_SHA_CACHE:
+            with path.open('rb') as handle:
+                digest = hashlib.file_digest(handle, 'sha256').hexdigest()
+            _PIN_SHA_CACHE[key] = digest == expected
+        if not _PIN_SHA_CACHE[key]:
+            return False, f'pinned harness/driver hash mismatch: {path}'
     for side in config.get('sides', []):
         binary = Path(side.get('binary', ''))
         expected = str(side.get('binary_sha256', ''))
