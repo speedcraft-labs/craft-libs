@@ -25,13 +25,17 @@ guard let pid = Int32(try String(contentsOfFile: pidPath, encoding: .utf8).trimm
 }
 
 while true {
-    let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-    let visible = windows.contains { window in
-        (window[kCGWindowOwnerPID as String] as? Int32) == pid
-            && (window[kCGWindowLayer as String] as? Int ?? 1) == 0
-            && (window[kCGWindowAlpha as String] as? Double ?? 1.0) > 0.0
+    let windows = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+    let mapped = windows.contains { window in
+        let ownerPID = (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value
+        let layer = (window[kCGWindowLayer as String] as? NSNumber)?.intValue
+        let alpha = (window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1.0
+        let bounds = window[kCGWindowBounds as String] as? NSDictionary
+        let width = (bounds?["Width"] as? NSNumber)?.doubleValue ?? 0.0
+        let height = (bounds?["Height"] as? NSNumber)?.doubleValue ?? 0.0
+        return ownerPID == pid && layer == 0 && alpha > 0.0 && width > 0.0 && height > 0.0
     }
-    if visible {
+    if mapped {
         var timestamp = timespec()
         clock_gettime(CLOCK_MONOTONIC, &timestamp)
         let monotonicNS = UInt64(timestamp.tv_sec) * 1_000_000_000 + UInt64(timestamp.tv_nsec)

@@ -38,7 +38,7 @@ X11_STARTUP_TITLES = {
 
 
 def mac_window_watch_binary() -> Path:
-    binary = Path("/private/tmp/craft-mapnotify-window-watch")
+    binary = Path(os.environ.get("CRAFT_WINDOW_WATCH_BINARY", "/private/tmp/craft-mapnotify-window-watch"))
     source = Path(__file__).with_name("mac_window_watch.swift")
     if not binary.is_file() or binary.stat().st_mtime_ns < source.stat().st_mtime_ns:
         result = subprocess.run(["swiftc", "-O", str(source), "-o", str(binary)], capture_output=True, text=True)
