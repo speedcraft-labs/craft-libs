@@ -16,7 +16,9 @@ All builds had equal dab counts and matching settled RGB crop hashes for each ac
 
 ## Three-build matrix
 
-At 10:00 UTC on 2026-11-13, typical-document A/A had 20 of 20 valid pairs. Pair 18 try 02 was rejected: its CPU load guard measured 5.44 against a 3.00 limit, so its one completed side is not counted. Pair 18 try 03 and pair 19 try 02 passed all checks; the corrected lease reused the caller-owned GPU lock without reacquiring it. The A/A stroke-total gate passes for all six action/phase combinations; the widest 95% interval half-width is 3.58%, below the 5% limit. Typical three-build pair 00 has started. No three-build conclusion or cause attribution is reported until the paired comparisons complete.
+At 10:00 UTC on 2026-11-13, typical-document A/A had 20 of 20 valid pairs. Pair 18 try 02 was rejected: its CPU load guard measured 5.44 against a 3.00 limit, so its one completed side is not counted. Pair 18 try 03 and pair 19 try 02 passed all checks; the corrected lease reused the caller-owned GPU lock without reacquiring it. The A/A stroke-total gate passes for all six action/phase combinations; the widest 95% interval half-width is 3.58%, below the 5% limit.
+
+The first three-build files (pairs 00–09, try 01) used earlier build commits, so they are excluded from the pinned comparison. The refresh scheduler has re-run the exact A/B/C pins: pair 00 try 02 passed session, GPU, output, and publishability checks at 10:04 UTC. Pair 01 is now running under its own bounded lock acquisition. No three-build conclusion or cause attribution is reported until all ten exact-pin pairs pass.
 
 ## Pins and evidence
 
