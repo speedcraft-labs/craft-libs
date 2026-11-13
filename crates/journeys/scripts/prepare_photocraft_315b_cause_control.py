@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the pre-#10013 control and pin it into the 315b cause config.
+"""Build a minimal checkpoint containing upstream PhotoCraft #11152.
 
 This is compile/config work only. It never acquires the bench or GPU locks.
 """
@@ -15,11 +15,17 @@ import subprocess
 
 ROOT = Path('/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway')
 TARGET = Path('/jobs/work/speedcraft-labs/targets/315b/pinned')
-SOURCE = Path('/jobs/work/speedcraft-labs/wt/315b-photocraft-pre10013')
-REVISION = 'ffc413ca85f9258cdb10a068e646e273f999f81f'
-AFTER_BIG_BRUSH_FIX = '0e2d24db264aa20d0fa9f4040ddb3d608c6fbe56'
-ASYNC_PAINT_WORKER = 'a2cbf1c9b97fa729f5571471d2410ece38311611'
-OUTPUT = TARGET / 'photocraft-pre10013'
+SOURCE = Path('/jobs/work/speedcraft-labs/wt/315b-photocraft-stroke-budget')
+REVISION = '0a6655ffe6ef5cdc885cd20027360311bdb60779'
+SOURCE_HEAD = '8946de6589f5dade05e27059461a096be1ae458a'
+MERGE_BASE = '74330157cb601573ae4523a95bb9132822fc3918'
+STROKE_BUDGET_COMMITS = [
+    'd98b9ea17be9b1b96aa3e052fb33e981b36928b9',
+    'efd725cc89aa0cea7844319d8a6561d914ec92cf',
+    '90cd7a78df19996af59184799befd7e93617923d',
+]
+OUTPUT = TARGET / 'photocraft-stroke-budget-control'
+RECORDER_SHA256 = '0c5c15480a8ea911b24707a7001a743412d548b3f7fa93f503364ef7aec59653'
 
 
 def sha256(path: Path) -> str:
@@ -30,16 +36,15 @@ def sha256(path: Path) -> str:
 def main() -> int:
     head = subprocess.check_output(['git', '-C', str(SOURCE), 'rev-parse', 'HEAD'], text=True).strip()
     dirty = subprocess.check_output(['git', '-C', str(SOURCE), 'status', '--porcelain'], text=True)
-    if head != REVISION or dirty:
-        raise RuntimeError(f'cause source must be clean at {REVISION}; got {head}, dirty={bool(dirty)}')
-    subprocess.run(['git', '-C', str(SOURCE), 'merge-base', '--is-ancestor', AFTER_BIG_BRUSH_FIX, 'HEAD'], check=True)
-    absent = subprocess.run(['git', '-C', str(SOURCE), 'merge-base', '--is-ancestor', ASYNC_PAINT_WORKER, 'HEAD'])
-    if absent.returncode == 0:
-        raise RuntimeError('cause source unexpectedly includes the #10013 async paint worker')
-    if absent.returncode != 1:
-        raise RuntimeError('could not check #10013 ancestry')
-    if not (SOURCE / 'crates/ui-egui/src/latency.rs').is_file():
-        raise RuntimeError('cause source is missing the common latency recorder')
+    if head != SOURCE_HEAD or dirty:
+        raise RuntimeError(f'cause source must be clean at {SOURCE_HEAD}; got {head}, dirty={bool(dirty)}')
+    subprocess.run(['git', '-C', str(SOURCE), 'merge-base', '--is-ancestor', REVISION, 'HEAD'], check=True)
+    subprocess.run(['git', '-C', str(SOURCE), 'merge-base', '--is-ancestor', MERGE_BASE, 'HEAD'], check=True)
+    for commit in STROKE_BUDGET_COMMITS:
+        subprocess.run(['git', '-C', str(SOURCE), 'merge-base', '--is-ancestor', commit, 'HEAD'], check=True)
+    recorder = SOURCE / 'crates/ui-egui/src/latency.rs'
+    if not recorder.is_file() or sha256(recorder) != RECORDER_SHA256:
+        raise RuntimeError('cause source is missing the common recorder or its hash differs')
 
     env = dict(os.environ)
     env['CARGO_BUILD_JOBS'] = '6'
@@ -57,7 +62,7 @@ def main() -> int:
     matrix = json.loads((ROOT / 'configs/threeway-typical/pair-00.json').read_text())
     role_a, role_c = (side.copy() for side in matrix['sides'] if side['role'] in {'a', 'c'})
     role_b = {
-        'name': 'pre10013',
+        'name': 'stroke-budget-control',
         'role': 'b',
         'revision': REVISION,
         'binary': str(OUTPUT),
@@ -67,25 +72,35 @@ def main() -> int:
     matrix['sides'] = [role_a, role_b, role_c]
     matrix.setdefault('source_pins', {})['cause_control'] = {
         'revision': REVISION,
-        'includes': 'PhotoCraft #10010 big-brush path',
-        'excludes': 'PhotoCraft #10013 async paint worker',
+        'based_on_merge_base': MERGE_BASE,
+        'includes': STROKE_BUDGET_COMMITS,
+        'recorder_sha256': RECORDER_SHA256,
     }
-    out = ROOT / 'configs/cause-control-typical/pair-00.json'
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(matrix, indent=2) + '\n')
+    for tier in ('typical', 'heavy'):
+        tier_matrix = matrix.copy()
+        tier_matrix['tier'] = tier
+        tier_matrix['payload'] = json.loads((ROOT / f'configs/threeway-{tier}/pair-00.json').read_text())['payload']
+        tier_matrix['acquisition'] = f'cause-control-{tier}'
+        tier_matrix['planned_pairs'] = 1
+        tier_matrix['sides'] = [side.copy() for side in tier_matrix['sides']]
+        out = ROOT / f'configs/cause-control-{tier}/pair-00.json'
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(tier_matrix, indent=2) + '\n')
 
     manifest = TARGET / 'rebuild-manifest.json'
     if manifest.is_file():
         data = json.loads(manifest.read_text())
         data['cause_control'] = {
             'source_head': head,
+            'revision': REVISION,
             'binary': str(OUTPUT),
             'binary_sha256': binary_sha,
-            'includes': AFTER_BIG_BRUSH_FIX,
-            'excludes': ASYNC_PAINT_WORKER,
+            'based_on_merge_base': MERGE_BASE,
+            'includes': STROKE_BUDGET_COMMITS,
+            'recorder_sha256': RECORDER_SHA256,
         }
         manifest.write_text(json.dumps(data, indent=2) + '\n')
-    print(f'cause checkpoint sha256={binary_sha}; config={out}', flush=True)
+    print(f'#11152 cause checkpoint sha256={binary_sha}; configs=typical,heavy', flush=True)
     return 0
 
 

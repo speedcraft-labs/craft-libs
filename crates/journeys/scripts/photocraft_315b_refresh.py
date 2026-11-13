@@ -193,14 +193,15 @@ def make_summary(tier: str) -> Path | None:
     return out
 
 
-def run_cause_control() -> bool:
-    config_path = ROOT / 'configs/cause-control-typical/pair-00.json'
+def run_cause_control(tier: str) -> bool:
+    acquisition = f'cause-control-{tier}'
+    config_path = ROOT / 'configs' / acquisition / 'pair-00.json'
     ready, detail = pinned_inputs(config_path)
     if not ready:
         log(f'cause checkpoint stopped before launch; {detail}')
         return False
     config = json.loads(config_path.read_text())
-    out_root = ROOT / 'reports/cause-control-typical'
+    out_root = ROOT / 'reports' / acquisition
     out_root.mkdir(parents=True, exist_ok=True)
     expected = {
         (side.get('role'), side.get('revision'), side.get('binary_sha256'))
@@ -217,7 +218,7 @@ def run_cause_control() -> bool:
             for side in recorded.get('sides', [])
         }
         if actual == expected and recorded.get('expected_driver_sha256') == config.get('expected_driver_sha256') and report.get('publishable') is True:
-            log('cause checkpoint: current-hash result already present')
+            log(f'{acquisition}: current-hash result already present')
             return True
     existing_attempts = [
         int(path.name.rsplit('-try-', 1)[1])
@@ -235,7 +236,7 @@ def run_cause_control() -> bool:
             'env', f'CRAFT_JOURNEYS_HARNESS_BIN={HARNESS}',
             sys.executable, str(LEASE), str(config_path), str(out),
         ]
-        log(f'cause checkpoint: start one lock-bounded acquisition, try {attempt}')
+        log(f'{acquisition}: start one lock-bounded acquisition, try {attempt}')
         result = subprocess.run(command, text=True, capture_output=True)
         if result.stdout.strip():
             log(result.stdout.strip().replace('\n', ' | '))
@@ -249,15 +250,15 @@ def run_cause_control() -> bool:
                 for side in recorded.get('sides', [])
             }
             if actual == expected and recorded.get('expected_driver_sha256') == config.get('expected_driver_sha256') and report.get('publishable') is True:
-                log('cause checkpoint: publishable current-hash result')
+                log(f'{acquisition}: publishable current-hash result')
                 return True
-        log(f'cause checkpoint: attempt {attempt} did not publish (exit {result.returncode})')
+        log(f'{acquisition}: attempt {attempt} did not publish (exit {result.returncode})')
         time.sleep(30)
     return False
 
 
 def prepare_cause_control() -> bool:
-    log('cause checkpoint: build pre-#10013 release pin and refresh the config (no bench/GPU lock)')
+    log('cause checkpoint: build the minimal #11152 stroke-budget release pin (no bench/GPU lock)')
     result = subprocess.run(
         [sys.executable, str(CAUSE_PREPARER)], text=True, capture_output=True,
     )
@@ -283,7 +284,7 @@ def needs_cause(summary: Path | None) -> bool:
         row.get('tier') in {'typical', 'heavy'}
         and row.get('phase') == 'warm'
         and row.get('metric') == 'stroke total'
-        and row.get('label') in {'brush-500px-soft', 'brush-canvas-width-soft'}
+        and row.get('label') in {'brush-30px', 'brush-500px-soft', 'brush-canvas-width-soft'}
         and row.get('left_role') == 'a'
         and row.get('right_role') == 'c'
         and row.get('aa_gate') == 'PASS'
@@ -295,9 +296,9 @@ def needs_cause(summary: Path | None) -> bool:
 def main() -> int:
     stages = [
         ('proof', 'typical', range(1)),
-        ('proof', 'heavy', range(1)),
         ('aa', 'typical', range(20)),
         ('threeway', 'typical', range(10)),
+        ('proof', 'heavy', range(1)),
         ('aa', 'heavy', range(20)),
         ('threeway', 'heavy', range(10)),
     ]
@@ -315,15 +316,19 @@ def main() -> int:
             break
         if not backup(f'Exact-hash {campaign}-{tier} stage checkpoint; retain successful and failed attempts.'):
             missing.append(f'nas-backup:{campaign}-{tier}')
-    typical = make_summary('typical')
-    heavy = make_summary('heavy')
-    if needs_cause(typical) or needs_cause(heavy):
-        if not prepare_cause_control() or not run_cause_control():
-            missing.append('cause-control-typical:00')
+    summaries = {'typical': make_summary('typical'), 'heavy': make_summary('heavy')}
+    cause_tiers = [tier for tier, summary in summaries.items() if needs_cause(summary)]
+    if cause_tiers:
+        if not prepare_cause_control():
+            missing.extend(f'cause-control-{tier}:00' for tier in cause_tiers)
+        else:
+            for tier in cause_tiers:
+                if not run_cause_control(tier):
+                    missing.append(f'cause-control-{tier}:00')
         if not backup('Cause checkpoint and exact-hash 315b summary reports.'):
             missing.append('nas-backup:cause-control')
     else:
-        log('cause checkpoint skipped: exact-hash typical matrix did not show a gated upstream win on a large brush')
+        log('cause checkpoint skipped: exact-hash matrices showed no gated upstream win')
     if not backup('Final exact-hash 315b PhotoCraft research reports, summaries and logs.'):
         missing.append('nas-backup:final')
     if missing:

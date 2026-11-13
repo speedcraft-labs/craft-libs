@@ -18,24 +18,23 @@ import sys
 
 TARGET = Path('/jobs/work/speedcraft-labs/targets/315b')
 PINS = TARGET / 'pinned'
-KEEP = Path('/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway')
-CONFIG_GENERATOR = KEEP / 'operators/generate-configs.py'
+CONFIG_GENERATOR = Path(__file__).with_name('photocraft_315b_generate_configs.py')
 WORKTREES = {
     'a': {
-        'source': Path('/jobs/work/speedcraft-labs/wt/315b-photocraft-threeway'),
-        'revision': '316e00a97eab730e60584df578c295b5c2539d95',
+        'source': Path('/jobs/work/speedcraft-labs/wt/315b-photocraft-mergebase-current'),
+        'revision': '74330157cb601573ae4523a95bb9132822fc3918',
         'name': 'photocraft-a-mergebase',
         'sha256': '9e127556cf8826f3e944ec72c4cb7fdb9196ddb332a766fc1ce2781ff676c52a',
     },
     'b': {
-        'source': Path('/jobs/work/speedcraft-labs/wt/315b-photocraft-fork-tip'),
-        'revision': 'f07b6b895331287cde377dbffe61abfbdc2a6d5d',
+        'source': Path('/jobs/work/speedcraft-labs/wt/315b-photocraft-forkmain-current'),
+        'revision': '629049f550e5cad1c483fe800a66047cd02bf150',
         'name': 'photocraft-b-fork-tip',
         'sha256': '19aab350144684e655c529f4472917f788694895b7349d9a648d29c13bec28f1',
     },
     'c': {
-        'source': Path('/jobs/work/speedcraft-labs/wt/315b-photocraft-upstream'),
-        'revision': 'eee667f1d92e34db6c438ddd20f3e4f5339cf8a7',
+        'source': Path('/jobs/work/speedcraft-labs/wt/315b-photocraft-upstreammain-current'),
+        'revision': 'e052eabf4be74612725400955d184f85d208c0f0',
         'name': 'photocraft-c-upstream-tip',
         'sha256': 'fe08d44fa693968b6deba4448d06a8aa743a006739a20a69cad842d59aedef6b',
     },
