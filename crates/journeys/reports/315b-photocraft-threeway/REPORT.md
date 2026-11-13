@@ -12,7 +12,9 @@ The earlier point-frame comparison is withdrawn. On upstream, the first reflecte
 | 500 px soft | 46 | 0 / 0 / 0 | 79,895 / 79,895 / 79,895 |
 | Canvas-width soft | 6 | 78,573 / 78,573 / 78,573 | 72,868 / 72,868 / 72,868 |
 
-All builds had equal dab counts and matching settled RGB crop hashes for each action. The captured pixels at the release fence match the settled result. This confirms asynchronous stamping: the upstream frame can precede the stroke, especially for 30 px and 500 px actions. One proof run per build establishes recorder validity; these values are not matrix statistics.
+All builds had equal dab counts and matching settled RGB crop hashes for each action. The captured pixels at the release fence match the settled result. This confirms asynchronous stamping: the upstream frame can precede the stroke, especially for 30 px and 500 px actions. One proof run per build on each document size establishes recorder validity; these values are not matrix statistics.
+
+The 24 MP heavy-document proof (pair 00 try 03) repeats the result: A/B/C dab counts were 1,220 / 74 / 8 for the three actions; point-frame changed-pixel counts were 0 / 0 / 97,022; every release-frame hash matched both the immediate and settled RGB crop, and immediate-to-settled MAE was 0. The point frame therefore omitted pixels for the first two heavy-document strokes as well. The failed try 02 is retained; its canvas-width screenshot capture timed out and it is excluded.
 
 ## Three-build matrix
 
@@ -43,5 +45,6 @@ The refresh scheduler is running the heavy-document proof, A/A gate, and exact-p
 - Recorder source SHA-256: `0c5c15480a8ea911b24707a7001a743412d548b3f7fa93f503364ef7aec59653`
 - Harness SHA-256: `00d2ccf8a292aa54e4c1a697b9cf6317f29e595ce2e057ffc56deab0311aed2a`
 - Driver SHA-256: `ff8429f223ff214f2217986bd5ff9c94872f60dccd8cd4ca228800e55358f47c`
-- Pixel-proof report: `/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway/reports/proof-typical/pair-00-try-08/report.json`
+- Typical pixel-proof report: `/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway/reports/proof-typical/pair-00-try-08/report.json`
+- Heavy pixel-proof report: `/jobs/work/speedcraft-labs/keep/315b-photocraft-threeway/reports/proof-heavy/pair-00-try-03/report.json`
 - NAS checkpoints are stored under `wormhole:/mnt/bulk/backups/speedcraft-labs/tickets/315b-photocraft-threeway/`.
