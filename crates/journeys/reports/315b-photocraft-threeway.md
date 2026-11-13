@@ -31,6 +31,14 @@ Counts are changed pixels versus the pre-stroke region / pixels differing from t
 | Heavy 24 MP | 500 px soft | 74 | 50,681 / 0 | 0 / 50,681 |
 | Heavy 24 MP | Canvas-width soft | 8 | 98,803 / 0 | 97,022 / 95,936 |
 
+The settled stroke-region RGB SHA-256 matched across A, B, and C for each row. The hashes (typical / heavy) are:
+
+- 30 px: `bad78b3e799a1924a038059932104105f1ed786d4e5cb2e08da77a6254f42857` / `6360a8079edbc8d54905aac1215b6aa6388dfddfc11f596be7eefc4f14250db2`.
+- 500 px soft: `6c9e4a6cf5aac551bc40f7225dc524e45d475ddb3e1666fe2b1b890fb9c87b1d` / `4cd68f8c51db225c6a27ef117c34c2937d89af819fb11f7e20857da080878d93`.
+- Canvas-width soft: `996cacec6078b0a81b8a316b6b12bb45a2e2b29719c3b9ef8d8c49b89e306d85` / `9a9669e43274fe3132e6711b53cbd291f5efb729705f4861e3968a0884a5554d`.
+
+All six upstream release frames matched both the immediate screenshot and the screenshot taken 1 s later (0.00 RGB MAE, 100% stable crop pixels). This confirms that upstream's stamp is deferred past the selected cursor frame, but not past the release-frame fence used in the corrected latency measure.
+
 ## Heavy document and cause
 
 The earlier 17/20 heavy A/A count mixed two executable hashes after the target directory was rebuilt, so those 14 old-hash pairs are retained but excluded. The current hash-matched gate has 4/20 pairs (0, 14, 15, 16); 16 remain. Heavy three-build runs and the cause checkpoint are pending. Upstream #10013 moves live painting to a worker while the cursor advances, consistent with the cursor frame preceding brush pixels. A pre-#10013 control is built to isolate that scheduling change from earlier paint-path changes. That historical checkpoint needed only a compile-only duplicate-TIFF-constant removal on `wip/315b-photocraft-pre10013` (`ffc413ca8`); no brush code changed.
