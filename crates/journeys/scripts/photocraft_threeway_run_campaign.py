@@ -2,6 +2,7 @@
 """Run one 315b acquisition per exclusive bench/GPU lease and retain all attempts."""
 import argparse
 import json
+import os
 import subprocess
 from pathlib import Path
 
