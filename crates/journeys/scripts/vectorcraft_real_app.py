@@ -158,14 +158,6 @@ def edit_fill(control: Control) -> dict:
     return nodes[0]
 
 
-def capture(control: Control, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.unlink(missing_ok=True)
-    control.call("ui.screenshot", {"path": str(path)})
-    if not path.is_file() or not path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
-        raise RuntimeError("VectorCraft did not capture a valid rendered PNG")
-
-
 def png_size(path: Path) -> tuple[int, int]:
     header = path.read_bytes()[:24]
     if len(header) != 24 or not header.startswith(b"\x89PNG\r\n\x1a\n") or header[12:16] != b"IHDR":
@@ -199,13 +191,11 @@ def run_task(binary: Path, task: str, input_path: Path, target_dir: Path) -> int
         if task == "open":
             identity["paths"] = path_count
             action_elapsed = time.perf_counter_ns() - start
-            capture(control, state_dir / "open.png")
         elif task == "zoom":
             before = control.call("ui.inspect")
             rect = before.get("canvasRect") if isinstance(before, dict) else None
             if not isinstance(rect, list) or len(rect) < 4:
                 raise RuntimeError("VectorCraft canvas is not ready for zoom")
-            x, y = rect[0] + rect[2] / 2, rect[1] + rect[3] / 2
             before_view = before.get("view")
             control.call("engine.execute", {"command": "view.zoomIn", "params": {}})
             changed = False
@@ -219,14 +209,12 @@ def run_task(binary: Path, task: str, input_path: Path, target_dir: Path) -> int
             if not changed:
                 raise RuntimeError("VectorCraft canvas zoom did not change the view")
             action_elapsed = time.perf_counter_ns() - start
-            capture(control, state_dir / "zoom.png")
             identity["zoom"] = "zoom-in"
         elif task in {"edit", "save"}:
             node = edit_fill(control)
             identity.update({"fill": EDIT_COLOR, "paths": path_count})
             if task == "edit":
                 action_elapsed = time.perf_counter_ns() - start
-                capture(control, state_dir / "edit.png")
             else:
                 output = target_dir / "outputs" / f"{input_path.stem}-saved.svg"
                 output.parent.mkdir(parents=True, exist_ok=True)
