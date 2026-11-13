@@ -309,7 +309,7 @@ def main() -> int:
     input_path = Path(sys.argv[3]).resolve() if len(sys.argv) >= 4 else None
     output_path = Path(sys.argv[4]).resolve() if len(sys.argv) >= 5 else None
     try:
-        display = ensure_display(require_glx=True)
+        display = ensure_display()
         if task == "verify-save":
             if input_path is None or output_path is None:
                 raise RuntimeError("verify-save requires the original and saved SVG paths")
