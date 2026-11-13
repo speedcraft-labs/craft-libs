@@ -37,6 +37,16 @@ X11_STARTUP_TITLES = {
 }
 
 
+def mac_window_watch_binary() -> Path:
+    binary = Path("/private/tmp/craft-mapnotify-window-watch")
+    source = Path(__file__).with_name("mac_window_watch.swift")
+    if not binary.is_file() or binary.stat().st_mtime_ns < source.stat().st_mtime_ns:
+        result = subprocess.run(["swiftc", "-O", str(source), "-o", str(binary)], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"could not build the Cocoa window observer: {result.stderr.strip()}")
+    return binary
+
+
 def free_port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -199,7 +209,25 @@ def launch(
     # Attach before launch so the mark is the window's map event, not the later screenshot RPC.
     map_watch = None
     mapped_at_path = profile / "window-mapped.monotonic-ns"
-    if app in X11_STARTUP_TITLES and sys.platform == "linux" and os.environ.get("DISPLAY"):
+    mac_pid_path = profile / "mac-window-pid"
+    if app in X11_STARTUP_TITLES and sys.platform == "darwin":
+        ready_path = profile / "mac-window-watch.ready"
+        ready_path.unlink(missing_ok=True)
+        mapped_at_path.unlink(missing_ok=True)
+        mac_pid_path.unlink(missing_ok=True)
+        map_watch = subprocess.Popen(
+            [str(mac_window_watch_binary()), str(ready_path), str(mac_pid_path), str(mapped_at_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        ready_deadline = time.monotonic() + 10
+        while not ready_path.is_file() and map_watch.poll() is None and time.monotonic() < ready_deadline:
+            time.sleep(0.001)
+        if not ready_path.is_file():
+            map_watch.terminate()
+            map_watch.wait(timeout=2)
+            raise RuntimeError("Cocoa window observer did not attach before app launch")
+    elif app in X11_STARTUP_TITLES and sys.platform == "linux" and os.environ.get("DISPLAY"):
         ready_path = profile / "x11-map-watch.ready"
         ready_path.unlink(missing_ok=True)
         mapped_at_path.unlink(missing_ok=True)
@@ -225,6 +253,8 @@ def launch(
     started = time.perf_counter_ns()
     debug_log = (profile / "startup-app.log").open("wb") if os.environ.get("CRAFT_STARTUP_DEBUG") == "1" else None
     proc = subprocess.Popen(command, cwd=profile, env=env, stdout=debug_log or subprocess.DEVNULL, stderr=debug_log or subprocess.DEVNULL)
+    if sys.platform == "darwin" and map_watch is not None:
+        mac_pid_path.write_text(f"{proc.pid}\n")
     try:
         deadline = time.monotonic() + timeout_s
         if app in MAP_ONLY_APPS:
