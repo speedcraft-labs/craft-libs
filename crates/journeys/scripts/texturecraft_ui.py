@@ -178,8 +178,9 @@ def stable(value):
     return value
 
 
-def stable_session():
-    state = request("session.inspect", request_id=8)
+def stable_session(state=None):
+    if state is None:
+        state = request("session.inspect", request_id=8)
     selected = state.get("selectedLayer")
     def layer_name(layers):
         for layer in layers or []:
@@ -195,6 +196,33 @@ def stable_session():
     for key in ("memoryBytes", "pendingTiles"):
         state.pop(key, None)
     return stable(state)
+
+
+def wait_for_finished_sample(process):
+    """Wait until both sample texture sets have their baked maps applied."""
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise RuntimeError("TextureCraft exited before its startup sample bake finished")
+        state = request_until_ready(process, "session.inspect")
+        texture_sets = state.get("textureSets", [])
+        if len(texture_sets) == 2 and all(
+            isinstance(texture_set.get("baked"), dict)
+            and texture_set["baked"].get("maps")
+            for texture_set in texture_sets
+        ):
+            return state
+        time.sleep(0.05)
+    raise RuntimeError("TextureCraft startup sample bake did not finish within 120 seconds")
+
+
+def save_capture(name, png):
+    root = os.environ.get("TEXTURECRAFT_CAPTURE_DIR")
+    if not root:
+        return
+    capture_dir = Path(root) / Path(binary).resolve().parent.parent.name
+    capture_dir.mkdir(parents=True, exist_ok=True)
+    (capture_dir / name).write_bytes(png)
 
 
 try:
@@ -225,6 +253,7 @@ try:
         screenshot_rpc_ns = time.perf_counter_ns() - capture_started
         screenshot_total_ns = time.perf_counter_ns() - started
         frame_sha256 = hashlib.sha256(png).hexdigest()
+        save_capture("first-frame.png", png)
         duration = screenshot_total_ns
         if mapped_elapsed_ns is not None:
             print(f"CRAFT_WINDOW_MAPPED_NS={mapped_elapsed_ns}")
@@ -232,12 +261,36 @@ try:
         print(f"CRAFT_SCREENSHOT_RPC_NS={screenshot_rpc_ns}")
         print(f"CRAFT_FRAME_SHA256={frame_sha256}")
         diagnostics = Path(output).parent / f"texturecraft-{action}.timing.jsonl"
+        final_state = wait_for_finished_sample(proc)
+        time.sleep(0.25)
+        final_png = screenshot_frame(proc)
+        save_capture("finished-preview.png", final_png)
+        finished_preview_ns = time.perf_counter_ns() - started
+        bake_output = output + "-finished-bakes"
+        if os.path.exists(bake_output):
+            shutil.rmtree(bake_output) if os.path.isdir(bake_output) else os.unlink(bake_output)
+        request("command.run", {"id": "file.exportTextures", "params": {"dir": bake_output, "size": 2048, "ts": "all"}}, 10)
+        exported = sorted(Path(bake_output).glob("*.png"))
+        if len(exported) != 12:
+            raise RuntimeError(f"expected 12 finished bake PNGs, found {len(exported)}")
+        digest = hashlib.sha256()
+        for path in exported:
+            digest.update(path.name.encode())
+            with path.open("rb") as exported_file:
+                for block in iter(lambda: exported_file.read(1024 * 1024), b""):
+                    digest.update(block)
+        final_identity = digest.hexdigest()
+        identity = final_identity
+        print(f"CRAFT_FINAL_OUTPUT_SHA256={final_identity}")
+        print(f"CRAFT_FINISHED_PREVIEW_NS={finished_preview_ns}")
         with diagnostics.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps({
                 "window_mapped_ns": mapped_elapsed_ns,
                 "library_ready_ns": None,
                 "screenshot_complete_ns": screenshot_total_ns,
                 "screenshot_rpc_ns": screenshot_rpc_ns,
+                "finished_preview_ns": finished_preview_ns,
+                "finished_maps_sha256": final_identity,
             }, sort_keys=True) + "\n")
     else:
         proc = launch()
@@ -292,6 +345,8 @@ try:
                     for block in iter(lambda: exported_file.read(1024 * 1024), b""):
                         digest.update(block)
         identity = digest.hexdigest()
+    elif action in ("startup-cold", "startup-warm"):
+        identity = final_identity
     else:
         state = stable_session()
         identity = hashlib.sha256(json.dumps(state, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
