@@ -356,7 +356,7 @@ fn fill(width: usize, height: usize, pixel: impl Fn(usize, usize) -> u8) -> Vec<
 #[test]
 fn filmcraft_copy_is_the_dc23d047_kernel() {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/filmcraft_dc23d047_distortion.inc");
-    let text = std::fs::read_to_string(path).expect("verbatim kernel");
+    let text = std::fs::read_to_string(path).expect("verbatim kernel").replace("\r\n", "\n");
     assert_eq!(text.len(), 6251);
     assert!(text.contains("Only 128-bit `wide` vectors are used"));
     assert!(!text.contains("mod tests"));
