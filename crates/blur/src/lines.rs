@@ -63,9 +63,9 @@ fn filter_channels<const CHANNELS: usize>(passes: &Separable, view: &mut View<'_
     let extended = length.checked_add(padding.checked_mul(2).ok_or(Error::SizeOverflow)?).ok_or(Error::SizeOverflow)?;
     resize(&mut scratch.input, extended, [[0.0; LINE_BATCH]; 4])?;
     resize(&mut scratch.output, extended, [[0.0; LINE_BATCH]; 4])?;
-    for position in 0..extended {
+    for (position, input) in scratch.input.iter_mut().take(extended).enumerate() {
         let original = mapped(position as i128 - padding as i128, length, edge);
-        scratch.input[position] = original.map_or([[0.0; LINE_BATCH]; 4], |index| view.read(index));
+        *input = original.map_or([[0.0; LINE_BATCH]; 4], |index| view.read(index));
     }
     match passes {
         Separable::Kernel(kernel) => sampled::<CHANNELS>(&scratch.input, &mut scratch.output, kernel, edge),
