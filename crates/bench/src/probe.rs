@@ -31,10 +31,23 @@ pub struct RealProbe;
 
 impl SystemProbe for RealProbe {
     fn load1(&self) -> Option<f64> {
-        if let Ok(s) = std::fs::read_to_string("/proc/loadavg") {
-            return parse_proc_loadavg(&s);
+        // Mac benchmarks serialize through scripts/bench-run's lock. Machine-wide load can
+        // include unrelated work outside that lock, so it is unavailable as a rejection gate.
+        #[cfg(target_os = "macos")]
+        {
+            None
         }
-        parse_sysctl_loadavg(&cmd("sysctl", &["-n", "vm.loadavg"])?)
+        #[cfg(not(target_os = "macos"))]
+        {
+            #[cfg(target_os = "linux")]
+            if isolated_mode() {
+                return isolated_cpu_load();
+            }
+            if let Ok(s) = std::fs::read_to_string("/proc/loadavg") {
+                return parse_proc_loadavg(&s);
+            }
+            parse_sysctl_loadavg(&cmd("sysctl", &["-n", "vm.loadavg"])?)
+        }
     }
 
     fn logical_cores(&self) -> usize {
@@ -47,6 +60,100 @@ impl SystemProbe for RealProbe {
             std::fs::read_to_string("/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count").ok().and_then(|s| s.trim().parse().ok());
         Throttle { speed_limit_pct, throttle_count }
     }
+}
+
+#[cfg(target_os = "linux")]
+fn isolated_mode() -> bool {
+    std::env::var("CRAFT_BENCH_ISOLATED").is_ok_and(|v| v == "1")
+}
+
+#[cfg(not(target_os = "linux"))]
+fn isolated_mode() -> bool {
+    false
+}
+
+#[cfg(target_os = "linux")]
+fn isolated_cpu_load() -> Option<f64> {
+    let status = std::fs::read_to_string("/proc/self/status").ok()?;
+    let allowed = parse_allowed_cpu_list(status.lines().find_map(|l| l.strip_prefix("Cpus_allowed_list:").map(str::trim))?)?;
+    let first = std::fs::read_to_string("/proc/stat").ok()?;
+    let first_self = std::fs::read_to_string("/proc/self/stat").ok()?;
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    let second = std::fs::read_to_string("/proc/stat").ok()?;
+    let second_self = std::fs::read_to_string("/proc/self/stat").ok()?;
+    let first = parse_proc_stat(&first)?;
+    let second = parse_proc_stat(&second)?;
+    let mut load = 0.0;
+    let mut smallest_total_delta = None;
+    for cpu in allowed {
+        let (a_total, a_busy) = first.cpus.get(&cpu)?;
+        let (b_total, b_busy) = second.cpus.get(&cpu)?;
+        let total = b_total.checked_sub(*a_total)?;
+        if total == 0 {
+            continue;
+        }
+        let busy = b_busy.saturating_sub(*a_busy);
+        load += busy as f64 / total as f64;
+        smallest_total_delta = Some(smallest_total_delta.map_or(total, |x: u64| x.min(total)));
+    }
+    // /proc/self/stat uses USER_HZ ticks, the same unit as /proc/stat. Subtract the
+    // benchmark process's own CPU time from the aggregate busy-core estimate.
+    let own_ticks = parse_proc_self_ticks(&second_self)?.saturating_sub(parse_proc_self_ticks(&first_self)?);
+    if let Some(cpu_ticks) = smallest_total_delta.filter(|v| *v > 0) {
+        load = (load - own_ticks as f64 / cpu_ticks as f64).max(0.0);
+    }
+    Some(load)
+}
+
+#[cfg(any(target_os = "linux", test))]
+#[derive(Debug, PartialEq)]
+struct ProcStat {
+    cpus: std::collections::BTreeMap<usize, (u64, u64)>,
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn parse_proc_stat(s: &str) -> Option<ProcStat> {
+    let mut cpus = std::collections::BTreeMap::new();
+    for line in s.lines() {
+        let mut fields = line.split_whitespace();
+        let label = fields.next()?;
+        let Some(id) = label.strip_prefix("cpu").and_then(|s| s.parse::<usize>().ok()) else {
+            continue;
+        };
+        let values: Vec<u64> = fields.map(str::parse).collect::<Result<_, _>>().ok()?;
+        if values.len() < 4 {
+            continue;
+        }
+        let total = values.iter().take(8).sum::<u64>();
+        let idle = values[3].saturating_add(*values.get(4).unwrap_or(&0));
+        cpus.insert(id, (total, total.saturating_sub(idle)));
+    }
+    (!cpus.is_empty()).then_some(ProcStat { cpus })
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn parse_allowed_cpu_list(s: &str) -> Option<Vec<usize>> {
+    let mut cpus = Vec::new();
+    for item in s.trim().split(',') {
+        let (start, end): (usize, usize) = if let Some((a, b)) = item.split_once('-') {
+            (a.parse().ok()?, b.parse().ok()?)
+        } else {
+            let n = item.parse().ok()?;
+            (n, n)
+        };
+        if end < start {
+            return None;
+        }
+        cpus.extend(start..=end);
+    }
+    (!cpus.is_empty()).then_some(cpus)
+}
+
+#[cfg(target_os = "linux")]
+fn parse_proc_self_ticks(s: &str) -> Option<u64> {
+    let rest = s.rsplit_once(") ")?.1;
+    let fields: Vec<&str> = rest.split_whitespace().collect();
+    fields.get(11)?.parse::<u64>().ok()?.checked_add(fields.get(12)?.parse().ok()?)
 }
 
 fn cmd(program: &str, args: &[&str]) -> Option<String> {
@@ -142,6 +249,10 @@ pub struct Fingerprint {
     pub kernel: Option<String>,
     pub cpu_model: Option<String>,
     pub logical_cores: usize,
+    #[serde(default)]
+    pub isolation_mode: bool,
+    #[serde(default)]
+    pub allowed_cpu_list: Option<String>,
     pub physical_cores: Option<usize>,
     pub ram_bytes: Option<u64>,
     /// `rustc -V` of the compiler that built the harness.
@@ -166,10 +277,28 @@ impl Fingerprint {
         let date = chrono::DateTime::from_timestamp(i64::try_from(secs).unwrap_or(0), 0).map(|d| d.to_rfc3339()).unwrap_or_default();
         Self {
             os: std::env::consts::OS.to_string(),
-            arch: std::env::consts::ARCH.to_string(),
+            arch: match std::env::consts::ARCH {
+                "aarch64" => "arm64".to_string(),
+                architecture => architecture.to_string(),
+            },
             kernel: cmd("uname", &["-sr"]),
             cpu_model,
             logical_cores,
+            isolation_mode: isolated_mode(),
+            allowed_cpu_list: if isolated_mode() {
+                #[cfg(target_os = "linux")]
+                {
+                    std::fs::read_to_string("/proc/self/status")
+                        .ok()
+                        .and_then(|s| s.lines().find_map(|l| l.strip_prefix("Cpus_allowed_list:").map(|v| v.trim().to_string())))
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    None
+                }
+            } else {
+                None
+            },
             physical_cores,
             ram_bytes,
             rustc: env!("CRAFT_BENCH_RUSTC").to_string(),
@@ -275,9 +404,19 @@ mod tests {
     }
 
     #[test]
+    fn parses_cpu_stat_and_allowed_list() {
+        let stat = "cpu 100 0 30 70 10 0 0 0\ncpu0 50 0 10 30 5 0 0 0\ncpu1 50 0 20 40 5 0 0 0\nintr 1\n";
+        let parsed = parse_proc_stat(stat).unwrap();
+        assert_eq!(parsed.cpus.get(&0), Some(&(95, 60)));
+        assert_eq!(parse_allowed_cpu_list("2-4,7").unwrap(), vec![2, 3, 4, 7]);
+        assert_eq!(parse_allowed_cpu_list("4-2"), None);
+    }
+
+    #[test]
     fn fingerprint_has_the_fields() {
         let f = Fingerprint::collect(4);
         assert!(!f.os.is_empty() && !f.rustc.is_empty() && !f.date.is_empty());
         assert_eq!(f.logical_cores, 4);
+        assert_eq!(f.arch, if cfg!(target_arch = "aarch64") { "arm64" } else { std::env::consts::ARCH });
     }
 }
