@@ -69,6 +69,7 @@ target root so prepared builds can be reused.
 | `gridcraft.synthetic-workbook-open` | GridCraft | Open and recalculate a generated 1,000-row workbook |
 | `soundcraft.synthetic-mix-throughput` | SoundCraft | Mix 32 generated tracks over 4 seconds |
 | `filmcraft.synthetic-project-open` | FilmCraft | Open a generated project with the 360p clip fixture |
+| `materialcraft.open-edit-orbit-export` | MaterialCraft | Open the built-in Wood Planks graph, change plank count, orbit a CC0 model, export its textures |
 
 Run and compare:
 
