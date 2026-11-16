@@ -1,6 +1,7 @@
 use craft_io::{CappedReadError, CappedReader, read_capped, read_capped_from, read_capped_to_string};
 use proptest::prelude::*;
 use std::io::{self, Read};
+#[cfg(unix)]
 use std::path::Path;
 
 #[test]
