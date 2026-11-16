@@ -222,7 +222,6 @@ craft-ooxml = { path = "crates/ooxml" }
 craft-resample = { path = "crates/resample" }
 craft-scopes = { path = "crates/scopes" }
 craft-tiledir = { path = "crates/tiledir" }
-craft-time = { path = "crates/time" }
 craft-view = { path = "crates/view" }
 craft-vp8 = { path = "crates/vp8" }
 craft-vp9 = { path = "crates/vp9" }
