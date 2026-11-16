@@ -200,8 +200,8 @@ fn effectcraft_column_rounding_differs_by_at_most_one_count() -> Result<(), Box<
             actual.accumulate(frame)?;
             let options = effectcraft::ScopeOpts { width: width as u32, height: 65, ..Default::default() };
             let expected = effectcraft::compute(&pixels, width, effectcraft::ScopeKind::WaveformRgb, &options);
-            for trace in 0..3 {
-                compare(actual.plane(trace).ok_or("missing trace")?, &expected.counts[trace], 1);
+            for (trace, expected_count) in expected.counts.iter().enumerate() {
+                compare(actual.plane(trace).ok_or("missing trace")?, expected_count, 1);
             }
             let signal = filmcraft::Signal { w: width, h: 1, rgb: pixels.clone() };
             let params = filmcraft::Params { rows: 65, ..Default::default() };
