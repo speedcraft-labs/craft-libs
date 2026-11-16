@@ -33,7 +33,7 @@ jobs:
       matrix:
         codec: [h264, hevc, vp8, vp9, av1]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
         with:
           persist-credentials: false
       - name: Use preinstalled Rust
