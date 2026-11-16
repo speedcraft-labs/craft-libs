@@ -1,0 +1,33 @@
+zip 4712
+cfb 1361
+other 30
+office-poi/document/word2.doc
+office-poi/spreadsheet/testEXCEL_3.xls
+office-poi/spreadsheet/testEXCEL_4.xls
+office-libreoffice/sc/qa/unit/data/xls/fail/EDB-39398-1.xls
+office-libreoffice/sc/qa/unit/data/xls/fdo55572-1.xls
+office-libreoffice/sc/qa/unit/data/xls/pass/EDB-22330-1.xls
+office-libreoffice/sc/qa/unit/data/xls/pass/EDB-22591-1.xls
+office-libreoffice/sc/qa/unit/data/xls/pass/ofz14101-1.xls
+office-libreoffice/sc/qa/unit/data/xls/pass/ofz20904-1.xls
+office-libreoffice/sc/qa/unit/data/xls/pass/ofz49713-1.xls
+office-libreoffice/sc/qa/unit/data/xls/tdf144732.xls
+office-libreoffice/sc/qa/unit/data/xls/tdf158483.xls
+office-libreoffice/sc/qa/unit/data/xls/tdf72470.xls
+office-libreoffice/sd/qa/unit/data/ppt/pass/EDB-39395-1.ppt
+office-libreoffice/sd/qa/unit/data/ppt/pass/EDB-39397-1.ppt
+office-libreoffice/sw/qa/core/data/ooxml/fail/EDB-36788-1.docx
+office-libreoffice/sw/qa/core/data/ww5/pass/hang-1.doc
+office-libreoffice/sw/qa/core/data/ww5/pass/hang-2.doc
+office-libreoffice/sw/qa/core/data/ww5/pass/hang-3.doc
+office-libreoffice/sw/qa/core/data/ww5/pass/ofz18526-1.doc
+office-libreoffice/sw/qa/core/data/ww5/pass/ooo2535-1-WW2.doc
+office-libreoffice/sw/qa/core/data/ww5/pass/ooo37322-1-WW2.doc
+office-libreoffice/sw/qa/core/data/ww5/pass/ooo40683-1-WW1.doc
+office-libreoffice/sw/qa/core/data/ww8/pass/EDB-14092-1.doc
+office-libreoffice/sw/qa/core/data/ww8/pass/EDB-18952-1.doc
+office-libreoffice/sw/qa/core/data/ww8/pass/EDB-22215-1.doc
+office-libreoffice/sw/qa/core/data/ww8/pass/EDB-37909-1.doc
+office-libreoffice/sw/qa/core/data/ww8/pass/EDB-37910-1.doc
+office-libreoffice/sw/qa/core/data/ww8/pass/EDB-37924-1.doc
+office-libreoffice/sw/qa/core/data/ww8/pass/EDB-39396-1.doc
