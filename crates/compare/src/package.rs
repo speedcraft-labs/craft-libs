@@ -100,7 +100,7 @@ impl Package {
         let err = |e: craft_cfb::Error| CompareError::Package(e.to_string());
         let cfb = craft_cfb::CompoundFile::open(bytes).map_err(err)?;
         let mut parts = BTreeMap::new();
-        for (id, entry) in cfb.entries.iter().enumerate().filter(|(_, e)| e.kind == craft_cfb::EntryKind::Stream) {
+        for (id, _) in cfb.entries.iter().enumerate().filter(|(_, e)| e.kind == craft_cfb::EntryKind::Stream) {
             if let Some(path) = cfb.path(id) {
                 parts.insert(path, cfb.read(id).map_err(err)?);
             }
