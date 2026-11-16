@@ -231,6 +231,7 @@
     {
       "name": "effectcraft.synthetic-project-open",
       "app": "effectcraft",
+      "app_locked_dependencies": true,
       "repo": "$ARTCRAFT_HYPER_ROOT/repos/apps/effectcraft",
       "build": { "program": "cargo", "args": ["build", "--release", "-p", "effectcraft-cli"] },
       "run": { "program": "cargo", "args": ["run", "--quiet", "--release", "-p", "effectcraft-cli", "--", "bench", "--ops", "--measure", "open", "--layers", "5000", "--json"], "output": "effectcraft-ops", "measure": "open" }
