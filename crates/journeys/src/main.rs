@@ -431,7 +431,12 @@ fn run_command(
                 .and_then(serde_json::Value::as_str)
                 .ok_or_else(|| "effectcraft bench JSON is missing its generated project spec".to_string())?;
             let note = measure.get("note").and_then(serde_json::Value::as_str).unwrap_or("");
-            let identity = format!("{spec}|{measure_name}|{note}");
+            // Normalize two display-only differences across EffectCraft CLI revisions: false is
+            // implicit in the older LargeSpec debug string, and active-comp IDs gained Option
+            // formatting. The generated workload and selected operation remain in the identity.
+            let stable_spec = spec.replace(", realistic: false", "");
+            let stable_note = note.replace("active comp Some(1)", "active comp 1");
+            let identity = format!("{stable_spec}|{measure_name}|{stable_note}");
             ((millis * 1_000_000.0) as u64, format!("{:x}", Sha256::digest(identity.as_bytes())))
         }
         OutputProtocol::PhotocraftLargeImage => {
