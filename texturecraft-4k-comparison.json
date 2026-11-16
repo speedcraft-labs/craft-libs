@@ -1,0 +1,258 @@
+{
+  "schema_version": 2,
+  "name": "texturecraft / texturecraft.fill-stack.first-frame.4k",
+  "revs": {
+    "old": "app:c03b89245a7a22e2c1405c8302f0453b929ae5a9;craft-libs:1043d147881d2d75f4417a27e703e3000a380eaa",
+    "new": "app:c03b89245a7a22e2c1405c8302f0453b929ae5a9;craft-libs:1043d147881d2d75f4417a27e703e3000a380eaa"
+  },
+  "fingerprint": {
+    "os": "linux",
+    "arch": "x86_64",
+    "kernel": "Linux 6.12.115+deb13.1-cloud-amd64",
+    "cpu_model": "AMD Ryzen 9 5900XT 16-Core Processor",
+    "logical_cores": 6,
+    "isolation_mode": true,
+    "allowed_cpu_list": "22-27",
+    "physical_cores": 28,
+    "ram_bytes": 92724637696,
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "profile": "release",
+    "opt_level": "3",
+    "debug_assertions": false,
+    "date": "2026-11-08T14:19:48+00:00"
+  },
+  "gpu_adapters": [
+    "NVIDIA GeForce RTX 2080 Ti"
+  ],
+  "prefix_cache": null,
+  "config": {
+    "requested_repetitions": 10,
+    "runs_per_side": 10,
+    "warmup_runs": 2,
+    "resamples": 2000,
+    "seed": 12648430,
+    "output_checked": true,
+    "cpu_time": "process"
+  },
+  "guard": {
+    "contended": false,
+    "reasons": [],
+    "load_before": 0.0,
+    "load_after": 0.009900990099009901,
+    "logical_cores": 6,
+    "max_load_per_core": 0.5,
+    "load_threshold": 3.0,
+    "throttle_before": {
+      "speed_limit_pct": null,
+      "throttle_count": null
+    },
+    "throttle_after": {
+      "speed_limit_pct": null,
+      "throttle_count": null
+    }
+  },
+  "contended": false,
+  "publishable": true,
+  "inputs": [
+    {
+      "name": "ibasn6a16",
+      "wall": {
+        "old": {
+          "n": 10,
+          "median_ns": 4199411.5,
+          "mad_ns": 378778.5,
+          "min_ns": 3791623.0,
+          "max_ns": 5811384.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 20102694.0,
+          "mad_ns": 645544.5,
+          "min_ns": 19129632.0,
+          "max_ns": 21476905.0
+        },
+        "ratio": {
+          "point": 4.78702646787532,
+          "ci_lo": 3.8613840370279315,
+          "ci_hi": 5.316639312499605
+        }
+      },
+      "cpu": {
+        "old": {
+          "n": 10,
+          "median_ns": 230963.0,
+          "mad_ns": 8296.0,
+          "min_ns": 218589.0,
+          "max_ns": 249126.0
+        },
+        "new": {
+          "n": 10,
+          "median_ns": 265097.5,
+          "mad_ns": 7816.5,
+          "min_ns": 249297.0,
+          "max_ns": 327204.0
+        },
+        "ratio": {
+          "point": 1.1477920705913933,
+          "ci_lo": 1.0799904067052082,
+          "ci_hi": 1.203155897600342
+        }
+      }
+    }
+  ],
+  "aggregate": {
+    "inputs": 1,
+    "wall": {
+      "point": 4.78702646787532,
+      "ci_lo": 3.8613840370279315,
+      "ci_hi": 5.316639312499604
+    },
+    "cpu": {
+      "point": 1.1477920705913933,
+      "ci_lo": 1.0799904067052082,
+      "ci_hi": 1.203155897600342
+    }
+  },
+  "runs": [
+    {
+      "order": 0,
+      "input": "ibasn6a16",
+      "side": "new",
+      "wall_ns": 21476905,
+      "cpu_ns": 260048
+    },
+    {
+      "order": 1,
+      "input": "ibasn6a16",
+      "side": "old",
+      "wall_ns": 4599926,
+      "cpu_ns": 228548
+    },
+    {
+      "order": 2,
+      "input": "ibasn6a16",
+      "side": "old",
+      "wall_ns": 5165830,
+      "cpu_ns": 240853
+    },
+    {
+      "order": 3,
+      "input": "ibasn6a16",
+      "side": "new",
+      "wall_ns": 19520684,
+      "cpu_ns": 276398
+    },
+    {
+      "order": 4,
+      "input": "ibasn6a16",
+      "side": "old",
+      "wall_ns": 5554717,
+      "cpu_ns": 240852
+    },
+    {
+      "order": 5,
+      "input": "ibasn6a16",
+      "side": "new",
+      "wall_ns": 19820202,
+      "cpu_ns": 270147
+    },
+    {
+      "order": 6,
+      "input": "ibasn6a16",
+      "side": "new",
+      "wall_ns": 20131083,
+      "cpu_ns": 249297
+    },
+    {
+      "order": 7,
+      "input": "ibasn6a16",
+      "side": "old",
+      "wall_ns": 4490530,
+      "cpu_ns": 218589
+    },
+    {
+      "order": 8,
+      "input": "ibasn6a16",
+      "side": "new",
+      "wall_ns": 20074305,
+      "cpu_ns": 273283
+    },
+    {
+      "order": 9,
+      "input": "ibasn6a16",
+      "side": "old",
+      "wall_ns": 3895300,
+      "cpu_ns": 229961
+    },
+    {
+      "order": 10,
+      "input": "ibasn6a16",
+      "side": "old",
+      "wall_ns": 3791623,
+      "cpu_ns": 237666
+    },
+    {
+      "order": 11,
+      "input": "ibasn6a16",
+      "side": "new",
+      "wall_ns": 20811773,
+      "cpu_ns": 327204
+    },
+    {
+      "order": 12,
+      "input": "ibasn6a16",
+      "side": "old",
+      "wall_ns": 3908293,
+      "cpu_ns": 249126
+    },
+    {
+      "order": 13,
+      "input": "ibasn6a16",
+      "side": "new",
+      "wall_ns": 21173360,
+      "cpu_ns": 259296
+    },
+    {
+      "order": 14,
+      "input": "ibasn6a16",
+      "side": "new",
+      "wall_ns": 20389954,
+      "cpu_ns": 254058
+    },
+    {
+      "order": 15,
+      "input": "ibasn6a16",
+      "side": "old",
+      "wall_ns": 3854281,
+      "cpu_ns": 220452
+    },
+    {
+      "order": 16,
+      "input": "ibasn6a16",
+      "side": "old",
+      "wall_ns": 3842369,
+      "cpu_ns": 224532
+    },
+    {
+      "order": 17,
+      "input": "ibasn6a16",
+      "side": "new",
+      "wall_ns": 19129632,
+      "cpu_ns": 271850
+    },
+    {
+      "order": 18,
+      "input": "ibasn6a16",
+      "side": "new",
+      "wall_ns": 19292150,
+      "cpu_ns": 257650
+    },
+    {
+      "order": 19,
+      "input": "ibasn6a16",
+      "side": "old",
+      "wall_ns": 5811384,
+      "cpu_ns": 231965
+    }
+  ]
+}
