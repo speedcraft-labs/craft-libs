@@ -98,10 +98,12 @@ impl Package {
     #[cfg(feature = "cfb")]
     pub fn from_cfb(bytes: &[u8]) -> Result<Self, CompareError> {
         let err = |e: craft_cfb::Error| CompareError::Package(e.to_string());
-        let cfb = craft_cfb::Cfb::open(bytes).map_err(err)?;
+        let cfb = craft_cfb::CompoundFile::open(bytes).map_err(err)?;
         let mut parts = BTreeMap::new();
-        for entry in cfb.entries().filter(|e| e.kind() == craft_cfb::EntryKind::Stream) {
-            parts.insert(entry.path().to_string(), cfb.read_stream(entry.path()).map_err(err)?);
+        for (id, entry) in cfb.entries.iter().enumerate().filter(|(_, e)| e.kind == craft_cfb::EntryKind::Stream) {
+            if let Some(path) = cfb.path(id) {
+                parts.insert(path, cfb.read(id).map_err(err)?);
+            }
         }
         Ok(Self { parts })
     }

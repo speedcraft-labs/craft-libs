@@ -5,10 +5,15 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
-description = "Exact rational media time and SMPTE timecode for the Craft suite"
+description = "Exact media time, frame rate rational math, and SMPTE timecode for the Craft suite"
 
 [lints]
 workspace = true
 
+[dependencies]
+serde = { workspace = true }
+thiserror.workspace = true
+
 [dev-dependencies]
-proptest.workspace = true
+serde_json = { workspace = true }
+proptest = "1.4"
