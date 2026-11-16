@@ -479,7 +479,15 @@ pub(crate) fn native_ok(c: &Chord) -> bool {
 /// key.
 pub(crate) fn key_event(chord: &Chord, pressed: bool) -> egui::Event {
     let m = chord.mods;
-    let key = chord.key.to_egui();
+    let Some(key) = chord.key.to_egui() else {
+        return egui::Event::Key {
+            key: egui::Key::Escape,
+            physical_key: None,
+            pressed,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        };
+    };
     let modifiers = egui::Modifiers { alt: m.alt, ctrl: m.ctrl, shift: m.shift, mac_cmd: m.cmd, command: m.cmd };
     egui::Event::Key { key, physical_key: Some(key), pressed, repeat: false, modifiers }
 }
